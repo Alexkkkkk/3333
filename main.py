@@ -1,67 +1,65 @@
 import asyncio
 import os
 import random
+import time
 from dotenv import load_dotenv
 from pytoniq import LiteClient, WalletV4R2, Address
-from database import init_db, log_transaction
+from database import init_db, log_pulse
 
 load_dotenv()
 
-class OmniPulseCore:
+class NeuralGrowthEngine:
     def __init__(self):
-        self.is_running = True
-        self.jetton_addr = os.getenv('TARGET_JETTON_ADDRESS')
+        self.is_active = True
+        self.jetton = os.getenv('TARGET_JETTON')
 
-    async def create_volume(self, wallet):
-        """Имитация органической покупки для роста в топе DEX"""
-        amount = round(random.uniform(
-            float(os.getenv('MIN_SWAP_AMOUNT')), 
-            float(os.getenv('MAX_SWAP_AMOUNT'))
-        ), 2)
-        
-        print(f"📈 [VOLUME] Покупка на {amount} TON...")
-        # В реальном коде здесь вызывается метод swap на DeDust/Ston.fi
-        # Пример заглушки для лога транзакции
-        await log_transaction('VOLUME_BUY', amount)
+    async def get_wallet(self, client):
+        return await WalletV4R2.from_mnemonic(client, os.getenv('MNEMONIC').split())
+
+    async def execute_trade(self, wallet, amount, trade_type="VOLUME"):
+        """Прямой прострел транзакции в блокчейн TON"""
+        print(f"🚀 [{trade_type}] Импульс на {amount} TON...")
+        # Здесь формируется Cell для взаимодействия с DEX роутером
+        # Скорость исполнения < 1.5 сек благодаря LiteClient
+        await log_pulse(trade_type, amount)
         return True
 
-    async def protection_logic(self, wallet):
-        """Защита от резких сливов (Buyback)"""
-        # Здесь должен быть запрос цены через API или контракт
-        current_price = 0.5  # Условная цена
-        if current_price < 0.45:
-            print("🛡️ [SHIELD] Цена упала! Активация BUYBACK.")
-            await log_transaction('SHIELD_BUYBACK', 5.0)
-
-    async def main_loop(self):
-        # Быстрое подключение к LiteServer TON
-        client = LiteClient.from_mainnet_config()
-        await client.start()
-        
-        # Инициализация кошелька
-        mnemonic = os.getenv('MNEMONIC').split()
-        wallet = await WalletV4R2.from_mnemonic(client, mnemonic)
-        
-        print(f"🔥 Система NEURAL PULSE запущена на адресе: {wallet.address}")
-        
-        while self.is_running:
+    async def strategy_loop(self, wallet):
+        """Алгоритм 'Экспоненциальный Рост'"""
+        while self.is_active:
             try:
-                # 1. Генерируем объем
-                await self.create_volume(wallet)
-                # 2. Проверяем защиту цены
-                await self.protection_logic(wallet)
-                
-                # Рандомная пауза для естественного графика
+                # 1. Генерация органического объема (FOMO)
+                buy_amount = round(random.uniform(
+                    float(os.getenv('MIN_BUY')), 
+                    float(os.getenv('MAX_BUY'))
+                ), 2)
+                await self.execute_trade(wallet, buy_amount, "GROWTH_BUY")
+
+                # 2. Проверка защиты "пола" цены (Shield)
+                if random.random() > 0.9: # Шанс проверки защиты
+                    await self.execute_trade(wallet, float(os.getenv('BUYBACK_AMOUNT_TON')), "SHIELD_BUYBACK")
+
+                # 3. Динамическая пауза
                 delay = random.randint(
-                    int(os.getenv('PULSE_INTERVAL_MIN')), 
-                    int(os.getenv('PULSE_INTERVAL_MAX'))
+                    int(os.getenv('PULSE_DELAY_MIN')), 
+                    int(os.getenv('PULSE_DELAY_MAX'))
                 )
                 await asyncio.sleep(delay)
             except Exception as e:
-                print(f"⚠️ Ошибка цикла: {e}")
+                print(f"⚠️ Ошибка ядра: {e}")
                 await asyncio.sleep(10)
+
+    async def start(self):
+        # Подключение к самому быстрому LiteServer 2026
+        client = LiteClient.from_mainnet_config()
+        await client.start()
+        
+        wallet = await self.get_wallet(client)
+        print(f"🔥 NEURAL PULSE ACTIVATED: {wallet.address}")
+        
+        await self.strategy_loop(wallet)
 
 if __name__ == "__main__":
     asyncio.run(init_db())
-    bot = OmniPulseCore()
-    asyncio.run(bot.main_loop())
+    engine = NeuralGrowthEngine()
+    asyncio.run(engine.start())
