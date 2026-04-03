@@ -3,67 +3,69 @@ import os
 import random
 import time
 from dotenv import load_dotenv
-from pytoniq import LiteClient, WalletV4R2, Address
-from database import init_db, log_pulse_action
+from pytoniq import LiteClient, WalletV4R2, BeginCell, Address
+from database import init_db, log_market_action
 
 load_dotenv()
 
-class OmniGrowthEngine:
+class DeDustDominator:
     def __init__(self):
-        self.jetton = os.getenv('TARGET_JETTON')
         self.is_active = True
-        self.last_price = 0.0
+        self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
+        self.pool_addr = Address(os.getenv('DEDUST_POOL'))
 
-    async def get_wallet(self, client):
-        return await WalletV4R2.from_mnemonic(client, os.getenv('MNEMONIC').split())
+    async def build_dedust_payload(self, amount_nano):
+        """Формирование бинарного Payload для DeDust Protocol V2 (Swap)"""
+        # Op-code: 0xea06185d (DeDust V2 Swap)
+        return (BeginCell()
+                .store_uint(0xea06185d, 32) 
+                .store_uint(0, 64)          # Query ID
+                .store_coins(amount_nano)
+                .store_address(self.pool_addr)
+                .store_uint(0, 1)           # Swap type: Direct
+                .store_coins(0)             # Slippage limit (0 = market)
+                .store_maybe_ref(None)      
+                .end_cell())
 
-    async def execute_hyper_swap(self, wallet, amount, mode="GROWTH"):
-        """Прямой прострел транзакции в блокчейн TON (Zero-Latency)"""
-        start_time = time.time()
-        # Формирование бинарного Payload для DEX роутера
-        # Скорость исполнения на уровне ядра
-        print(f"⚡ [PULSE:{mode}] Сумма: {amount} TON | Статус: ВЫПОЛНЕНИЕ...")
+    async def market_pulse(self, wallet):
+        """Создание 'зеленой свечи' и объема на DeDust"""
+        amount = round(random.uniform(float(os.getenv('MIN_BUY_TON')), float(os.getenv('MAX_BUY_TON'))), 2)
+        nano_amount = int(amount * 1e9)
         
-        await log_pulse_action(mode, amount)
-        execution_time = (time.time() - start_time) * 1000
-        print(f"✅ [PULSE] Завершено за {execution_time:.2f}ms")
+        print(f"🔥 [PULSE] Атака на DeDust: {amount} TON...")
+        
+        payload = await self.build_dedust_payload(nano_amount)
+        # Отправляем напрямую в Vault (самый быстрый путь исполнения)
+        await wallet.transfer(
+            destination=self.vault_ton,
+            amount=nano_amount + int(0.15 * 1e9), # Сумма + Gas fee
+            body=payload
+        )
+        
+        await log_market_action("DEDUST_BUY", amount)
 
-    async def monitor_and_act(self, wallet):
-        """Алгоритм 'Нейронная Ступенька'"""
+    async def strategy_loop(self, wallet):
         while self.is_active:
             try:
-                # 1. Генерация органического FOMO (Volume Boost)
-                if random.random() > 0.2:
-                    buy_val = round(random.uniform(float(os.getenv('MIN_BUY')), float(os.getenv('MAX_BUY'))), 2)
-                    await self.execute_hyper_swap(wallet, buy_val, "VOLUME")
-
-                # 2. Силовой прорыв (Pump Impulse) — раз в 30 минут
-                if random.random() > 0.98:
-                    print("🔥 [ULTRA_PULSE] Пробиваем уровень сопротивления!")
-                    await self.execute_hyper_swap(wallet, 5.5, "PUMP")
-
-                # 3. Защита "Пола" (Shield)
-                # Если цена падает — мгновенный байбек
-                # (Логика сравнения цены с базой данных)
-                
-                delay = int(os.getenv('PULSE_DELAY_MS')) / 1000
-                await asyncio.sleep(delay * random.uniform(0.8, 1.2))
-                
+                await self.market_pulse(wallet)
+                # Имитация человеческого поведения (рандомные задержки)
+                wait = random.randint(int(os.getenv('DELAY_MIN')), int(os.getenv('DELAY_MAX')))
+                await asyncio.sleep(wait)
             except Exception as e:
-                print(f"⚠️ [CRITICAL_ERROR] Перезагрузка ядра: {e}")
-                await asyncio.sleep(5)
+                print(f"⚠️ [SYSTEM_ERROR] Перезагрузка ядра: {e}")
+                await asyncio.sleep(10)
 
-    async def start_engine(self):
-        # Подключение к LiteServer 2026 (самый быстрый протокол)
+    async def start(self):
+        # Подключение к LiteServer 2026 (самая высокая скорость в TON)
         client = LiteClient.from_mainnet_config()
         await client.start()
         
-        wallet = await self.get_wallet(client)
-        print(f"🧠 NEURAL PULSE ACTIVATED | АДРЕС: {wallet.address}")
-        
-        await self.monitor_and_act(wallet)
+        wallet = await WalletV4R2.from_mnemonic(client, os.getenv('MNEMONIC').split())
+        print(f"⚡ DOMINATOR ACTIVE | КОШЕЛЕК: {wallet.address}")
+
+        await self.strategy_loop(wallet)
 
 if __name__ == "__main__":
     asyncio.run(init_db())
-    engine = OmniGrowthEngine()
-    asyncio.run(engine.start_engine())
+    engine = DeDustDominator()
+    asyncio.run(engine.start())
