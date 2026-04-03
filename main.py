@@ -21,40 +21,41 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Конфигурация из твоего .env и системные константы
+        # Конфигурация из .env
         self.pool_addr = Address(os.getenv('DEDUST_POOL'))
         self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
         self.strategy_level = int(os.getenv('AI_STRATEGY_LEVEL', 10))
         
-        # ДНК Системы: Баланс между агрессией и визуальным доминированием
+        # ДНК Системы
         self.dna = {
-            "market_pressure": 0.99,      # Агрессия в стакане (Max)
-            "stealth_mode": 0.94,         # Имитация поведения реального кита
-            "floor_protection": 0.88,     # Приоритет защиты цены от падения
-            "gas_strategy": "HYPER_FAST", # Режим для pghost.ru
-            "integrity_check": "LOCKED"   # static/ файлы под защитой
+            "market_pressure": 0.99,      # Агрессия в стакане
+            "stealth_mode": 0.94,         # Имитация кита
+            "floor_protection": 0.88,     # Защита цены
+            "gas_strategy": "HYPER_FAST", # Оптимизация под pghost.ru
+            "integrity_check": "LOCKED"   # Защита дизайна
         }
         
-        self.synaptic_memory = []         # Память для анализа трендов
+        self.synaptic_history = []         # История цен для мат. анализа
         self.last_status = "INITIALIZING"
         self.total_ops = 0
+        self.backlog = asyncio.Queue()
 
     def _calculate_quantum_signals(self):
         """Математический движок: RSI + SMA + Volatility."""
-        if len(self.synaptic_history) < 15: return None
+        if len(self.synaptic_history) < 5: return None
         
         prices = [h['price'] for h in self.synaptic_history]
-        sma = np.mean(prices[-10:])
-        std_dev = np.std(prices)
+        sma = np.mean(prices[-10:]) if len(prices) >= 10 else np.mean(prices)
+        std_dev = np.std(prices) if len(prices) > 1 else 0.001
         current_price = prices[-1]
         
-        # Определение фазы (Pump/Dump/Stable)
+        # Определение импульса
         momentum = (prices[-1] - prices[-5]) / prices[-5] if len(prices) >= 5 else 0
         
         return {
-            "sma": round(sma, 8),
-            "volatility": round(std_dev / sma, 4),
-            "momentum": round(momentum, 4),
+            "sma": round(float(sma), 8),
+            "volatility": round(float(std_dev / sma), 4) if sma != 0 else 0,
+            "momentum": round(float(momentum), 4),
             "is_oversold": current_price < (sma - std_dev)
         }
 
@@ -87,7 +88,6 @@ class OmniNeuralOverlord:
             
             logic = json.loads(res.choices[0].message.content)
             
-            # Валидация безопасности (Hard-Limits)
             return {
                 "cmd": str(logic.get("cmd", "WAIT")).upper(),
                 "amt": min(float(logic.get("amt", 0)), 50.0),
@@ -104,26 +104,25 @@ class OmniNeuralOverlord:
         urgency = plan['urgency']
         nano_amt = int(amt * 1e9)
         
-        # Динамический газ: чем выше срочность, тем выше приоритет в блоке (V20 Tune)
-        # 0.22 базовый + (urgency * 0.02)
+        # Динамический газ
         adjusted_gas = int(0.22e9 + (urgency * 0.02e9))
 
-        # Payload: DeDust V2 Swap (Native TON -> Jetton)
+        # Payload: DeDust V2 Swap
         swap_payload = (BeginCell()
                         .store_uint(0xea06185d, 32)
                         .store_uint(int(time.time() + 120), 64) 
                         .store_coins(nano_amt)
                         .store_address(self.pool_addr)
-                        .store_uint(0, 1) # step_kind
-                        .store_coins(0)   # min_out
+                        .store_uint(0, 1) # step_kind (swap)
+                        .store_coins(0)   # min_out (slippage control)
                         .store_maybe_ref(None)
                         .end_cell())
 
         try:
-            # Применяем Stealth-джиттер (имитация человеческого ввода)
-            jitter_amt = nano_amt * (1 + random.uniform(-0.08, 0.08))
+            # Stealth-джиттер
+            jitter_amt = nano_amt * (1 + random.uniform(-0.05, 0.05))
             
-            print(f"\033[92m🚀 [PULSE] {plan['cmd']} | {amt:.2f} TON | Urgency: {urgency}/5\033[0m")
+            print(f"\n\033[92m🚀 [PULSE] {plan['cmd']} | {amt:.2f} TON | Urgency: {urgency}/5\033[0m")
             print(f"\033[90m💭 Reason: {plan['reason']}\033[0m")
 
             await asyncio.wait_for(
@@ -132,15 +131,20 @@ class OmniNeuralOverlord:
                     amount=int(jitter_amt) + adjusted_gas,
                     body=swap_payload
                 ),
-                timeout=18.0
+                timeout=25.0
             )
             
             self.total_ops += 1
             self.last_status = f"EXECUTED_{plan['cmd']}"
-            self.synaptic_history.append({"price": market.get('price'), "time": time.time()})
+            
+            # Обновляем историю для мат. движка
+            price = market.get('current_metrics', {}).get('price_ton', 0)
+            self.synaptic_history.append({"price": price, "time": time.time()})
+            if len(self.synaptic_history) > 100: self.synaptic_history.pop(0)
+            
             return True
         except Exception as e:
-            print(f"\033[91m🚨 [PULSE_FAILED]: {e}\033[0m")
+            print(f"\n\033[91m🚨 [PULSE_FAILED]: {e}\033[0m")
             self.last_status = "FAILED_TRANSACTION"
             return False
 
@@ -180,7 +184,7 @@ class OmniNeuralOverlord:
                     if success:
                         await self.backlog.put({"strategy": plan, "market": market})
 
-                # 5. Адаптивный сон + Stealth Jitter
+                # 5. Адаптивный сон
                 sleep_time = plan['delay'] + random.randint(-5, 10)
                 await asyncio.sleep(max(10, sleep_time))
 
@@ -189,17 +193,19 @@ class OmniNeuralOverlord:
                 await asyncio.sleep(20)
 
     async def telemetry_worker(self):
-        """Фоновый воркер для твоей PostgreSQL (High-Load синхронизация)."""
-        self.backlog = asyncio.Queue()
+        """Фоновый воркер для PostgreSQL."""
         while self.is_active:
             task = await self.backlog.get()
-            try: await log_ai_action(task['strategy'], task['market'])
-            except: pass
-            finally: self.backlog.task_done()
+            try: 
+                await log_ai_action(task['strategy'], task['market'])
+            except: 
+                pass
+            finally: 
+                self.backlog.task_done()
 
 if __name__ == "__main__":
     omni_node = OmniNeuralOverlord()
     try:
         asyncio.run(omni_node.core_loop())
     except KeyboardInterrupt:
-        print("\033[91m\n🔌 Система деактивирована. Состояние сохранено в БД.\033[0m")
+        print("\033[91m\n🔌 Система деактивирована. Состояние сохранено.\033[0m")
