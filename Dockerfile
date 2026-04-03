@@ -3,12 +3,12 @@ FROM python:3.11-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
-# Копируем зависимости
+# Копируем требования
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем проект (дизайн в static/ НЕ МЕНЯЕТСЯ)
+# Копируем всё (дизайн в static/ НЕ МЕНЯЕТСЯ)
 COPY . .
 
-# Твой коронный запуск
+# Твой скоростной запуск с лимитами V8
 CMD ["python", "main.py"]
