@@ -50,6 +50,7 @@ async def get_market_state():
             {
                 "action": h['cmd'],
                 "amt": h['amount'],
+                "reason": h['reason'],
                 "time": h['timestamp'].strftime('%H:%M:%S')
             } for h in history
         ]
@@ -101,3 +102,41 @@ async def get_stats_for_web():
     Генерирует данные для твоего index.html.
     Твой дизайн logo.png и картинки будут дополнены этими цифрами.
     """
+    conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
+    try:
+        # 1. Общий объем прогнанных TON через ИИ
+        total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs")
+        
+        # 2. Последнее действие для статуса на главной
+        last_action = await conn.fetchrow('''
+            SELECT cmd, reason, timestamp 
+            FROM neural_mm_logs 
+            ORDER BY timestamp DESC LIMIT 1
+        ''')
+        
+        # 3. Распределение команд (для круговой диаграммы)
+        distribution = await conn.fetch('''
+            SELECT cmd, COUNT(*) as count 
+            FROM neural_mm_logs 
+            GROUP BY cmd
+        ''')
+
+        # 4. Активность за последние 24 часа
+        day_ago = datetime.now() - timedelta(days=1)
+        daily_ops = await conn.fetchval("SELECT COUNT(*) FROM neural_mm_logs WHERE timestamp > $1", day_ago)
+
+        return {
+            "summary": {
+                "total_ton": round(total_vol or 0, 2),
+                "ops_24h": daily_ops or 0,
+                "ai_status": "ONLINE_HYPER_DRIVE"
+            },
+            "latest": {
+                "command": last_action['cmd'] if last_action else "IDLE",
+                "reason": last_action['reason'] if last_action else "Waiting for signal",
+                "time": last_action['timestamp'].strftime('%H:%M:%S') if last_action else "--:--:--"
+            },
+            "chart_data": {row['cmd']: row['count'] for row in distribution}
+        }
+    finally:
+        await conn.close()
