@@ -1,17 +1,14 @@
 FROM python:3.11-slim
 
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
-# Настройки для скоростной работы Python
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# Установка зависимостей
+# Копируем зависимости
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем проект (дизайн в static/ не меняется)
+# Копируем проект (дизайн в static/ НЕ МЕНЯЕТСЯ)
 COPY . .
 
-# Запуск с твоими лимитами производительности
+# Твой коронный запуск
 CMD ["python", "main.py"]
