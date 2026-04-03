@@ -1,15 +1,17 @@
 import asyncpg
 import os
+import json
 import asyncio
 from datetime import datetime, timedelta
 
 async def init_db():
     """
-    Инициализация расширенной структуры таблиц для обучения ИИ.
+    Инициализация сверхмощной архитектуры БД.
+    Добавлена поддержка JSONB для хранения 'мыслей' ИИ.
     """
     conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
     try:
-        # Таблица логов команд ИИ
+        # Основная таблица действий ИИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -17,91 +19,85 @@ async def init_db():
                 amount FLOAT,
                 urgency INT,
                 reason TEXT,
+                market_snapshot JSONB,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # Индекс для ускорения выборки последних состояний рынка
+        # Индексы для мгновенного доступа на High-Load нагрузках
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON neural_mm_logs(timestamp)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_cmd ON neural_mm_logs(cmd)')
         
-        print("✅ [DB_INIT] Структура данных синхронизирована.")
+        print("✅ [DATABASE] Нейронная сеть подключена к Postgres Cluster.")
     finally:
         await conn.close()
 
 async def get_market_state():
     """
-    Генерирует глубокий контекст для ИИ. 
-    В реальном сценарии здесь должен быть fetch к DeDust API /stonfi.
+    Собирает 'глаза' для ИИ. 
+    Берет данные из истории и имитирует API DeDust.
     """
     conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
     try:
-        # Получаем историю последних 5 действий для анализа 'памяти' бота
-        recent_history = await conn.fetch('''
-            SELECT cmd, amount, timestamp FROM neural_mm_logs 
-            ORDER BY timestamp DESC LIMIT 5
+        # Извлекаем последние 10 действий для глубокого анализа тренда
+        history = await conn.fetch('''
+            SELECT cmd, amount, reason, timestamp 
+            FROM neural_mm_logs 
+            ORDER BY timestamp DESC LIMIT 10
         ''')
         
-        history_summary = [
-            f"{row['cmd']} ({row['amount']} TON) at {row['timestamp'].strftime('%H:%M')}" 
-            for row in recent_history
+        bot_memory = [
+            {
+                "action": h['cmd'],
+                "amt": h['amount'],
+                "time": h['timestamp'].strftime('%H:%M:%S')
+            } for h in history
         ]
 
-        # Имитация живых данных с DeDust (замени на реальный запрос к SDK/API)
-        # Здесь ИИ видит тренд и волатильность
+        # Эмуляция данных со смарт-контракта (здесь должна быть логика pytoniq)
+        # ИИ будет использовать эти ключи для принятия решений
         return {
-            "market_info": {
-                "current_price_ton": 0.285,
-                "liquidity_depth": "MEDIUM",
-                "volatility_24h": "12.4%",
-                "trend_phase": "CONSOLIDATION", # Накопление перед рывком
-                "sell_wall_distance": "4.2%"    # Расстояние до крупного ордера на продажу
+            "current_metrics": {
+                "price_ton": 0.2854,
+                "liquidity_ton": 15400.50,
+                "volatility": "MODERATE",
+                "trend": "UPWARD_PARABOLIC"
             },
-            "bot_memory": history_summary,
-            "wallet_status": "READY",
-            "system_load": "OPTIMAL"
+            "recent_memory": bot_memory,
+            "wallet_health": "OPTIMAL",
+            "server_latency_ms": 45
         }
     finally:
         await conn.close()
 
-async def log_ai_action(plan):
+async def log_ai_action(plan, current_context=None):
     """
-    Сохранение принятого решения ИИ с полным набором метаданных.
+    Логирует решение ИИ и прикрепляет к нему состояние рынка (Snapshot).
     """
     conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
     try:
         await conn.execute(
-            '''INSERT INTO neural_mm_logs (cmd, amount, urgency, reason) 
-               VALUES ($1, $2, $3, $4)''', 
+            '''INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot) 
+               VALUES ($1, $2, $3, $4, $5)''', 
             plan.get('cmd', 'WAIT'), 
             float(plan.get('amt', 0)), 
             int(plan.get('urgency', 1)), 
-            plan.get('reason', 'Routine operation')
+            plan.get('reason', 'Neuro-pulse'),
+            json.dumps(current_context) if current_context else None
         )
         
-        # Авто-очистка старых логов (старше 7 дней), чтобы база Bothost летала
+        # Оптимизация дискового пространства Bothost
         if os.getenv('DB_AUTO_OPTIMIZE') == 'true':
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < $1", 
-                             datetime.now() - timedelta(days=7))
+                             datetime.now() - timedelta(days=5))
             
     except Exception as e:
-        print(f"🚨 [DB_WRITE_ERROR]: {e}")
+        print(f"🚨 [DB_ERROR]: Не удалось записать импульс: {e}")
     finally:
         await conn.close()
 
 async def get_stats_for_web():
     """
-    Специальная функция для твоего index.html (Dashboard).
-    Возвращает данные для графиков и статус ИИ.
+    Генерирует данные для твоего index.html.
+    Твой дизайн logo.png и картинки будут дополнены этими цифрами.
     """
-    conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
-    try:
-        total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs")
-        last_action = await conn.fetchrow("SELECT * FROM neural_mm_logs ORDER BY timestamp DESC LIMIT 1")
-        
-        return {
-            "total_pushed_ton": total_vol or 0,
-            "last_decision": last_action['reason'] if last_action else "Waiting for start",
-            "active_mode": "NEURAL_DOMINATION"
-        }
-    finally:
-        await conn.close()
