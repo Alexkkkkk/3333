@@ -1,24 +1,22 @@
 import asyncpg
 import os
 
-DATABASE_URL = os.getenv('DATABASE_URL')
-
 async def init_db():
-    conn = await asyncpg.connect(DATABASE_URL)
+    conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
     await conn.execute('''
-        CREATE TABLE IF NOT EXISTS bot_logs (
+        CREATE TABLE IF NOT EXISTS neural_growth_logs (
             id SERIAL PRIMARY KEY,
-            action_type TEXT,
+            pulse_type TEXT,
             amount FLOAT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     await conn.close()
 
-async def log_transaction(action, amount):
-    conn = await asyncpg.connect(DATABASE_URL)
+async def log_pulse(p_type, amount):
+    conn = await asyncpg.connect(os.getenv('DATABASE_URL'))
     await conn.execute(
-        'INSERT INTO bot_logs (action_type, amount) VALUES ($1, $2)',
-        action, amount
+        'INSERT INTO neural_growth_logs (pulse_type, amount) VALUES ($1, $2)', 
+        p_type, amount
     )
     await conn.close()
