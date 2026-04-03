@@ -4,31 +4,48 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 
-# Глобальный пул соединений для исключения оверхеда на подключение
+# Глобальный пул соединений
 _pool = None
 
 async def get_pool():
-    """Создает и возвращает пул соединений с оптимальными High-Load настройками."""
+    """Создает пул соединений с High-Load лимитами (Bothost Optimized)."""
     global _pool
     if _pool is None:
         _pool = await asyncpg.create_pool(
             os.getenv('DATABASE_URL'),
-            min_size=10,             # Минимум 10 активных соединений
-            max_size=50,             # Твой лимит из настроек Bothost
+            min_size=10,
+            max_size=50,
             command_timeout=60,
-            max_queries=100000,      # Ротация соединений для стабильности
+            max_queries=100000,
             max_inactive_connection_lifetime=300.0
         )
     return _pool
 
 async def init_db():
-    """
-    Инициализация архитектуры БД.
-    Поддержка JSONB для 'мыслей' ИИ и система учета распределения прибыли.
-    """
+    """Инициализация архитектуры: Логи, Финансы и Динамические настройки."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. Основная таблица логов торговли
+        # 1. ТАБЛИЦА НАСТРОЕК (Управление процентами)
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS distribution_settings (
+                id SERIAL PRIMARY KEY,
+                label TEXT UNIQUE,
+                holders_pct FLOAT,
+                staking_pct FLOAT,
+                liquidity_pct FLOAT,
+                treasury_pct FLOAT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Дефолтный пресет (2% / 30% / 38% / 30%)
+        await conn.execute('''
+            INSERT INTO distribution_settings (label, holders_pct, staking_pct, liquidity_pct, treasury_pct)
+            VALUES ('default', 0.02, 0.30, 0.38, 0.30)
+            ON CONFLICT (label) DO NOTHING
+        ''')
+
+        # 2. ОСНОВНАЯ ТАБЛИЦА ЛОГОВ ТОРГОВЛИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -36,21 +53,21 @@ async def init_db():
                 amount FLOAT DEFAULT 0.0,
                 urgency INT DEFAULT 1,
                 reason TEXT,
-                market_snapshot JSONB,         -- Состояние рынка в момент входа
-                performance_metrics JSONB,    -- Профит и КПД сделки
+                market_snapshot JSONB,
+                performance_metrics JSONB,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # 2. Таблица распределения прибыли (Financial Ledger)
+        # 3. ТАБЛИЦА ФАКТИЧЕСКОГО РАСПРЕДЕЛЕНИЯ ПРИБЫЛИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS profit_distribution (
                 id SERIAL PRIMARY KEY,
                 total_amount FLOAT NOT NULL,
-                holders_share FLOAT,    -- 2%
-                staking_share FLOAT,    -- 30%
-                liquidity_share FLOAT,  -- 38%
-                treasury_share FLOAT,   -- 30%
+                holders_share FLOAT,
+                staking_share FLOAT,
+                liquidity_share FLOAT,
+                treasury_share FLOAT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -59,29 +76,44 @@ async def init_db():
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_cmd_lookup ON neural_mm_logs(cmd)')
         
-        print("✅ [DATABASE] Система Neural Pulse готова к работе и распределению прибыли.")
+        print("✅ [DATABASE] Система Neural Pulse V28 (Dynamic Finance) инициализирована.")
 
-async def log_profit_split(total_profit):
-    """
-    Фиксирует распределение прибыли в блокчейне БД.
-    Математика: 2% / 30% / 38% / 30%
-    """
+async def get_current_distribution():
+    """Получает текущие коэффициенты распределения из БД."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute('''
-            INSERT INTO profit_distribution 
-            (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
-            VALUES ($1, $2, $3, $4, $5)
-        ''', 
-        total_profit,
-        total_profit * 0.02,
-        total_profit * 0.30,
-        total_profit * 0.38,
-        total_profit * 0.30
-        )
+        row = await conn.fetchrow("SELECT * FROM distribution_settings WHERE label = 'default'")
+        if row:
+            return {
+                "holders": row['holders_pct'],
+                "staking": row['staking_pct'],
+                "liquidity": row['liquidity_pct'],
+                "treasury": row['treasury_pct']
+            }
+        return {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
+
+async def log_profit_split(total_profit):
+    """Логирует профит, используя динамические проценты из таблицы настроек."""
+    settings = await get_current_distribution()
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute('''
+                INSERT INTO profit_distribution 
+                (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
+                VALUES ($1, $2, $3, $4, $5)
+            ''', 
+            total_profit,
+            total_profit * settings['holders'],
+            total_profit * settings['staking'],
+            total_profit * settings['liquidity'],
+            total_profit * settings['treasury']
+            )
+        except Exception as e:
+            print(f"🚨 [FINANCE_ERROR]: {e}")
 
 async def get_market_state():
-    """Собирает данные для принятия решений ИИ."""
+    """Сбор контекста для ИИ из истории операций."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -107,15 +139,11 @@ async def get_market_state():
                 "market_sentiment": "BULLISH_AGGRESSIVE"
             },
             "recent_memory": bot_memory,
-            "system_integrity": {
-                "wallet_health": "OPTIMAL",
-                "server_latency_ms": 38,
-                "db_pool_status": "ACTIVE"
-            }
+            "system_integrity": "OPTIMAL"
         }
 
 async def log_ai_action(plan, market_snapshot=None):
-    """Логирует сделку и чистит старые данные (Dead Hand Protocol)."""
+    """Запись действия и автоматическая очистка (Dead Hand Protocol)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -129,6 +157,7 @@ async def log_ai_action(plan, market_snapshot=None):
                 json.dumps(market_snapshot) if market_snapshot else None
             )
             
+            # Удаляем логи старше 7 дней для экономии места на сервере
             if os.getenv('DB_AUTO_OPTIMIZE', 'true').lower() == 'true':
                 await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < $1", 
                                  datetime.now() - timedelta(days=7))
@@ -136,8 +165,9 @@ async def log_ai_action(plan, market_snapshot=None):
             print(f"🚨 [DB_ERROR]: {e}")
 
 async def get_stats_for_web():
-    """Генерирует JSON для твоего index.html (дизайн остается прежним)."""
+    """Генерация JSON для фронтенда с учетом новых настроек."""
     pool = await get_pool()
+    settings = await get_current_distribution()
     async with pool.acquire() as conn:
         try:
             total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs")
@@ -152,27 +182,21 @@ async def get_stats_for_web():
                 SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd
             ''')
 
-            day_ago = datetime.now() - timedelta(days=1)
-            daily_ops = await conn.fetchval("SELECT COUNT(*) FROM neural_mm_logs WHERE timestamp > $1", day_ago)
-
             return {
                 "summary": {
                     "total_ton_traded": round(total_vol or 0, 2),
                     "total_profit_shared": round(total_profit or 0, 4),
-                    "ops_last_24h": daily_ops or 0,
-                    "ai_status": "NEURAL_LINK_ESTABLISHED",
-                    "uptime": "99.99%"
+                    "ai_status": "NEURAL_LINK_ACTIVE"
                 },
                 "telemetry": {
                     "last_cmd": last['cmd'] if last else "IDLE",
-                    "last_reason": last['reason'] if last else "Scanning...",
                     "last_timestamp": last['timestamp'].strftime('%H:%M:%S') if last else "--:--:--"
                 },
-                "financial_distribution": {
-                    "to_holders": "2%",
-                    "to_staking": "30%",
-                    "to_liquidity": "38%",
-                    "to_treasury": "30%"
+                "current_settings": {
+                    "holders": f"{settings['holders']*100}%",
+                    "staking": f"{settings['staking']*100}%",
+                    "liquidity": f"{settings['liquidity']*100}%",
+                    "treasury": f"{settings['treasury']*100}%"
                 },
                 "charts": {
                     "distribution": {row['cmd']: row['count'] for row in distribution}
