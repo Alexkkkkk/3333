@@ -1,0 +1,4 @@
+pytoniq
+python-dotenv
+asyncpg
+asyncio
