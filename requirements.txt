@@ -1,24 +1,28 @@
 # --- [ QUANTUM NEURAL ENGINE V28 ] ---
 # Архитектура: High-Load / AI-Market-Maker
 # Node: Bothost (NL4-Optimized)
+# Target: Python 3.11-slim
 
-# [AI & LOGIC]
+# [AI & LOGIC CORE]
 openai==0.28.1
 numpy>=1.24.0
 
-# [NETWORK & ASYNC CORE]
+# [ASYNC INFRASTRUCTURE]
+# Обеспечивают асинхронность и работу веб-терминала на порту 3000
 asyncio
 aiohttp>=3.9.0
 aiohttp_cors
 python-dotenv
 ujson
 
-# [TON BLOCKCHAIN PROTOCOL]
+# [BLOCKCHAIN: TON PROTOCOL]
+# Библиотека для связи с сетью TON (исправляет ошибку [FATAL])
 pytoniq>=0.1.43
 pytoniq-core>=0.1.45
 
 # [INFRASTRUCTURE & DATABASE]
-# Основной драйвер для асинхронных запросов
+# Драйверы для связи с PostgreSQL на node1.pghost.ru:32865
+# Основной драйвер для асинхронных операций ИИ
 asyncpg>=0.29.0
-# Вспомогательный драйвер для совместимости с внешними БД
+# Вспомогательный драйвер для стабильности и админ-функций
 psycopg2-binary>=2.9.9
