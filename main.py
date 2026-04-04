@@ -23,7 +23,12 @@ except ImportError:
     sys.exit(1)
 
 # Модули БД (Должны быть в database.py рядом с основным файлом)
-from database import init_db, log_ai_action, get_market_state, get_stats_for_web, load_remote_config, update_remote_config
+try:
+    from database import (init_db, log_ai_action, get_market_state, 
+                          get_stats_for_web, load_remote_config, update_remote_config)
+except ImportError:
+    print("\033[91m🚨 [ERROR]: database.py not found in root directory!\033[0m")
+    sys.exit(1)
 
 load_dotenv()
 
