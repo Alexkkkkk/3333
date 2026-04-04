@@ -27,34 +27,25 @@ def log(message, level="INFO"):
     print(f"{color}[{timestamp}] [{level}] {message}{reset}")
 
 # --- УЛЬТРА-ЗАЩИЩЕННЫЙ ИМПОРТ ---
-def check_dependencies():
-    try:
-        from pytoniq import LiteClient, WalletV4R2, Address
-        from pytoniq.core import BeginCell
-        log("Dependencies check: OK", "SUCCESS")
-        return True
-    except ImportError:
-        log("pytoniq not found. Attempting auto-fix...", "WARNING")
-        os.system(f"{sys.executable} -m pip install pytoniq")
-        return False
-
-if not check_dependencies():
-    log("Restarting process after dependency install...", "CORE")
-    os.execv(sys.executable, ['python'] + sys.argv)
-
-from pytoniq import LiteClient, WalletV4R2, Address
+# Убираем os.execv, чтобы не зациклить бота при ошибке pip
 try:
-    from pytoniq.core import BeginCell
-except:
-    from pytoniq import BeginCell
+    from pytoniq import LiteClient, WalletV4R2, Address
+    try:
+        from pytoniq_core import BeginCell
+    except ImportError:
+        from pytoniq import BeginCell
+    log("TON Dependencies: OK", "SUCCESS")
+except ImportError:
+    log("Critical: pytoniq not found! Ensure it is in requirements.txt", "ERROR")
+    sys.exit(1)
 
-# Модули БД
+# Модули БД (должны быть в database.py)
 try:
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
-    log("Database modules loaded successfully", "SUCCESS")
+    log("Database modules: OK", "SUCCESS")
 except ImportError:
-    log("database.py missing in root! Critical failure.", "ERROR")
+    log("database.py missing in root directory!", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -90,9 +81,9 @@ class OmniNeuralOverlord:
                 
                 self.strategy_level = cfg.get('ai_strategy_level', 10)
                 self.last_status = "ACTIVE"
-                log("Configuration updated successfully", "SUCCESS")
+                log("Configuration updated from DB", "SUCCESS")
                 return True
-            log("Configuration incomplete in DB (missing mnemonic)", "WARNING")
+            log("Configuration incomplete in DB (missing key/mnemonic)", "WARNING")
             return False
         except Exception as e:
             log(f"Config sync failure: {e}", "ERROR")
@@ -100,10 +91,9 @@ class OmniNeuralOverlord:
 
     # --- API & WEB ---
     async def handle_index(self, request):
-        log(f"Web: Request to index from {request.remote}", "INFO")
         if os.path.exists('./static/index.html'):
             return web.FileResponse('./static/index.html')
-        return web.Response(text="<h1>CORE ACTIVE</h1>", content_type='text/html')
+        return web.Response(text="<h1>QUANTUM CORE ACTIVE</h1>", content_type='text/html')
 
     async def handle_get_stats(self, request):
         try:
@@ -116,18 +106,15 @@ class OmniNeuralOverlord:
             }
             return web.json_response(db_stats)
         except Exception as e:
-            log(f"Web: Stats error: {e}", "ERROR")
-            return web.json_response({"status": "error"})
+            return web.json_response({"status": "error", "msg": str(e)})
 
     async def handle_update_config(self, request):
         try:
             data = await request.json()
-            log("Web: Remote config update received", "WARNING")
             await update_remote_config(data)
             await self.update_config_from_db()
             return web.json_response({"status": "success"})
         except Exception as e:
-            log(f"Web: Config update failed: {e}", "ERROR")
             return web.json_response({"status": "error"}, status=400)
 
     # --- ANALYTICS & NEURAL ---
@@ -141,45 +128,37 @@ class OmniNeuralOverlord:
 
     async def fetch_neural_strategy(self, market_snapshot):
         if not self.ai_key: 
-            log("Neural: AI Key missing, skipping analysis", "WARNING")
             return {"cmd": "WAIT"}
         
-        log("Neural: Sending market data to GPT-4o...", "INFO")
         try:
             hyper = self._calculate_hyper_analytics()
             res = await asyncio.wait_for(openai.ChatCompletion.acreate(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Analyze market. Output JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float}"},
+                    {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float}"},
                     {"role": "user", "content": json.dumps({"market": market_snapshot, "hyper": hyper})}
                 ],
                 response_format={ "type": "json_object" }
             ), timeout=15)
-            decision = json.loads(res.choices[0].message.content)
-            log(f"Neural Decision: {decision.get('cmd')} (Amt: {decision.get('amt')})", "SUCCESS")
-            return decision
+            return json.loads(res.choices[0].message.content)
         except Exception as e:
-            log(f"Neural Error: {e}", "ERROR")
+            log(f"Neural AI Error: {e}", "ERROR")
             return {"cmd": "WAIT"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
-        if not self.pool_addr: 
-            log("TON: Pool address missing!", "ERROR")
-            return False
-        
+        if not self.pool_addr: return False
         try:
             amt = float(plan.get('amt', 0))
             nano_amt = int(amt * 1e9)
-            log(f"TON: Dispatching {amt} TON to Vault with swap payload...", "INFO")
             
             swap_payload = (BeginCell()
-                            .store_uint(0xea06185d, 32) # DeDust Swap Op
+                            .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 150), 64)
                             .store_coins(nano_amt)
                             .store_address(self.pool_addr)
                             .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
             
-            await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.3e9), body=swap_payload)
+            await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=swap_payload)
             self.total_ops += 1
             log(f"TON: Pulse successful. Op #{self.total_ops}", "SUCCESS")
             return True
@@ -189,7 +168,6 @@ class OmniNeuralOverlord:
 
     # --- RUNNERS ---
     async def start_web_server(self):
-        log("Starting Web Server on port 3000...", "INFO")
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_credentials=True, expose_headers="*")})
         
@@ -205,54 +183,44 @@ class OmniNeuralOverlord:
         runner = web.AppRunner(app)
         await runner.setup()
         await web.TCPSite(runner, '0.0.0.0', 3000).start()
-        log("Web Server is ONLINE", "SUCCESS")
+        log("Web Dashboard ONLINE (Port 3000)", "SUCCESS")
 
     async def core_loop(self):
         log("Entering Core Loop...", "CORE")
         
-        # 1. DB Init
         while True:
             try:
-                log("Connecting to Database...", "INFO")
                 await init_db()
                 log("Database connected", "SUCCESS")
                 break
-            except Exception as e:
-                log(f"Database connection failed: {e}. Retrying in 5s...", "ERROR")
+            except:
+                log("DB connection waiting...", "WARNING")
                 await asyncio.sleep(5)
 
-        # 2. Web Task
         asyncio.create_task(self.start_web_server())
 
         while self.is_active:
             try:
-                # 3. Config Check
                 if not await self.update_config_from_db():
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10)
                     continue
 
-                # 4. TON Init
-                log("Connecting to TON Mainnet...", "INFO")
                 client = LiteClient.from_mainnet_config()
                 await client.start()
                 wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
-                log(f"Wallet Active: {wallet.address}", "SUCCESS")
-
+                
                 while self.is_active:
                     try:
-                        log("--- Iteration Start ---", "INFO")
                         market_state = await get_market_state()
                         p_curr = market_state['current_metrics']['price_ton']
                         self.synaptic_history.append({"price": p_curr, "time": time.time()})
                         if len(self.synaptic_history) > 500: self.synaptic_history.pop(0)
 
                         balance = (await wallet.get_balance()) / 1e9
-                        log(f"Balance: {balance:.2f} TON | History: {len(self.synaptic_history)} pts", "INFO")
-
                         plan = await self.fetch_neural_strategy(market_state)
                         
-                        if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 1.0):
+                        if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 0.5):
                             if await self.dispatch_hft_pulse(wallet, plan):
                                 await log_ai_action(plan, market_state['current_metrics'])
                         
@@ -261,11 +229,10 @@ class OmniNeuralOverlord:
                     except Exception as inner_e:
                         log(f"Iteration error: {inner_e}", "ERROR")
                         await asyncio.sleep(5)
-                        break # Re-init TON
+                        break 
 
             except Exception as outer_e:
-                log(f"Main loop critical error: {outer_e}", "ERROR")
-                traceback.print_exc()
+                log(f"Core critical error: {outer_e}", "ERROR")
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
@@ -274,8 +241,7 @@ if __name__ == "__main__":
             overlord = OmniNeuralOverlord()
             asyncio.run(overlord.core_loop())
         except KeyboardInterrupt:
-            log("Manual shutdown detected. Exiting.", "WARNING")
             break
         except Exception as fatal:
-            log(f"FATAL EXCEPTION: {fatal}. Restarting kernel...", "ERROR")
+            log(f"Kernel Panic: {fatal}", "ERROR")
             time.sleep(5)
