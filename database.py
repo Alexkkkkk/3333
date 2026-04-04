@@ -10,9 +10,13 @@ _pool = None
 async def get_pool():
     """Создает пул соединений с High-Load лимитами (Bothost Optimized)."""
     global _pool
+    db_url = os.getenv('DATABASE_URL')
     if _pool is None:
+        if not db_url:
+            raise ValueError("🚨 DATABASE_URL is not set in environment variables!")
+        
         _pool = await asyncpg.create_pool(
-            os.getenv('DATABASE_URL'),
+            db_url,
             min_size=10,
             max_size=50,
             command_timeout=60,
@@ -25,8 +29,7 @@ async def init_db():
     """Инициализация архитектуры: Настройки, Логи, Финансы и Аналитика."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        
-        # 0. ТАБЛИЦА ГЛОБАЛЬНОЙ КОНФИГУРАЦИИ (Для админки)
+        # 0. ТАБЛИЦА ГЛОБАЛЬНОЙ КОНФИГУРАЦИИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS bot_config (
                 id SERIAL PRIMARY KEY,
@@ -87,13 +90,13 @@ async def init_db():
             )
         ''')
         
-        # Индексы
+        # Индексы для скорости
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_config_active ON bot_config(is_active)')
         
         print("✅ [DATABASE] Neural Pulse V28 Architecture Synchronized.")
 
-# --- ФУНКЦИИ УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ (АДМИНКА) ---
+# --- ФУНКЦИИ УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
     """Загрузка настроек для main.py из базы данных."""
@@ -135,21 +138,32 @@ async def get_market_state():
             ORDER BY timestamp DESC LIMIT 30
         ''')
         
+        # Безопасное извлечение цен (защита от None и пустой базы)
         prices = [h['market_snapshot'].get('price_ton', 0) for h in history if h['market_snapshot']]
+        
         trend = "STABLE"
-        if len(prices) > 1:
-            delta = prices[0] - prices[-1]
-            trend = "UPWARD" if delta > 0 else "DOWNWARD"
+        current_price = 0.2854 # Базовое значение
+        
+        if prices:
+            current_price = prices[0]
+            if len(prices) > 1:
+                delta = prices[0] - prices[-1]
+                trend = "UPWARD" if delta > 0 else "DOWNWARD"
 
         bot_memory = [
-            {"action": h['cmd'], "amt": h['amount'], "reason": h['reason'], "time": h['timestamp'].strftime('%H:%M:%S')} 
+            {
+                "action": h['cmd'], 
+                "amt": h['amount'], 
+                "reason": h.get('reason', 'N/A'), 
+                "time": h['timestamp'].strftime('%H:%M:%S') if h['timestamp'] else "00:00:00"
+            } 
             for h in history[:15]
         ]
 
         return {
             "current_metrics": {
-                "price_ton": prices[0] if prices else 0.2854,
-                "liquidity_ton": 15400.50,
+                "price_ton": current_price,
+                "liquidity_ton": 15400.50, # Здесь можно добавить реальный запрос к API
                 "market_trend": trend,
                 "sentiment": "NEURAL_ANALYZED"
             },
@@ -157,15 +171,22 @@ async def get_market_state():
         }
 
 async def log_ai_action(strategy, market, perf_data=None):
+    """Построчное логирование действий ИИ в базу."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
+            # Безопасное получение данных из словаря стратегии
+            cmd = strategy.get('cmd', 'WAIT')
+            amount = float(strategy.get('amt', 0.0))
+            urgency = int(strategy.get('urgency', 1))
+            reason = strategy.get('reason', 'Routine analysis')
+            
             await conn.execute('''
                 INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot, performance_metrics) 
                 VALUES ($1, $2, $3, $4, $5, $6)
-            ''', strategy['cmd'], float(strategy['amt']), int(strategy.get('urgency', 1)), 
-                 strategy['reason'], json.dumps(market), json.dumps(perf_data))
+            ''', cmd, amount, urgency, reason, json.dumps(market), json.dumps(perf_data) if perf_data else None)
             
+            # Ротация логов: удаляем всё старше 7 дней
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
@@ -178,7 +199,7 @@ async def add_profit_record(amount):
             INSERT INTO profit_distribution 
             (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
             VALUES ($1, $2, $3, $4, $5)
-        ''', amount, amount*s['holders_pct'], amount*s['staking_pct'], amount*s['liquidity_pct'], amount*s['treasury_pct'])
+        ''', float(amount), amount*s['holders_pct'], amount*s['staking_pct'], amount*s['liquidity_pct'], amount*s['treasury_pct'])
         print(f"💰 [PROFIT] {amount} TON shared by neural algorithm.")
 
 async def get_stats_for_web():
@@ -193,8 +214,8 @@ async def get_stats_for_web():
 
         return {
             "summary": {
-                "total_volume": round(total_vol, 2),
-                "total_profit": round(total_profit, 2),
+                "total_volume": round(float(total_vol), 2),
+                "total_profit": round(float(total_profit), 2),
                 "status": "SINGULARITY_ACTIVE"
             },
             "distribution": dist_settings,
