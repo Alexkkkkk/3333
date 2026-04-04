@@ -50,7 +50,7 @@ class OmniNeuralOverlord:
         self.total_ops = 0
 
     async def update_config_from_db(self):
-        """Синхронизация параметров с базой данных pghost.ru"""
+        """Синхронизация параметров с базой данных"""
         try:
             cfg = await load_remote_config()
             if cfg:
@@ -147,7 +147,7 @@ class OmniNeuralOverlord:
             print(f"🚨 [DISPATCH ERROR]: {e}")
             return False
 
-    # --- WEB SERVER (FIXED PORT 3000) ---
+    # --- WEB SERVER & ADMIN INTERFACE ---
     async def start_web_server(self):
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={
@@ -158,13 +158,17 @@ class OmniNeuralOverlord:
             )
         })
         
-        # Роуты API
+        # API Эндпоинты
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
         
-        # Раздача статики (админки)
+        # Главная страница админки
+        app.router.add_get('/', self.handle_index)
+        
+        # Раздача статики (дизайн, картинки)
         if os.path.exists('static'): 
-            app.router.add_static('/', path='static', name='static', show_index=True)
+            app.router.add_static('/static/', path='static', name='static')
+            # Чтобы картинки в папке images были доступны по пути /static/images/...
         
         # Применение CORS ко всем маршрутам
         for route in list(app.router.routes()):
@@ -173,16 +177,30 @@ class OmniNeuralOverlord:
         runner = web.AppRunner(app)
         await runner.setup()
         
-        # ЖЕСТКИЙ ПОРТ 3000 ДЛЯ BOTHOST
+        # ПОРТ 3000 ДЛЯ BOTHOST
         port = 3000 
         await web.TCPSite(runner, '0.0.0.0', port).start()
         print(f"\033[94m🌐 [WEB] QUANTUM Interface Ready: http://quantum.bothost.tech (PORT {port})\033[0m")
 
+    async def handle_index(self, request):
+        """Отдает index.html из папки static"""
+        return web.FileResponse('./static/index.html')
+
     async def handle_get_stats(self, request):
-        stats = await get_stats_for_web()
-        return web.json_response(stats)
+        """Отдает статистику для фронтенда"""
+        db_stats = await get_stats_for_web()
+        # Добавляем живые данные из памяти бота
+        db_stats['engine'] = {
+            "core_id": self.core_id,
+            "ops_total": self.total_ops,
+            "uptime": round(time.time() - self.session_start),
+            "last_status": self.last_status,
+            "neural_load": len(self.synaptic_history)
+        }
+        return web.json_response(db_stats)
 
     async def handle_update_config(self, request):
+        """Принимает изменения из админки и пишет их в БД"""
         try:
             data = await request.json()
             await update_remote_config(data) 
@@ -196,7 +214,7 @@ class OmniNeuralOverlord:
         # 1. Инициализация БД
         await init_db()
         
-        # 2. Запуск Веб-интерфейса
+        # 2. Запуск Веб-интерфейса (Админки)
         await self.start_web_server()
 
         print(f"\033[95m--- 🌀 OMNI NEURAL CORE : SINGULARITY ONLINE ---\033[0m")
@@ -205,7 +223,7 @@ class OmniNeuralOverlord:
             try:
                 # 3. Проверка конфига
                 if not await self.update_config_from_db():
-                    print("\r\033[93m⌛ Ожидание конфигурации на https://quantum.bothost.tech ...\033[0m", end="")
+                    print("\r\033[93m⌛ Ожидание конфигурации на http://quantum.bothost.tech ...\033[0m", end="")
                     await asyncio.sleep(10)
                     continue
 
@@ -233,7 +251,7 @@ class OmniNeuralOverlord:
                         if await self.dispatch_hft_pulse(wallet, plan):
                             await log_ai_action(plan, market_state['current_metrics'])
                     
-                    # Каждые 5 минут (300 сек) синхронизируем конфиг из БД
+                    # Раз в 5 минут обновляем настройки из БД (если их поменяли через админку)
                     if int(time.time()) % 300 == 0:
                         await self.update_config_from_db()
                         
