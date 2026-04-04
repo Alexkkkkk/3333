@@ -11,22 +11,21 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# --- ДИНАМИЧЕСКИЙ ИМПОРТ TON ЛИБ (ФИКС ModuleNotFoundError) ---
+# --- ДИНАМИЧЕСКИЙ ИМПОРТ TON ЛИБ (Универсальный фикс) ---
 from pytoniq import LiteClient, WalletV4R2, Address
 
 try:
-    # Пытаемся импортировать из нового расположения (pytoniq >= 0.1.30)
+    # Попытка для новых версий (0.1.30+)
     from pytoniq.core import BeginCell
 except (ImportError, ModuleNotFoundError):
     try:
-        # Пытаемся импортировать из корня (старые версии)
+        # Попытка для старых версий
         from pytoniq import BeginCell
     except ImportError:
-        # Если совсем беда — создаем заглушку, чтобы код не падал до старта
         BeginCell = None
-        print("\033[91m⚠️ [CRITICAL]: BeginCell not found in pytoniq!\033[0m")
+        print("\033[91m⚠️ [CRITICAL]: BeginCell not found in pytoniq! Check requirements.\033[0m")
 
-# Модули БД (Убедись, что файл database.py в корне)
+# Модули БД (Файл database.py должен быть в корне проекта)
 from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
 
 load_dotenv()
@@ -38,7 +37,7 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Конфиг TON
+        # Конфигурация TON из .env
         self.pool_addr = Address(os.getenv('DEDUST_POOL'))
         self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
         
@@ -47,30 +46,30 @@ class OmniNeuralOverlord:
         self.total_ops = 0
         self.backlog = asyncio.Queue()
 
-    # --- ANALYTICS ENGINE ---
+    # --- АНАЛИТИЧЕСКИЙ ДВИЖОК ---
     def _calculate_hyper_analytics(self):
-        """Спектральный и фрактальный анализ рыночных данных."""
+        """Фрактальный и спектральный анализ рыночных циклов."""
         if len(self.synaptic_history) < 20: return None
         
         prices = np.array([h['price'] for h in self.synaptic_history])
         curr = prices[-1]
         
-        # 1. Fractal Efficiency (FEI)
+        # 1. Фрактальная эффективность
         path_length = np.sum(np.abs(np.diff(prices)))
         radial_dist = np.abs(prices[-1] - prices[0])
         fei = radial_dist / path_length if path_length > 0 else 0
 
-        # 2. Spectral Purity (FFT) - поиск циклов китов
+        # 2. Спектральная чистота (поиск циклов через FFT)
         fft_data = np.abs(np.fft.fft(prices))
         signal_purity = np.max(fft_data) / np.mean(fft_data) if np.mean(fft_data) > 0 else 0
 
-        # 3. Probability Collapse (Eigenvalues)
+        # 3. Коллапс вероятности (Eigenvalues)
         matrix = np.column_stack([prices[1:], prices[:-1]])
         cov = np.cov(matrix.T)
         eigenvalues = np.linalg.eigvals(cov)
         prob_collapse = np.max(eigenvalues) / np.sum(eigenvalues) if np.sum(eigenvalues) > 0 else 0
         
-        # 4. Z-Score & Gravity
+        # 4. Z-Score и гравитационная цена
         sma = np.mean(prices[-15:])
         std = np.std(prices)
         z_score = (curr - sma) / std if std > 0 else 0
@@ -121,9 +120,9 @@ class OmniNeuralOverlord:
             return {"cmd": "WAIT", "amt": 0, "delay": 20, "reason": f"Neural Lag: {e}"}
 
     async def dispatch_hft_pulse(self, wallet, plan, market):
-        """Отправка транзакции со встроенным Jitter (анти-бот защита)."""
+        """Отправка транзакции (Swap на DeDust)."""
         if BeginCell is None:
-            print("🚨 [ERROR]: Cannot dispatch - BeginCell is missing!")
+            print("🚨 [ERROR]: BeginCell is missing. Transaction aborted.")
             return False
 
         amt = plan['amt']
@@ -150,21 +149,17 @@ class OmniNeuralOverlord:
             print(f"\n🚨 [DISPATCH ERROR]: {e}")
             return False
 
-    # --- WEB SERVER ---
     async def start_web_server(self):
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={
             "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
+                allow_credentials=True, expose_headers="*", allow_headers="*",
             )
         })
         
         resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
         cors.add(resource)
         
-        # Статика (дизайн kanderkander в папке static/)
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static')
         
@@ -175,17 +170,13 @@ class OmniNeuralOverlord:
         print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:{port}\033[0m")
 
     async def telemetry_worker(self):
-        """Фоновый воркер логов."""
         while self.is_active:
             task = await self.backlog.get()
             try: 
                 await log_ai_action(task['strategy'], task['market'])
-            except: 
-                pass
-            finally: 
-                self.backlog.task_done()
+            except: pass
+            finally: self.backlog.task_done()
 
-    # --- CORE LOOP ---
     async def core_loop(self):
         await init_db()
         asyncio.create_task(self.telemetry_worker())
@@ -194,15 +185,13 @@ class OmniNeuralOverlord:
         client = LiteClient.from_mainnet_config()
         await client.start()
         
-        # Получаем мнемонику
         mnemonic_list = os.getenv('MNEMONIC', '').split()
         if not mnemonic_list:
-            print("\033[91m🚨 [FATAL]: MNEMONIC not found in ENV!\033[0m")
+            print("\033[91m🚨 [FATAL]: MNEMONIC not found!\033[0m")
             return
             
         wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
         
-        # Очистка экрана и запуск интерфейса
         os.system('cls' if os.name == 'nt' else 'clear')
         print(f"\033[95m--- 🌀 OMNI NEURAL CORE V-INFINITY : SINGULARITY ONLINE ---\033[0m")
 
