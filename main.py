@@ -22,11 +22,10 @@ except ImportError:
     print("\033[91m🚨 [FATAL]: pytoniq is not installed. Check requirements.txt!\033[0m")
     sys.exit(1)
 
-# Модули БД (Файл database.py должен быть в корне проекта)
-from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
+# Модули БД (Убедись, что в database.py есть функция load_remote_config)
+from database import init_db, log_ai_action, get_market_state, get_stats_for_web, load_remote_config
 
 load_dotenv()
-openai.api_key = os.getenv("AI_API_KEY")
 
 class OmniNeuralOverlord:
     def __init__(self):
@@ -34,53 +33,55 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # --- ПРОВЕРКА ENV ПЕРЕМЕННЫХ ---
-        def get_env_safe(key):
-            val = os.getenv(key)
-            if not val:
-                print(f"\033[91m🚨 [MISSING ENV]: Ключ '{key}' не найден в настройках Bothost!\033[0m")
-                return None
-            return val
-
-        pool_raw = get_env_safe('DEDUST_POOL')
-        vault_raw = get_env_safe('DEDUST_VAULT_TON')
-        
-        if not pool_raw or not vault_raw:
-            print("\033[91m🚨 [CRITICAL]: Адреса TON не заданы. Бот не может инициализироваться.\033[0m")
-            sys.exit(1)
-
-        self.pool_addr = Address(pool_raw)
-        self.vault_ton = Address(vault_raw)
+        # Динамические параметры (инициализируются из БД)
+        self.pool_addr = None
+        self.vault_ton = Address("EQCt0-Ba6Y_9_6p20tH_E_Oq_H_O_O_O_O_O_O_O_O_O_O_O_O")
+        self.mnemonic = None
+        self.ai_key = None
         
         self.synaptic_history = []
-        self.last_status = "INITIALIZING"
+        self.last_status = "WAITING_FOR_CONFIG"
         self.total_ops = 0
         self.backlog = asyncio.Queue()
 
+    async def update_config_from_db(self):
+        """Механизм подтяжки настроек из админки (БД)"""
+        try:
+            cfg = await load_remote_config()
+            if cfg:
+                self.mnemonic = cfg.get('mnemonic')
+                self.ai_key = cfg.get('ai_api_key')
+                openai.api_key = self.ai_key
+                
+                pool_raw = cfg.get('dedust_pool')
+                if pool_raw:
+                    self.pool_addr = Address(pool_raw)
+                
+                self.strategy_level = cfg.get('ai_strategy_level', 10)
+                return True
+            return False
+        except Exception as e:
+            print(f"\033[91m🚨 [DB CONFIG ERROR]: {e}\033[0m")
+            return False
+
     # --- АНАЛИТИЧЕСКИЙ ДВИЖОК ---
     def _calculate_hyper_analytics(self):
-        """Фрактальный и спектральный анализ рыночных циклов."""
         if len(self.synaptic_history) < 20: return None
-        
         prices = np.array([h['price'] for h in self.synaptic_history])
         curr = prices[-1]
         
-        # 1. Фрактальная эффективность
         path_length = np.sum(np.abs(np.diff(prices)))
         radial_dist = np.abs(prices[-1] - prices[0])
         fei = radial_dist / path_length if path_length > 0 else 0
 
-        # 2. Спектральная чистота (поиск циклов китов через FFT)
         fft_data = np.abs(np.fft.fft(prices))
         signal_purity = np.max(fft_data) / np.mean(fft_data) if np.mean(fft_data) > 0 else 0
 
-        # 3. Коллапс вероятности (Eigenvalues)
         matrix = np.column_stack([prices[1:], prices[:-1]])
         cov = np.cov(matrix.T)
         eigenvalues = np.linalg.eigvals(cov)
         prob_collapse = np.max(eigenvalues) / np.sum(eigenvalues) if np.sum(eigenvalues) > 0 else 0
         
-        # 4. Z-Score и гравитационная цена
         sma = np.mean(prices[-15:])
         std = np.std(prices)
         z_score = (curr - sma) / std if std > 0 else 0
@@ -97,81 +98,58 @@ class OmniNeuralOverlord:
         }
 
     async def fetch_neural_strategy(self, market_snapshot):
-        hyper = self._calculate_hyper_analytics()
+        if not self.ai_key: return {"cmd": "WAIT", "reason": "No AI Key in DB"}
         
+        hyper = self._calculate_hyper_analytics()
         prompt = {
             "core_id": self.core_id,
             "market": market_snapshot['current_metrics'],
-            "memory": market_snapshot['recent_memory'],
             "singularity": hyper,
-            "mission": "Execute hyper-precise entry. Exploit market imbalances."
+            "strategy_level": self.strategy_level
         }
 
         try:
             res = await openai.ChatCompletion.acreate(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are OMNI-SINGULARITY. CMD: [BUY/PUMP/SHIELD/WAIT]. Output JSON ONLY. Accuracy: 100%."},
+                    {"role": "system", "content": "You are OMNI-SINGULARITY. Output JSON ONLY. [BUY/WAIT]."},
                     {"role": "user", "content": json.dumps(prompt)}
                 ],
                 response_format={ "type": "json_object" },
                 temperature=0.1
             )
-            logic = json.loads(res.choices[0].message.content)
-            
-            return {
-                "cmd": str(logic.get("cmd", "WAIT")).upper(),
-                "amt": min(float(logic.get("amt", 0)), 50.0),
-                "delay": max(int(logic.get("delay", 15)), 5),
-                "urgency": max(min(int(logic.get("urgency", 1)), 5), 1),
-                "reason": str(logic.get("reason", "Scanning fractal waves")),
-                "confidence": logic.get("confidence_pct", 0)
-            }
+            return json.loads(res.choices[0].message.content)
         except Exception as e:
             return {"cmd": "WAIT", "amt": 0, "delay": 20, "reason": f"Neural Lag: {e}"}
 
-    async def dispatch_hft_pulse(self, wallet, plan, market):
-        """Отправка транзакции (Swap на DeDust)."""
-        if BeginCell is None:
-            print("🚨 [ERROR]: BeginCell is missing. Transaction aborted.")
-            return False
-
-        amt = plan['amt']
+    async def dispatch_hft_pulse(self, wallet, plan):
+        if not self.pool_addr: return False
+        
+        amt = float(plan.get('amt', 0))
         nano_amt = int(amt * 1e9)
-        adjusted_gas = int(0.25e9 + (plan['urgency'] * 0.03e9))
-
+        
         swap_payload = (BeginCell()
-                        .store_uint(0xea06185d, 32) # Op-code DeDust
+                        .store_uint(0xea06185d, 32)
                         .store_uint(int(time.time() + 150), 64)
                         .store_coins(nano_amt)
                         .store_address(self.pool_addr)
                         .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
         try:
-            jitter = int(nano_amt * (1 + random.uniform(-0.015, 0.015)))
-            await asyncio.wait_for(
-                wallet.transfer(destination=self.vault_ton, amount=jitter + adjusted_gas, body=swap_payload), 
-                timeout=25.0
-            )
+            await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.3e9), body=swap_payload)
             self.total_ops += 1
-            self.last_status = f"EXECUTED_{plan['cmd']}"
+            self.last_status = "EXECUTED"
             return True
         except Exception as e:
-            self.last_status = "PULSE_ERROR"
-            print(f"\n🚨 [DISPATCH ERROR]: {e}")
+            print(f"🚨 [DISPATCH ERROR]: {e}")
             return False
 
     async def start_web_server(self):
         app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True, expose_headers="*", allow_headers="*",
-            )
-        })
+        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
         
         resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
         cors.add(resource)
         
-        # Обслуживание статических файлов из папки static (включая index.html)
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static', show_index=True)
         
@@ -181,54 +159,44 @@ class OmniNeuralOverlord:
         await web.TCPSite(runner, '0.0.0.0', port).start()
         print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:{port}\033[0m")
 
-    async def telemetry_worker(self):
-        while self.is_active:
-            task = await self.backlog.get()
-            try: 
-                await log_ai_action(task['strategy'], task['market'])
-            except: pass
-            finally: self.backlog.task_done()
-
     async def core_loop(self):
         await init_db()
-        asyncio.create_task(self.telemetry_worker())
         await self.start_web_server()
 
-        client = LiteClient.from_mainnet_config()
-        await client.start()
-        
-        mnemonic_str = os.getenv('MNEMONIC', '')
-        if not mnemonic_str:
-            print("\033[91m🚨 [FATAL]: MNEMONIC не найден в ENV!\033[0m")
-            return
-            
-        wallet = await WalletV4R2.from_mnemonic(client, mnemonic_str.split())
-        
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print(f"\033[95m--- 🌀 OMNI NEURAL CORE V-INFINITY : SINGULARITY ONLINE ---\033[0m")
+        print(f"\033[95m--- 🌀 OMNI NEURAL CORE : DATABASE-DRIVEN MODE ---\033[0m")
 
         while self.is_active:
             try:
-                market_state = await get_market_state()
-                p_curr = market_state['current_metrics']['price_ton']
-                
-                self.synaptic_history.append({"price": p_curr, "time": time.time()})
-                if len(self.synaptic_history) > 200: self.synaptic_history.pop(0)
+                # 1. Синхронизация с админкой
+                if not await self.update_config_from_db():
+                    print("\r\033[93m⌛ Ожидание конфигурации в базе данных...\033[0m", end="")
+                    await asyncio.sleep(10)
+                    continue
 
-                balance = (await wallet.get_balance()) / 1e9
-                sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | STATUS: {self.last_status} ]\033[0m")
-                sys.stdout.flush()
+                # 2. Инициализация кошелька, если конфигурация подгружена
+                client = LiteClient.from_mainnet_config()
+                await client.start()
+                wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
 
-                plan = await self.fetch_neural_strategy(market_state)
-                
-                if plan['cmd'] in ["BUY", "PUMP", "SHIELD"] and balance > (plan['amt'] + 3.0):
-                    if await self.dispatch_hft_pulse(wallet, plan, market_state):
-                        await self.backlog.put({"strategy": plan, "market": market_state['current_metrics']})
-                else:
-                    if random.random() < 0.1:
-                        await log_ai_action(plan, market_state['current_metrics'])
+                # 3. Основной цикл работы
+                while self.is_active:
+                    market_state = await get_market_state()
+                    p_curr = market_state['current_metrics']['price_ton']
+                    self.synaptic_history.append({"price": p_curr, "time": time.time()})
+                    
+                    balance = (await wallet.get_balance()) / 1e9
+                    sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | ADDR: {self.pool_addr} ]\033[0m")
+                    sys.stdout.flush()
 
-                await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 3)))
+                    plan = await self.fetch_neural_strategy(market_state)
+                    
+                    if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 1.0):
+                        await self.dispatch_hft_pulse(wallet, plan)
+                    
+                    # Периодическая проверка обновления настроек в БД
+                    if self.total_ops % 5 == 0: await self.update_config_from_db()
+                    
+                    await asyncio.sleep(15)
 
             except Exception as e:
                 self.last_status = "RECALIBRATING"
