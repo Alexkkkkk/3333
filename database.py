@@ -139,7 +139,13 @@ async def get_market_state():
         ''')
         
         # Безопасное извлечение цен (защита от None и пустой базы)
-        prices = [h['market_snapshot'].get('price_ton', 0) for h in history if h['market_snapshot']]
+        prices = []
+        for h in history:
+            if h['market_snapshot']:
+                # Обработка как словаря (asyncpg может возвращать как dict, так и str)
+                ms = h['market_snapshot']
+                val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
+                prices.append(val)
         
         trend = "STABLE"
         current_price = 0.2854 # Базовое значение
@@ -163,7 +169,7 @@ async def get_market_state():
         return {
             "current_metrics": {
                 "price_ton": current_price,
-                "liquidity_ton": 15400.50, # Здесь можно добавить реальный запрос к API
+                "liquidity_ton": 15400.50, 
                 "market_trend": trend,
                 "sentiment": "NEURAL_ANALYZED"
             },
@@ -175,7 +181,6 @@ async def log_ai_action(strategy, market, perf_data=None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
-            # Безопасное получение данных из словаря стратегии
             cmd = strategy.get('cmd', 'WAIT')
             amount = float(strategy.get('amt', 0.0))
             urgency = int(strategy.get('urgency', 1))
