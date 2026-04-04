@@ -1,8 +1,18 @@
+# --- AI ENGINE ---
 openai>=1.0.0
+
+# --- CORE ASYNC & NETWORK ---
 asyncio
-asyncpg
-python-dotenv
 aiohttp
 aiohttp_cors
+python-dotenv
+
+# --- BLOCKCHAIN (TON PROTOCOL) ---
 pytoniq
+
+# --- MATH & NEURAL ANALYTICS ---
 numpy
+
+# --- INFRASTRUCTURE : DATABASE ---
+asyncpg
+psycopg2-binary
