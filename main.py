@@ -171,8 +171,9 @@ class OmniNeuralOverlord:
         resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
         cors.add(resource)
         
+        # Обслуживание статических файлов из папки static (включая index.html)
         if os.path.exists('static'): 
-            app.router.add_static('/', path='static', name='static')
+            app.router.add_static('/', path='static', name='static', show_index=True)
         
         runner = web.AppRunner(app)
         await runner.setup()
