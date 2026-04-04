@@ -138,17 +138,16 @@ async def get_market_state():
             ORDER BY timestamp DESC LIMIT 30
         ''')
         
-        # Безопасное извлечение цен (защита от None и пустой базы)
         prices = []
         for h in history:
             if h['market_snapshot']:
-                # Обработка как словаря (asyncpg может возвращать как dict, так и str)
                 ms = h['market_snapshot']
+                # Обработка разных форматов возврата JSON от asyncpg
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
                 prices.append(val)
         
         trend = "STABLE"
-        current_price = 0.2854 # Базовое значение
+        current_price = 0.2854 
         
         if prices:
             current_price = prices[0]
@@ -191,7 +190,6 @@ async def log_ai_action(strategy, market, perf_data=None):
                 VALUES ($1, $2, $3, $4, $5, $6)
             ''', cmd, amount, urgency, reason, json.dumps(market), json.dumps(perf_data) if perf_data else None)
             
-            # Ротация логов: удаляем всё старше 7 дней
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
@@ -199,12 +197,13 @@ async def log_ai_action(strategy, market, perf_data=None):
 async def add_profit_record(amount):
     pool = await get_pool()
     s = await get_current_distribution()
+    amount = float(amount)
     async with pool.acquire() as conn:
         await conn.execute('''
             INSERT INTO profit_distribution 
             (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
             VALUES ($1, $2, $3, $4, $5)
-        ''', float(amount), amount*s['holders_pct'], amount*s['staking_pct'], amount*s['liquidity_pct'], amount*s['treasury_pct'])
+        ''', amount, amount*s['holders_pct'], amount*s['staking_pct'], amount*s['liquidity_pct'], amount*s['treasury_pct'])
         print(f"💰 [PROFIT] {amount} TON shared by neural algorithm.")
 
 async def get_stats_for_web():
