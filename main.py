@@ -55,7 +55,7 @@ class OmniNeuralOverlord:
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
         self.pool_addr = None
-        # Тестовый адрес хранилища (замени на свой при необходимости)
+        # Основной адрес хранилища
         self.vault_ton = Address("EQCt0-Ba6Y_9_6p20tH_E_Oq_H_O_O_O_O_O_O_O_O_O_O_O_O")
         self.mnemonic = None
         self.ai_key = None
@@ -67,16 +67,17 @@ class OmniNeuralOverlord:
         log(f"Overlord initialized. Core ID: {self.core_id}", "CORE")
 
     async def update_config_from_db(self):
+        """Синхронизация локальных переменных с базой данных Bothost."""
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
-                # Очистка мнемоники от мусора
                 self.mnemonic = cfg.get('mnemonic').strip().replace('\n', ' ').replace('\r', '')
                 self.ai_key = cfg.get('ai_api_key')
                 openai.api_key = self.ai_key
                 
                 pool_raw = cfg.get('dedust_pool')
-                if pool_raw: self.pool_addr = Address(pool_raw)
+                if pool_raw: 
+                    self.pool_addr = Address(pool_raw)
                 
                 self.strategy_level = cfg.get('ai_strategy_level', 10)
                 self.last_status = "ACTIVE"
@@ -109,7 +110,9 @@ class OmniNeuralOverlord:
         try:
             data = await request.json()
             await update_remote_config(data)
+            # Сразу обновляем состояние ядра после получения новых данных
             await self.update_config_from_db()
+            log("Config updated via API Request", "SUCCESS")
             return web.json_response({"status": "success"})
         except Exception as e:
             return web.json_response({"status": "error", "msg": str(e)}, status=400)
@@ -156,12 +159,11 @@ class OmniNeuralOverlord:
             # DeDust Swap Payload (0xea06185d - swap op)
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
-                            .store_uint(int(time.time() + 300), 64) # 5 min deadline
+                            .store_uint(int(time.time() + 300), 64) 
                             .store_coins(nano_amt)
                             .store_address(self.pool_addr)
                             .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
             
-            # Отправка транзакции (комиссия 0.2 TON включена)
             await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=swap_payload)
             self.total_ops += 1
             log(f"TON: Pulse successful. Op #{self.total_ops} | Amount: {amt}", "SUCCESS")
@@ -189,7 +191,6 @@ class OmniNeuralOverlord:
         if os.path.exists('static'):
             app.router.add_static('/static/', path='static', name='static')
 
-        # Применяем CORS ко всем маршрутам
         for route in list(app.router.routes()):
             cors.add(route)
         
@@ -230,13 +231,16 @@ class OmniNeuralOverlord:
                     log(f"Wallet active: {wallet.address}", "SUCCESS")
                     
                     while self.is_active:
+                        # Регулярная проверка обновлений конфига в БД
+                        await self.update_config_from_db()
+                        
                         market_state = await get_market_state()
-                        # Собираем историю цен
                         p_curr = market_state['current_metrics']['price_ton']
                         self.synaptic_history.append({"price": p_curr, "time": time.time()})
                         if len(self.synaptic_history) > 500: self.synaptic_history.pop(0)
 
-                        balance = (await wallet.get_balance()) / 1e9
+                        balance_nano = await wallet.get_balance()
+                        balance = balance_nano / 1e9
                         log(f"Balance: {balance:.2f} TON | Price: {p_curr:.4f}", "INFO")
 
                         plan = await self.fetch_neural_strategy(market_state)
@@ -245,7 +249,7 @@ class OmniNeuralOverlord:
                             if await self.dispatch_hft_pulse(wallet, plan):
                                 await log_ai_action(plan, market_state['current_metrics'])
                         
-                        await asyncio.sleep(20) # Интервал пульса
+                        await asyncio.sleep(20)
 
                 finally:
                     await client.stop()
