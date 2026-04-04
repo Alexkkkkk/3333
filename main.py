@@ -11,19 +11,16 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# --- ДИНАМИЧЕСКИЙ ИМПОРТ TON ЛИБ (Универсальный фикс) ---
-from pytoniq import LiteClient, WalletV4R2, Address
-
+# --- УЛЬТРА-ЗАЩИЩЕННЫЙ ИМПОРТ TON ЛИБ ---
 try:
-    # Попытка для новых версий (0.1.30+)
-    from pytoniq.core import BeginCell
-except (ImportError, ModuleNotFoundError):
+    from pytoniq import LiteClient, WalletV4R2, Address
     try:
-        # Попытка для старых версий
+        from pytoniq.core import BeginCell
+    except (ImportError, ModuleNotFoundError):
         from pytoniq import BeginCell
-    except ImportError:
-        BeginCell = None
-        print("\033[91m⚠️ [CRITICAL]: BeginCell not found in pytoniq! Check requirements.\033[0m")
+except ImportError:
+    print("\033[91m🚨 [FATAL]: pytoniq is not installed. Check requirements.txt!\033[0m")
+    sys.exit(1)
 
 # Модули БД (Файл database.py должен быть в корне проекта)
 from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
@@ -37,9 +34,23 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Конфигурация TON из .env
-        self.pool_addr = Address(os.getenv('DEDUST_POOL'))
-        self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
+        # --- ПРОВЕРКА ENV ПЕРЕМЕННЫХ ---
+        def get_env_safe(key):
+            val = os.getenv(key)
+            if not val:
+                print(f"\033[91m🚨 [MISSING ENV]: Ключ '{key}' не найден в настройках Bothost!\033[0m")
+                return None
+            return val
+
+        pool_raw = get_env_safe('DEDUST_POOL')
+        vault_raw = get_env_safe('DEDUST_VAULT_TON')
+        
+        if not pool_raw or not vault_raw:
+            print("\033[91m🚨 [CRITICAL]: Адреса TON не заданы. Бот не может инициализироваться.\033[0m")
+            sys.exit(1)
+
+        self.pool_addr = Address(pool_raw)
+        self.vault_ton = Address(vault_raw)
         
         self.synaptic_history = []
         self.last_status = "INITIALIZING"
@@ -59,7 +70,7 @@ class OmniNeuralOverlord:
         radial_dist = np.abs(prices[-1] - prices[0])
         fei = radial_dist / path_length if path_length > 0 else 0
 
-        # 2. Спектральная чистота (поиск циклов через FFT)
+        # 2. Спектральная чистота (поиск циклов китов через FFT)
         fft_data = np.abs(np.fft.fft(prices))
         signal_purity = np.max(fft_data) / np.mean(fft_data) if np.mean(fft_data) > 0 else 0
 
@@ -185,12 +196,12 @@ class OmniNeuralOverlord:
         client = LiteClient.from_mainnet_config()
         await client.start()
         
-        mnemonic_list = os.getenv('MNEMONIC', '').split()
-        if not mnemonic_list:
-            print("\033[91m🚨 [FATAL]: MNEMONIC not found!\033[0m")
+        mnemonic_str = os.getenv('MNEMONIC', '')
+        if not mnemonic_str:
+            print("\033[91m🚨 [FATAL]: MNEMONIC не найден в ENV!\033[0m")
             return
             
-        wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
+        wallet = await WalletV4R2.from_mnemonic(client, mnemonic_str.split())
         
         os.system('cls' if os.name == 'nt' else 'clear')
         print(f"\033[95m--- 🌀 OMNI NEURAL CORE V-INFINITY : SINGULARITY ONLINE ---\033[0m")
