@@ -25,7 +25,7 @@ async def init_db():
     """Инициализация архитектуры: Логи, Финансы и Аналитика."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. ТАБЛИЦА НАСТРОЕК
+        # 1. ТАБЛИЦА НАСТРОЕК РАСПРЕДЕЛЕНИЯ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS distribution_settings (
                 id SERIAL PRIMARY KEY,
@@ -44,7 +44,7 @@ async def init_db():
             ON CONFLICT (label) DO NOTHING
         ''')
 
-        # 2. ТАБЛИЦА ЛОГОВ (С поддержкой JSONB аналитики)
+        # 2. ТАБЛИЦА НЕЙРО-ЛОГОВ (JSONB для глубокой аналитики)
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -58,7 +58,7 @@ async def init_db():
             )
         ''')
         
-        # 3. ТАБЛИЦА РАСПРЕДЕЛЕНИЯ ПРИБЫЛИ
+        # 3. ТАБЛИЦА ПРИБЫЛИ (Бухгалтерия системы)
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS profit_distribution (
                 id SERIAL PRIMARY KEY,
@@ -71,7 +71,7 @@ async def init_db():
             )
         ''')
         
-        # Индексы для скорости (Критично для High-Load)
+        # Индексы для мгновенной выборки (High-Load Optimization)
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_cmd_lookup ON neural_mm_logs(cmd)')
         
@@ -92,7 +92,7 @@ async def get_current_distribution():
         return {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
 
 async def get_market_state():
-    """Сбор глубокого контекста для ИИ из истории торгов."""
+    """Сбор контекста для ИИ: извлекает тренды из истории логов."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -129,7 +129,7 @@ async def get_market_state():
         }
 
 async def log_ai_action(plan, market_snapshot=None, perf_data=None):
-    """Запись действия с расчетом эффективности и авто-очисткой."""
+    """Запись действия с расчетом эффективности и авто-очисткой базы."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -144,7 +144,7 @@ async def log_ai_action(plan, market_snapshot=None, perf_data=None):
                 json.dumps(perf_data) if perf_data else None
             )
             
-            # Оптимизация: Удаляем записи старше 7 дней, чтобы не нагружать Bothost
+            # Очистка старых данных (7 дней), чтобы база не тормозила
             if os.getenv('DB_AUTO_OPTIMIZE', 'true').lower() == 'true':
                 await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < $1", 
                                  datetime.now() - timedelta(days=7))
@@ -152,26 +152,26 @@ async def log_ai_action(plan, market_snapshot=None, perf_data=None):
             print(f"🚨 [DB_ERROR]: {e}")
 
 async def get_stats_for_web():
-    """Генерация JSON с расширенной аналитикой для фронтенда (Web Admin)."""
+    """Генерация JSON с расширенной аналитикой для Web-интерфейса."""
     pool = await get_pool()
     settings = await get_current_distribution()
     async with pool.acquire() as conn:
         try:
-            # 1. Общие показатели
+            # Агрегация финансового результата
             total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs") or 0
             total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution") or 0
             
-            # 2. Анализ профита за 24 часа
+            # Анализ прибыли за последние 24 часа
             day_ago = datetime.now() - timedelta(hours=24)
             daily_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution WHERE timestamp > $1", day_ago) or 0
             
-            # 3. Последнее действие системы
+            # Получение последнего лога
             last = await conn.fetchrow('''
                 SELECT cmd, reason, timestamp FROM neural_mm_logs 
                 ORDER BY timestamp DESC LIMIT 1
             ''')
             
-            # 4. Распределение типов команд для графиков
+            # Группировка действий для графиков
             distribution_rows = await conn.fetch('''
                 SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd
             ''')
@@ -198,7 +198,7 @@ async def get_stats_for_web():
             return {"error": str(e)}
 
 async def add_profit_record(amount):
-    """Фиксирует новое поступление прибыли и делит его по долям."""
+    """Разделяет прибыль по кошелькам (Holders, Treasury и т.д.) при поступлении."""
     pool = await get_pool()
     s = await get_current_distribution()
     async with pool.acquire() as conn:
@@ -207,4 +207,4 @@ async def add_profit_record(amount):
             (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
             VALUES ($1, $2, $3, $4, $5)
         ''', amount, amount*s['holders'], amount*s['staking'], amount*s['liquidity'], amount*s['treasury'])
-        print(f"💰 [PROFIT] Зачислено {amount} TON согласно настройкам долей.")
+        print(f"💰 [PROFIT] Зачислено {amount} TON. Доли распределены.")
