@@ -19,7 +19,7 @@ def log(message, level="INFO"):
         "INFO": "\033[94m",    # Blue
         "SUCCESS": "\033[92m", # Green
         "WARNING": "\033[93m", # Yellow
-        "ERROR": "\033[91m",   # Red
+        "ERROR": "\033[91m",    # Red
         "CORE": "\033[95m"     # Magenta
     }
     reset = "\033[0m"
@@ -71,9 +71,9 @@ class OmniNeuralOverlord:
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
+                # Очистка строки от мусора
                 self.mnemonic = cfg.get('mnemonic').strip().replace('\n', ' ').replace('\r', '')
-                self.ai_key = cfg.get('ai_api_key')
-                openai.api_key = self.ai_key
+                self.ai_key = cfg.get('ai_api_key', '').strip()
                 
                 pool_raw = cfg.get('dedust_pool')
                 if pool_raw: 
@@ -110,7 +110,6 @@ class OmniNeuralOverlord:
         try:
             data = await request.json()
             await update_remote_config(data)
-            # Сразу обновляем состояние ядра после получения новых данных
             await self.update_config_from_db()
             log("Config updated via API Request", "SUCCESS")
             return web.json_response({"status": "success"})
@@ -121,7 +120,9 @@ class OmniNeuralOverlord:
     def _calculate_hyper_analytics(self):
         try:
             if len(self.synaptic_history) < 5: return None
-            prices = np.array([h['price'] for h in self.synaptic_history])
+            prices = np.array([h['price'] for h in self.synaptic_history if h['price'] > 0])
+            if len(prices) < 5: return None
+            
             diffs = np.abs(np.diff(prices))
             total_movement = np.sum(diffs)
             if total_movement == 0: return {"market_state": "STAGNANT", "fei": 0}
@@ -135,7 +136,10 @@ class OmniNeuralOverlord:
         
         try:
             hyper = self._calculate_hyper_analytics()
-            res = await asyncio.wait_for(openai.ChatCompletion.acreate(
+            # Инициализация клиента для каждой сессии (рекомендуется для OpenAI v1+)
+            client = openai.AsyncOpenAI(api_key=self.ai_key)
+            
+            res = await asyncio.wait_for(client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
@@ -143,6 +147,7 @@ class OmniNeuralOverlord:
                 ],
                 response_format={ "type": "json_object" }
             ), timeout=15)
+            
             return json.loads(res.choices[0].message.content)
         except Exception as e:
             log(f"Neural AI Error: {e}", "ERROR")
@@ -196,9 +201,10 @@ class OmniNeuralOverlord:
         
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, '0.0.0.0', 3000)
+        port = int(os.getenv("PORT", 3000))
+        site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
-        log("Web Dashboard ONLINE (Port 3000)", "SUCCESS")
+        log(f"Web Dashboard ONLINE (Port {port})", "SUCCESS")
 
     async def core_loop(self):
         log("Entering Core Loop...", "CORE")
