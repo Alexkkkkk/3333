@@ -111,20 +111,12 @@ async def load_remote_config():
         return dict(row) if row else None
 
 async def update_remote_config(data: dict):
-    """
-    Обновление настроек через админку.
-    Принимает: mnemonic, ai_api_key, target_jetton, dedust_pool, ai_strategy_level.
-    """
+    """Обновление настроек через админку."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
             INSERT INTO bot_config (
-                mnemonic, 
-                ai_api_key, 
-                target_jetton, 
-                dedust_pool, 
-                ai_strategy_level, 
-                is_active
+                mnemonic, ai_api_key, target_jetton, dedust_pool, ai_strategy_level, is_active
             )
             VALUES ($1, $2, $3, $4, $5, TRUE)
         ''', 
@@ -155,19 +147,21 @@ async def get_market_state():
         
         prices = []
         for h in history:
-            if h['market_snapshot']:
-                ms = h['market_snapshot']
+            ms = h['market_snapshot']
+            if ms:
+                # Обработка JSONB: asyncpg может вернуть уже распакованный dict
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
-                prices.append(val)
+                prices.append(float(val))
         
         trend = "STABLE"
-        current_price = 0.2854 
+        current_price = 0.0
         
         if prices:
             current_price = prices[0]
             if len(prices) > 1:
                 delta = prices[0] - prices[-1]
-                trend = "UPWARD" if delta > 0 else "DOWNWARD"
+                if abs(delta) > 0.0001:
+                    trend = "UPWARD" if delta > 0 else "DOWNWARD"
 
         bot_memory = [
             {
@@ -204,6 +198,7 @@ async def log_ai_action(strategy, market, perf_data=None):
                 VALUES ($1, $2, $3, $4, $5, $6)
             ''', cmd, amount, urgency, reason, json.dumps(market), json.dumps(perf_data) if perf_data else None)
             
+            # Авто-очистка логов старше 7 дней
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
