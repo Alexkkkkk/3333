@@ -119,7 +119,7 @@ async def get_market_state():
         return {
             "current_metrics": {
                 "price_ton": prices[0] if prices else 0.2854,
-                "liquidity_ton": 15400.50,
+                "liquidity_ton": 15400.50, # В реале подтяни из DeDust API
                 "volatility_index": 0.045,
                 "market_trend": trend,
                 "sentiment": "NEURAL_ANALYZED"
@@ -157,21 +157,17 @@ async def get_stats_for_web():
     settings = await get_current_distribution()
     async with pool.acquire() as conn:
         try:
-            # Агрегация финансового результата
             total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs") or 0
             total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution") or 0
             
-            # Анализ прибыли за последние 24 часа
             day_ago = datetime.now() - timedelta(hours=24)
             daily_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution WHERE timestamp > $1", day_ago) or 0
             
-            # Получение последнего лога
             last = await conn.fetchrow('''
                 SELECT cmd, reason, timestamp FROM neural_mm_logs 
                 ORDER BY timestamp DESC LIMIT 1
             ''')
             
-            # Группировка действий для графиков
             distribution_rows = await conn.fetch('''
                 SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd
             ''')
@@ -198,7 +194,7 @@ async def get_stats_for_web():
             return {"error": str(e)}
 
 async def add_profit_record(amount):
-    """Разделяет прибыль по кошелькам (Holders, Treasury и т.д.) при поступлении."""
+    """Разделяет прибыль по кошелькам при поступлении."""
     pool = await get_pool()
     s = await get_current_distribution()
     async with pool.acquire() as conn:
