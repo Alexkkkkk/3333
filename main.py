@@ -11,9 +11,11 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# TON Либы
-from pytoniq import LiteClient, WalletV4R2, BeginCell, Address
-# Модули БД
+# --- ИСПРАВЛЕННЫЕ ТОН ЛИБЫ ---
+from pytoniq import LiteClient, WalletV4R2, Address
+from pytoniq.core import BeginCell  # Исправление для ImportError
+
+# Модули БД (Убедись, что файл database.py в корне)
 from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
 
 load_dotenv()
@@ -136,23 +138,38 @@ class OmniNeuralOverlord:
     # --- WEB SERVER ---
     async def start_web_server(self):
         app = web.Application()
-        aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*")})
-        app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
+        # Разрешаем CORS для твоего дизайна
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers="*",
+            )
+        })
         
+        resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
+        cors.add(resource)
+        
+        # Статика (дизайн kanderkander)
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static')
         
-        runner = web.AppRunner(app); await runner.setup()
-        await web.TCPSite(runner, '0.0.0.0', int(os.getenv('PORT', 3000))).start()
-        print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:3000\033[0m")
+        runner = web.AppRunner(app)
+        await runner.setup()
+        port = int(os.getenv('PORT', 3000))
+        await web.TCPSite(runner, '0.0.0.0', port).start()
+        print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:{port}\033[0m")
 
     async def telemetry_worker(self):
         """Фоновый воркер логов."""
         while self.is_active:
             task = await self.backlog.get()
-            try: await log_ai_action(task['strategy'], task['market'])
-            except: pass
-            finally: self.backlog.task_done()
+            try: 
+                await log_ai_action(task['strategy'], task['market'])
+            except: 
+                pass
+            finally: 
+                self.backlog.task_done()
 
     # --- CORE LOOP ---
     async def core_loop(self):
@@ -160,15 +177,24 @@ class OmniNeuralOverlord:
         asyncio.create_task(self.telemetry_worker())
         await self.start_web_server()
 
-        client = LiteClient.from_mainnet_config(); await client.start()
-        wallet = await WalletV4R2.from_mnemonic(client, os.getenv('MNEMONIC').split())
+        client = LiteClient.from_mainnet_config()
+        await client.start()
         
+        # Получаем мнемонику из переменных окружения
+        mnemonic_list = os.getenv('MNEMONIC', '').split()
+        if not mnemonic_list:
+            print("\033[91m🚨 [FATAL]: MNEMONIC not found in ENV!\033[0m")
+            return
+            
+        wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
+        
+        # Очистка экрана и запуск интерфейса
         os.system('cls' if os.name == 'nt' else 'clear')
         print(f"\033[95m--- 🌀 OMNI NEURAL CORE V-INFINITY : SINGULARITY ONLINE ---\033[0m")
 
         while self.is_active:
             try:
-                # Получаем расширенный стейт из базы (тренды + история)
+                # Получаем расширенный стейт из базы
                 market_state = await get_market_state()
                 p_curr = market_state['current_metrics']['price_ton']
                 
@@ -189,6 +215,7 @@ class OmniNeuralOverlord:
                     if random.random() < 0.1: # Логируем аналитику в 10% простоев
                         await log_ai_action(plan, market_state['current_metrics'])
 
+                # Динамическая задержка
                 await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 3)))
 
             except Exception as e:
@@ -197,5 +224,7 @@ class OmniNeuralOverlord:
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    try: asyncio.run(OmniNeuralOverlord().core_loop())
-    except KeyboardInterrupt: print("\033[91m\n🔌 Overmind Offline.\033[0m")
+    try: 
+        asyncio.run(OmniNeuralOverlord().core_loop())
+    except KeyboardInterrupt: 
+        print("\033[91m\n🔌 Overmind Offline.\033[0m")
