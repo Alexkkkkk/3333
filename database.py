@@ -22,10 +22,26 @@ async def get_pool():
     return _pool
 
 async def init_db():
-    """Инициализация архитектуры: Логи, Финансы и Аналитика."""
+    """Инициализация архитектуры: Настройки, Логи, Финансы и Аналитика."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. ТАБЛИЦА НАСТРОЕК РАСПРЕДЕЛЕНИЯ
+        
+        # 0. ТАБЛИЦА ГЛОБАЛЬНОЙ КОНФИГУРАЦИИ (Для админки)
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS bot_config (
+                id SERIAL PRIMARY KEY,
+                mnemonic TEXT,
+                ai_api_key TEXT,
+                ai_strategy_level INTEGER DEFAULT 10,
+                target_jetton TEXT,
+                dedust_pool TEXT,
+                delta_sync_ms INTEGER DEFAULT 500,
+                is_active BOOLEAN DEFAULT TRUE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # 1. ТАБЛИЦА НАСТРОЕК РАСПРЕДЕЛЕНИЯ ПРОФИТА
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS distribution_settings (
                 id SERIAL PRIMARY KEY,
@@ -44,7 +60,7 @@ async def init_db():
             ON CONFLICT (label) DO NOTHING
         ''')
 
-        # 2. ТАБЛИЦА НЕЙРО-ЛОГОВ (JSONB для глубокой аналитики)
+        # 2. ТАБЛИЦА НЕЙРО-ЛОГОВ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -58,7 +74,7 @@ async def init_db():
             )
         ''')
         
-        # 3. ТАБЛИЦА ПРИБЫЛИ (Бухгалтерия системы)
+        # 3. ТАБЛИЦА ПРИБЫЛИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS profit_distribution (
                 id SERIAL PRIMARY KEY,
@@ -71,28 +87,46 @@ async def init_db():
             )
         ''')
         
-        # Индексы для оптимизации
+        # Индексы
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
-        await conn.execute('CREATE INDEX IF NOT EXISTS idx_cmd_lookup ON neural_mm_logs(cmd)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_config_active ON bot_config(is_active)')
         
         print("✅ [DATABASE] Neural Pulse V28 Architecture Synchronized.")
 
+# --- ФУНКЦИИ УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ (АДМИНКА) ---
+
+async def load_remote_config():
+    """Загрузка настроек для main.py из базы данных."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow('''
+            SELECT mnemonic, ai_api_key, ai_strategy_level, target_jetton, dedust_pool, delta_sync_ms 
+            FROM bot_config 
+            WHERE is_active = TRUE 
+            ORDER BY updated_at DESC LIMIT 1
+        ''')
+        return dict(row) if row else None
+
+async def update_remote_config(data: dict):
+    """Обновление настроек через админку."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute('''
+            INSERT INTO bot_config (mnemonic, ai_api_key, target_jetton, dedust_pool, ai_strategy_level)
+            VALUES ($1, $2, $3, $4, $5)
+        ''', data.get('mnemonic'), data.get('ai_api_key'), data.get('target_jetton'), 
+             data.get('dedust_pool'), data.get('ai_strategy_level', 10))
+        return True
+
+# --- АНАЛИТИКА И ЛОГИРОВАНИЕ ---
+
 async def get_current_distribution():
-    """Получение текущих коэффициентов распределения профита."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT holders_pct, staking_pct, liquidity_pct, treasury_pct FROM distribution_settings WHERE label = 'default'")
-        if row:
-            return {
-                "holders": row['holders_pct'],
-                "staking": row['staking_pct'],
-                "liquidity": row['liquidity_pct'],
-                "treasury": row['treasury_pct']
-            }
-        return {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
+        return dict(row) if row else {"holders_pct": 0.02, "staking_pct": 0.30, "liquidity_pct": 0.38, "treasury_pct": 0.30}
 
 async def get_market_state():
-    """Сбор контекста для ИИ и расчет трендов на основе истории."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -101,7 +135,6 @@ async def get_market_state():
             ORDER BY timestamp DESC LIMIT 30
         ''')
         
-        # Извлекаем последние цены из снапшотов
         prices = [h['market_snapshot'].get('price_ton', 0) for h in history if h['market_snapshot']]
         trend = "STABLE"
         if len(prices) > 1:
@@ -124,7 +157,6 @@ async def get_market_state():
         }
 
 async def log_ai_action(strategy, market, perf_data=None):
-    """Запись воздействия на рынок с авто-очисткой."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -134,13 +166,11 @@ async def log_ai_action(strategy, market, perf_data=None):
             ''', strategy['cmd'], float(strategy['amt']), int(strategy.get('urgency', 1)), 
                  strategy['reason'], json.dumps(market), json.dumps(perf_data))
             
-            # Авто-очистка (храним 7 дней)
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
 
 async def add_profit_record(amount):
-    """Бухгалтерское разделение прибыли."""
     pool = await get_pool()
     s = await get_current_distribution()
     async with pool.acquire() as conn:
@@ -148,11 +178,10 @@ async def add_profit_record(amount):
             INSERT INTO profit_distribution 
             (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
             VALUES ($1, $2, $3, $4, $5)
-        ''', amount, amount*s['holders'], amount*s['staking'], amount*s['liquidity'], amount*s['treasury'])
+        ''', amount, amount*s['holders_pct'], amount*s['staking_pct'], amount*s['liquidity_pct'], amount*s['treasury_pct'])
         print(f"💰 [PROFIT] {amount} TON shared by neural algorithm.")
 
 async def get_stats_for_web():
-    """Аналитическая сводка для фронтенда."""
     pool = await get_pool()
     dist_settings = await get_current_distribution()
     async with pool.acquire() as conn:
