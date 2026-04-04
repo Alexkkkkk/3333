@@ -1,24 +1,24 @@
-# --- AI ENGINE ---
-# Основной модуль для работы с нейросетевыми стратегиями
-# ВАЖНО: Используется версия 0.28.1 для поддержки ChatCompletion.acreate
-openai==0.28.1
+# --- [ QUANTUM NEURAL ENGINE V28 ] ---
+# Архитектура: High-Load / AI-Market-Maker
+# Node: Bothost (NL4-Optimized)
 
-# --- CORE ASYNC & NETWORK ---
-# Обеспечивают асинхронность и работу веб-терминала на порту 3000
+# [AI & LOGIC]
+openai==0.28.1
+numpy>=1.24.0
+
+# [NETWORK & ASYNC CORE]
 asyncio
-aiohttp
+aiohttp>=3.9.0
 aiohttp_cors
 python-dotenv
+ujson
 
-# --- BLOCKCHAIN (TON PROTOCOL) ---
-# Библиотека для связи с сетью TON (исправляет ошибку [FATAL])
-pytoniq
+# [TON BLOCKCHAIN PROTOCOL]
+pytoniq>=0.1.43
+pytoniq-core>=0.1.45
 
-# --- MATH & NEURAL ANALYTICS ---
-# Для спектрального анализа (FFT) и фрактальных вычислений
-numpy
-
-# --- INFRASTRUCTURE : DATABASE ---
-# Драйверы для связи с PostgreSQL на node1.pghost.ru:32865
-asyncpg
-psycopg2-binary
+# [INFRASTRUCTURE & DATABASE]
+# Основной драйвер для асинхронных запросов
+asyncpg>=0.29.0
+# Вспомогательный драйвер для совместимости с внешними БД
+psycopg2-binary>=2.9.9
