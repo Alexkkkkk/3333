@@ -14,7 +14,7 @@ import aiohttp_cors
 # TON Либы
 from pytoniq import LiteClient, WalletV4R2, BeginCell, Address
 # Модули БД
-from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool
+from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
 
 load_dotenv()
 openai.api_key = os.getenv("AI_API_KEY")
@@ -25,7 +25,7 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Конфиг из .env
+        # Конфиг TON
         self.pool_addr = Address(os.getenv('DEDUST_POOL'))
         self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
         
@@ -34,9 +34,9 @@ class OmniNeuralOverlord:
         self.total_ops = 0
         self.backlog = asyncio.Queue()
 
-    # --- THE SINGULARITY ENGINE (Ultra-Analytics) ---
+    # --- ANALYTICS ENGINE ---
     def _calculate_hyper_analytics(self):
-        """Квантовая психометрия и спектральный анализ паттернов."""
+        """Спектральный и фрактальный анализ рыночных данных."""
         if len(self.synaptic_history) < 20: return None
         
         prices = np.array([h['price'] for h in self.synaptic_history])
@@ -47,12 +47,11 @@ class OmniNeuralOverlord:
         radial_dist = np.abs(prices[-1] - prices[0])
         fei = radial_dist / path_length if path_length > 0 else 0
 
-        # 2. Spectral Purity (FFT) - Видит "ритм" закупок китов
+        # 2. Spectral Purity (FFT) - поиск циклов китов
         fft_data = np.abs(np.fft.fft(prices))
         signal_purity = np.max(fft_data) / np.mean(fft_data) if np.mean(fft_data) > 0 else 0
 
-        # 3. Probability Collapse (Eigenvalues) - Определяет хрупкость тренда
-        # Создаем матрицу задержек
+        # 3. Probability Collapse (Eigenvalues)
         matrix = np.column_stack([prices[1:], prices[:-1]])
         cov = np.cov(matrix.T)
         eigenvalues = np.linalg.eigvals(cov)
@@ -80,13 +79,14 @@ class OmniNeuralOverlord:
         prompt = {
             "core_id": self.core_id,
             "market": market_snapshot['current_metrics'],
+            "memory": market_snapshot['recent_memory'],
             "singularity": hyper,
             "mission": "Execute hyper-precise entry. Exploit market imbalances."
         }
 
         try:
             res = await openai.ChatCompletion.acreate(
-                model="gpt-4o", # Рекомендую 4o для сложных расчетов
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are OMNI-SINGULARITY. CMD: [BUY/PUMP/SHIELD/WAIT]. Output JSON ONLY. Accuracy: 100%."},
                     {"role": "user", "content": json.dumps(prompt)}
@@ -108,6 +108,7 @@ class OmniNeuralOverlord:
             return {"cmd": "WAIT", "amt": 0, "delay": 20, "reason": f"Neural Lag: {e}"}
 
     async def dispatch_hft_pulse(self, wallet, plan, market):
+        """Отправка транзакции со встроенным Jitter (анти-бот защита)."""
         amt = plan['amt']
         nano_amt = int(amt * 1e9)
         adjusted_gas = int(0.25e9 + (plan['urgency'] * 0.03e9))
@@ -117,28 +118,15 @@ class OmniNeuralOverlord:
                         .store_uint(int(time.time() + 150), 64)
                         .store_coins(nano_amt)
                         .store_address(self.pool_addr)
-                        .store_uint(0, 1)
-                        .store_coins(0)
-                        .store_maybe_ref(None)
-                        .end_cell())
+                        .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
         try:
-            # Stealth Jitter (+-1.5%)
             jitter = int(nano_amt * (1 + random.uniform(-0.015, 0.015)))
-            
             await asyncio.wait_for(
-                wallet.transfer(
-                    destination=self.vault_ton,
-                    amount=jitter + adjusted_gas,
-                    body=swap_payload
-                ), timeout=25.0
+                wallet.transfer(destination=self.vault_ton, amount=jitter + adjusted_gas, body=swap_payload), 
+                timeout=25.0
             )
-            
             self.total_ops += 1
             self.last_status = f"EXECUTED_{plan['cmd']}"
-            
-            # Обновляем историю ценой после удара
-            price = market.get('current_metrics', {}).get('price_ton', 0)
-            self.synaptic_history.append({"price": price, "time": time.time()})
             return True
         except Exception as e:
             self.last_status = "PULSE_ERROR"
@@ -146,36 +134,20 @@ class OmniNeuralOverlord:
             return False
 
     # --- WEB SERVER ---
-    async def handle_get_stats(self, request):
-        return web.json_response(await get_stats_for_web())
-
-    async def handle_update_settings(self, request):
-        try:
-            data = await request.json()
-            pool = await get_pool()
-            async with pool.acquire() as conn:
-                await conn.execute('''
-                    UPDATE distribution_settings SET holders_pct=$1, staking_pct=$2, 
-                    liquidity_pct=$3, treasury_pct=$4 WHERE label='default'
-                ''', float(data['holders'])/100, float(data['staking'])/100, 
-                     float(data['liquidity'])/100, float(data['treasury'])/100)
-            return web.json_response({"status": "ok"})
-        except: return web.json_response({"status": "error"})
-
     async def start_web_server(self):
         app = web.Application()
         aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*")})
-        app.router.add_get('/api/stats', self.handle_get_stats)
-        app.router.add_post('/api/settings', self.handle_update_settings)
+        app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
+        
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static')
         
         runner = web.AppRunner(app); await runner.setup()
         await web.TCPSite(runner, '0.0.0.0', int(os.getenv('PORT', 3000))).start()
-        print(f"\033[94m🌐 [WEB] Terminal Ready: http://localhost:3000\033[0m")
+        print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:3000\033[0m")
 
     async def telemetry_worker(self):
-        """Асинхронная запись логов без блокировки основного цикла."""
+        """Фоновый воркер логов."""
         while self.is_active:
             task = await self.backlog.get()
             try: await log_ai_action(task['strategy'], task['market'])
@@ -196,9 +168,11 @@ class OmniNeuralOverlord:
 
         while self.is_active:
             try:
-                market = await get_market_state()
-                # Синхронизация истории цен
-                p_curr = market['current_metrics']['price_ton']
+                # Получаем расширенный стейт из базы (тренды + история)
+                market_state = await get_market_state()
+                p_curr = market_state['current_metrics']['price_ton']
+                
+                # Обновляем локальную синаптическую историю для FFT
                 self.synaptic_history.append({"price": p_curr, "time": time.time()})
                 if len(self.synaptic_history) > 200: self.synaptic_history.pop(0)
 
@@ -206,15 +180,14 @@ class OmniNeuralOverlord:
                 sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | STATUS: {self.last_status} ]\033[0m")
                 sys.stdout.flush()
 
-                plan = await self.fetch_neural_strategy(market)
+                plan = await self.fetch_neural_strategy(market_state)
                 
                 if plan['cmd'] in ["BUY", "PUMP", "SHIELD"] and balance > (plan['amt'] + 3.0):
-                    if await self.dispatch_hft_pulse(wallet, plan, market):
-                        await self.backlog.put({"strategy": plan, "market": market})
+                    if await self.dispatch_hft_pulse(wallet, plan, market_state):
+                        await self.backlog.put({"strategy": plan, "market": market_state['current_metrics']})
                 else:
-                    # Логируем аналитику в 10% случаев ожидания для истории
-                    if random.random() < 0.1:
-                        await self.backlog.put({"strategy": plan, "market": market})
+                    if random.random() < 0.1: # Логируем аналитику в 10% простоев
+                        await log_ai_action(plan, market_state['current_metrics'])
 
                 await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 3)))
 
@@ -224,7 +197,5 @@ class OmniNeuralOverlord:
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(OmniNeuralOverlord().core_loop())
-    except KeyboardInterrupt:
-        print("\033[91m\n🔌 Overmind Offline.\033[0m")
+    try: asyncio.run(OmniNeuralOverlord().core_loop())
+    except KeyboardInterrupt: print("\033[91m\n🔌 Overmind Offline.\033[0m")
