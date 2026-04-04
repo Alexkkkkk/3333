@@ -22,8 +22,8 @@ except ImportError:
     print("\033[91m🚨 [FATAL]: pytoniq is not installed. Check requirements.txt!\033[0m")
     sys.exit(1)
 
-# Модули БД (Убедись, что в database.py есть функция load_remote_config)
-from database import init_db, log_ai_action, get_market_state, get_stats_for_web, load_remote_config
+# Модули БД (Должны содержать init_db, log_ai_action, get_market_state, get_stats_for_web, load_remote_config, update_remote_config)
+from database import init_db, log_ai_action, get_market_state, get_stats_for_web, load_remote_config, update_remote_config
 
 load_dotenv()
 
@@ -33,19 +33,19 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Динамические параметры (инициализируются из БД)
+        # Динамические параметры
         self.pool_addr = None
         self.vault_ton = Address("EQCt0-Ba6Y_9_6p20tH_E_Oq_H_O_O_O_O_O_O_O_O_O_O_O_O")
         self.mnemonic = None
         self.ai_key = None
+        self.strategy_level = 10
         
         self.synaptic_history = []
         self.last_status = "WAITING_FOR_CONFIG"
         self.total_ops = 0
-        self.backlog = asyncio.Queue()
 
     async def update_config_from_db(self):
-        """Механизм подтяжки настроек из админки (БД)"""
+        """Синхронизация локальных параметров с базой данных pghost.ru"""
         try:
             cfg = await load_remote_config()
             if cfg:
@@ -64,7 +64,7 @@ class OmniNeuralOverlord:
             print(f"\033[91m🚨 [DB CONFIG ERROR]: {e}\033[0m")
             return False
 
-    # --- АНАЛИТИЧЕСКИЙ ДВИЖОК ---
+    # --- АНАЛИТИЧЕСКИЙ ДВИЖОК (Fractal & Spectral) ---
     def _calculate_hyper_analytics(self):
         if len(self.synaptic_history) < 20: return None
         prices = np.array([h['price'] for h in self.synaptic_history])
@@ -112,7 +112,7 @@ class OmniNeuralOverlord:
             res = await openai.ChatCompletion.acreate(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are OMNI-SINGULARITY. Output JSON ONLY. [BUY/WAIT]."},
+                    {"role": "system", "content": "You are OMNI-SINGULARITY. Output JSON ONLY. Actions: [BUY/WAIT]."},
                     {"role": "user", "content": json.dumps(prompt)}
                 ],
                 response_format={ "type": "json_object" },
@@ -120,11 +120,10 @@ class OmniNeuralOverlord:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            return {"cmd": "WAIT", "amt": 0, "delay": 20, "reason": f"Neural Lag: {e}"}
+            return {"cmd": "WAIT", "reason": f"Neural Lag: {e}"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
         if not self.pool_addr: return False
-        
         amt = float(plan.get('amt', 0))
         nano_amt = int(amt * 1e9)
         
@@ -143,58 +142,79 @@ class OmniNeuralOverlord:
             print(f"🚨 [DISPATCH ERROR]: {e}")
             return False
 
+    # --- WEB SERVER & API (INTEGRATED WITH QUANTUM.BOTHOST.TECH) ---
     async def start_web_server(self):
         app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")
+        })
         
-        resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
-        cors.add(resource)
+        # API Routes
+        app.router.add_get('/api/stats', self.handle_get_stats)
+        app.router.add_post('/api/config', self.handle_update_config)
         
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static', show_index=True)
         
+        cors.add(app.router.add_resource('/api/stats').add_route("GET", self.handle_get_stats))
+        cors.add(app.router.add_resource('/api/config').add_route("POST", self.handle_update_config))
+
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.getenv('PORT', 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        print(f"\033[94m🌐 [WEB] Terminal Ready: http://0.0.0.0:{port}\033[0m")
+        print(f"\033[94m🌐 [WEB] QUANTUM Interface Ready: http://quantum.bothost.tech (Port {port})\033[0m")
+
+    async def handle_get_stats(self, request):
+        stats = await get_stats_for_web()
+        return web.json_response(stats)
+
+    async def handle_update_config(self, request):
+        """Прием данных из админки и сохранение в БД"""
+        try:
+            data = await request.json()
+            await update_remote_config(data) # Сохраняем в PostgreSQL
+            await self.update_config_from_db() # Мгновенно обновляем бота
+            return web.json_response({"status": "success", "message": "Core Reconfigured"})
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=400)
 
     async def core_loop(self):
         await init_db()
         await self.start_web_server()
 
-        print(f"\033[95m--- 🌀 OMNI NEURAL CORE : DATABASE-DRIVEN MODE ---\033[0m")
+        print(f"\033[95m--- 🌀 OMNI NEURAL CORE : SINGULARITY ONLINE ---\033[0m")
 
         while self.is_active:
             try:
-                # 1. Синхронизация с админкой
+                # 1. Синхронизация
                 if not await self.update_config_from_db():
-                    print("\r\033[93m⌛ Ожидание конфигурации в базе данных...\033[0m", end="")
+                    print("\r\033[93m⌛ Ожидание конфигурации через https://quantum.bothost.tech ...\033[0m", end="")
                     await asyncio.sleep(10)
                     continue
 
-                # 2. Инициализация кошелька, если конфигурация подгружена
+                # 2. Сессия TON
                 client = LiteClient.from_mainnet_config()
                 await client.start()
                 wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
 
-                # 3. Основной цикл работы
+                # 3. Рабочий цикл
                 while self.is_active:
                     market_state = await get_market_state()
                     p_curr = market_state['current_metrics']['price_ton']
                     self.synaptic_history.append({"price": p_curr, "time": time.time()})
                     
+                    if len(self.synaptic_history) > 200: self.synaptic_history.pop(0)
+
                     balance = (await wallet.get_balance()) / 1e9
-                    sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | ADDR: {self.pool_addr} ]\033[0m")
+                    sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | MODE: {self.strategy_level}x ]\033[0m")
                     sys.stdout.flush()
 
                     plan = await self.fetch_neural_strategy(market_state)
                     
                     if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 1.0):
-                        await self.dispatch_hft_pulse(wallet, plan)
-                    
-                    # Периодическая проверка обновления настроек в БД
-                    if self.total_ops % 5 == 0: await self.update_config_from_db()
+                        if await self.dispatch_hft_pulse(wallet, plan):
+                            await log_ai_action(plan, market_state['current_metrics'])
                     
                     await asyncio.sleep(15)
 
