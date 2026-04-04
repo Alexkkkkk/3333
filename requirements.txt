@@ -1,7 +1,6 @@
 # --- AI ENGINE ---
 # Основной модуль для работы с нейросетевыми стратегиями
-# ВАЖНО: В твоем коде используется старый синтаксис (ChatCompletion.acreate), 
-# поэтому используем версию 0.28.1 для совместимости.
+# ВАЖНО: Используется версия 0.28.1 для поддержки ChatCompletion.acreate
 openai==0.28.1
 
 # --- CORE ASYNC & NETWORK ---
@@ -12,14 +11,14 @@ aiohttp_cors
 python-dotenv
 
 # --- BLOCKCHAIN (TON PROTOCOL) ---
-# Критически важная библиотека для связи с сетью TON (исправляет ошибку [FATAL])
+# Библиотека для связи с сетью TON (исправляет ошибку [FATAL])
 pytoniq
 
 # --- MATH & NEURAL ANALYTICS ---
-# Используется для спектрального анализа (FFT) и фрактальных вычислений
+# Для спектрального анализа (FFT) и фрактальных вычислений
 numpy
 
 # --- INFRASTRUCTURE : DATABASE ---
-# Драйверы для надежной связи с PostgreSQL на node1.pghost.ru:32865
+# Драйверы для связи с PostgreSQL на node1.pghost.ru:32865
 asyncpg
 psycopg2-binary
