@@ -11,12 +11,11 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# Блок TON библиотек
+# TON Либы
 from pytoniq import LiteClient, WalletV4R2, BeginCell, Address
-# Твои локальные модули
+# Модули БД
 from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool
 
-# Загрузка конфигурации
 load_dotenv()
 openai.api_key = os.getenv("AI_API_KEY")
 
@@ -26,117 +25,95 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Конфигурация из .env
+        # Конфиг из .env
         self.pool_addr = Address(os.getenv('DEDUST_POOL'))
         self.vault_ton = Address(os.getenv('DEDUST_VAULT_TON'))
-        self.strategy_level = int(os.getenv('AI_STRATEGY_LEVEL', 10))
-        
-        # ДНК Системы (Аналитические коэффициенты)
-        self.dna = {
-            "market_pressure": 0.99,
-            "stealth_mode": 0.94,
-            "floor_protection": 0.88,
-            "gas_strategy": "HYPER_FAST"
-        }
         
         self.synaptic_history = []
         self.last_status = "INITIALIZING"
         self.total_ops = 0
         self.backlog = asyncio.Queue()
 
-    # --- THE SINGULARITY ENGINE (Hyper-Analytics) ---
+    # --- THE SINGULARITY ENGINE (Ultra-Analytics) ---
     def _calculate_hyper_analytics(self):
-        """Квантовая психометрия: FEI, Entropy и Gravity Price."""
+        """Квантовая психометрия и спектральный анализ паттернов."""
         if len(self.synaptic_history) < 20: return None
         
         prices = np.array([h['price'] for h in self.synaptic_history])
         curr = prices[-1]
         
-        # 1. Fractal Efficiency Index (FEI) - Истинный тренд vs Шум
+        # 1. Fractal Efficiency (FEI)
         path_length = np.sum(np.abs(np.diff(prices)))
         radial_dist = np.abs(prices[-1] - prices[0])
         fei = radial_dist / path_length if path_length > 0 else 0
 
-        # 2. Entropy Cluster (Volatility Compression)
-        returns = np.diff(np.log(prices))
-        # Сжатие волатильности часто предшествует взрыву
-        vol_compression = np.std(returns[-5:]) / np.std(returns) if len(returns) > 5 else 1
+        # 2. Spectral Purity (FFT) - Видит "ритм" закупок китов
+        fft_data = np.abs(np.fft.fft(prices))
+        signal_purity = np.max(fft_data) / np.mean(fft_data) if np.mean(fft_data) > 0 else 0
+
+        # 3. Probability Collapse (Eigenvalues) - Определяет хрупкость тренда
+        # Создаем матрицу задержек
+        matrix = np.column_stack([prices[1:], prices[:-1]])
+        cov = np.cov(matrix.T)
+        eigenvalues = np.linalg.eigvals(cov)
+        prob_collapse = np.max(eigenvalues) / np.sum(eigenvalues) if np.sum(eigenvalues) > 0 else 0
         
-        # 3. Z-Score (Статистическое отклонение)
+        # 4. Z-Score & Gravity
         sma = np.mean(prices[-15:])
-        std_dev = np.std(prices)
-        z_score = (curr - sma) / std_dev if std_dev > 0 else 0
-
-        # 4. Gravity Price (Средневзвешенный магнит ликвидности)
-        # Придаем больший вес последним ценам
-        weights = np.linspace(0.1, 1.0, len(prices))
-        gravity = np.average(prices, weights=weights)
-
-        # 5. Fair Value Gap (FVG)
-        fvg_active = False
-        if len(prices) >= 3:
-            p1, p2, p3 = prices[-3], prices[-2], prices[-1]
-            if p3 > p1 * 1.015: fvg_active = True
+        std = np.std(prices)
+        z_score = (curr - sma) / std if std > 0 else 0
+        gravity = np.average(prices, weights=np.linspace(0.1, 1.0, len(prices)))
 
         return {
             "fractal_efficiency": round(float(fei), 4),
-            "market_state": "TRENDING" if fei > 0.5 else "RANGING",
-            "explosion_risk": "HIGH" if vol_compression < 0.4 else "STABLE",
+            "signal_purity": round(float(signal_purity), 2),
+            "prob_collapse": round(float(prob_collapse), 4),
+            "market_state": "TRENDING" if fei > 0.5 else "CHAOTIC",
             "gravity_price": round(float(gravity), 8),
             "z_score": round(float(z_score), 2),
-            "fvg_active": fvg_active,
-            "neural_confidence": round(float(fei * 100), 2)
+            "neural_confidence": round(float(prob_collapse * 100), 2)
         }
 
-    # --- ИИ ПЛАНИРОВАНИЕ ---
     async def fetch_neural_strategy(self, market_snapshot):
         hyper = self._calculate_hyper_analytics()
         
         prompt = {
             "core_id": self.core_id,
-            "market_metrics": market_snapshot['current_metrics'],
-            "singularity_data": hyper,
-            "recent_memory": market_snapshot.get('recent_memory', []),
+            "market": market_snapshot['current_metrics'],
+            "singularity": hyper,
             "mission": "Execute hyper-precise entry. Exploit market imbalances."
         }
 
         try:
             res = await openai.ChatCompletion.acreate(
-                model="gpt-4-turbo",
+                model="gpt-4o", # Рекомендую 4o для сложных расчетов
                 messages=[
-                    {"role": "system", "content": (
-                        "You are OMNI-SINGULARITY. You see the market as a mathematical construct. "
-                        "CMD: BUY/PUMP/SHIELD/WAIT. "
-                        "If explosion_risk is HIGH, prepare for rapid movement. "
-                        "If fractal_efficiency is low, avoid overtrading. Output JSON ONLY."
-                    )},
+                    {"role": "system", "content": "You are OMNI-SINGULARITY. CMD: [BUY/PUMP/SHIELD/WAIT]. Output JSON ONLY. Accuracy: 100%."},
                     {"role": "user", "content": json.dumps(prompt)}
                 ],
                 response_format={ "type": "json_object" },
-                temperature=0.15 # Максимальная точность
+                temperature=0.1
             )
             logic = json.loads(res.choices[0].message.content)
             
             return {
                 "cmd": str(logic.get("cmd", "WAIT")).upper(),
                 "amt": min(float(logic.get("amt", 0)), 50.0),
-                "delay": max(int(logic.get("delay", 20)), 10),
+                "delay": max(int(logic.get("delay", 15)), 5),
                 "urgency": max(min(int(logic.get("urgency", 1)), 5), 1),
-                "reason": str(logic.get("reason", "Recalibrating fractal link")),
+                "reason": str(logic.get("reason", "Scanning fractal waves")),
                 "confidence": logic.get("confidence_pct", 0)
             }
         except Exception as e:
-            return {"cmd": "WAIT", "amt": 0, "delay": 30, "reason": f"Neural Lag: {e}"}
+            return {"cmd": "WAIT", "amt": 0, "delay": 20, "reason": f"Neural Lag: {e}"}
 
-    # --- ИСПОЛНЕНИЕ ТРАНЗАКЦИЙ ---
     async def dispatch_hft_pulse(self, wallet, plan, market):
         amt = plan['amt']
-        urgency = plan['urgency']
         nano_amt = int(amt * 1e9)
-        adjusted_gas = int(0.25e9 + (urgency * 0.03e9))
+        adjusted_gas = int(0.25e9 + (plan['urgency'] * 0.03e9))
 
         swap_payload = (BeginCell()
-                        .store_uint(0xea06185d, 32)
+                        .store_uint(0xea06185d, 32) # Op-code DeDust
                         .store_uint(int(time.time() + 150), 64)
                         .store_coins(nano_amt)
                         .store_address(self.pool_addr)
@@ -145,8 +122,9 @@ class OmniNeuralOverlord:
                         .store_maybe_ref(None)
                         .end_cell())
         try:
-            # Stealth: Случайное изменение суммы на +-1.5%
+            # Stealth Jitter (+-1.5%)
             jitter = int(nano_amt * (1 + random.uniform(-0.015, 0.015)))
+            
             await asyncio.wait_for(
                 wallet.transfer(
                     destination=self.vault_ton,
@@ -156,17 +134,18 @@ class OmniNeuralOverlord:
             )
             
             self.total_ops += 1
-            self.last_status = f"SINGULARITY_{plan['cmd']}"
+            self.last_status = f"EXECUTED_{plan['cmd']}"
             
+            # Обновляем историю ценой после удара
             price = market.get('current_metrics', {}).get('price_ton', 0)
             self.synaptic_history.append({"price": price, "time": time.time()})
             return True
         except Exception as e:
             self.last_status = "PULSE_ERROR"
-            print(f"\n🚨 [CRITICAL]: {e}")
+            print(f"\n🚨 [DISPATCH ERROR]: {e}")
             return False
 
-    # --- WEB & WORKERS (Стабильные модули) ---
+    # --- WEB SERVER ---
     async def handle_get_stats(self, request):
         return web.json_response(await get_stats_for_web())
 
@@ -188,12 +167,15 @@ class OmniNeuralOverlord:
         aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*")})
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/settings', self.handle_update_settings)
-        if os.path.exists('static'): app.router.add_static('/', path='static', name='static')
+        if os.path.exists('static'): 
+            app.router.add_static('/', path='static', name='static')
+        
         runner = web.AppRunner(app); await runner.setup()
         await web.TCPSite(runner, '0.0.0.0', int(os.getenv('PORT', 3000))).start()
-        print(f"\033[94m🌐 [WEB] Singularity Terminal: http://localhost:3000\033[0m")
+        print(f"\033[94m🌐 [WEB] Terminal Ready: http://localhost:3000\033[0m")
 
     async def telemetry_worker(self):
+        """Асинхронная запись логов без блокировки основного цикла."""
         while self.is_active:
             task = await self.backlog.get()
             try: await log_ai_action(task['strategy'], task['market'])
@@ -210,13 +192,17 @@ class OmniNeuralOverlord:
         wallet = await WalletV4R2.from_mnemonic(client, os.getenv('MNEMONIC').split())
         
         os.system('cls' if os.name == 'nt' else 'clear')
-        print(f"\033[95m--- 🌀 OMNI NEURAL CORE V99 : SINGULARITY ACTIVATED ---\033[0m")
+        print(f"\033[95m--- 🌀 OMNI NEURAL CORE V-INFINITY : SINGULARITY ONLINE ---\033[0m")
 
         while self.is_active:
             try:
                 market = await get_market_state()
+                # Синхронизация истории цен
+                p_curr = market['current_metrics']['price_ton']
+                self.synaptic_history.append({"price": p_curr, "time": time.time()})
+                if len(self.synaptic_history) > 200: self.synaptic_history.pop(0)
+
                 balance = (await wallet.get_balance()) / 1e9
-                
                 sys.stdout.write(f"\r\033[96m[ BAL: {balance:.2f} | OPS: {self.total_ops} | STATUS: {self.last_status} ]\033[0m")
                 sys.stdout.flush()
 
@@ -226,15 +212,19 @@ class OmniNeuralOverlord:
                     if await self.dispatch_hft_pulse(wallet, plan, market):
                         await self.backlog.put({"strategy": plan, "market": market})
                 else:
-                    if random.random() < 0.2: # Логируем важные аналитические циклы
+                    # Логируем аналитику в 10% случаев ожидания для истории
+                    if random.random() < 0.1:
                         await self.backlog.put({"strategy": plan, "market": market})
 
-                await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 5)))
+                await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 3)))
 
             except Exception as e:
                 self.last_status = "RECALIBRATING"
+                print(f"\n[LOOP ERROR]: {e}")
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    try: asyncio.run(OmniNeuralOverlord().core_loop())
-    except KeyboardInterrupt: print("\033[91m\n🔌 Singularity Offline.\033[0m")
+    try:
+        asyncio.run(OmniNeuralOverlord().core_loop())
+    except KeyboardInterrupt:
+        print("\033[91m\n🔌 Overmind Offline.\033[0m")
