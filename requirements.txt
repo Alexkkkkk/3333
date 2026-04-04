@@ -1,4 +1,8 @@
-pytoniq
-python-dotenv
-asyncpg
+openai
 asyncio
+asyncpg
+python-dotenv
+aiohttp
+aiohttp_cors
+pytoniq
+numpy
