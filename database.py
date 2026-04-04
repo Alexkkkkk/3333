@@ -22,10 +22,10 @@ async def get_pool():
     return _pool
 
 async def init_db():
-    """Инициализация архитектуры: Логи, Финансы и Динамические настройки."""
+    """Инициализация архитектуры: Логи, Финансы и Аналитика."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. ТАБЛИЦА НАСТРОЕК (Управление процентами)
+        # 1. ТАБЛИЦА НАСТРОЕК
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS distribution_settings (
                 id SERIAL PRIMARY KEY,
@@ -38,14 +38,13 @@ async def init_db():
             )
         ''')
 
-        # Дефолтный пресет (2% / 30% / 38% / 30%)
         await conn.execute('''
             INSERT INTO distribution_settings (label, holders_pct, staking_pct, liquidity_pct, treasury_pct)
             VALUES ('default', 0.02, 0.30, 0.38, 0.30)
             ON CONFLICT (label) DO NOTHING
         ''')
 
-        # 2. ОСНОВНАЯ ТАБЛИЦА ЛОГОВ ТОРГОВЛИ
+        # 2. ТАБЛИЦА ЛОГОВ (С поддержкой JSONB аналитики)
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -59,7 +58,7 @@ async def init_db():
             )
         ''')
         
-        # 3. ТАБЛИЦА ФАКТИЧЕСКОГО РАСПРЕДЕЛЕНИЯ ПРИБЫЛИ
+        # 3. ТАБЛИЦА РАСПРЕДЕЛЕНИЯ ПРИБЫЛИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS profit_distribution (
                 id SERIAL PRIMARY KEY,
@@ -72,14 +71,13 @@ async def init_db():
             )
         ''')
         
-        # Индексы для Ultra Fast Performance
+        # Индексы для скорости
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_cmd_lookup ON neural_mm_logs(cmd)')
         
-        print("✅ [DATABASE] Система Neural Pulse V28 (Dynamic Finance) инициализирована.")
+        print("✅ [DATABASE] Система Neural Pulse V28 (Ultra Analytics) инициализирована.")
 
 async def get_current_distribution():
-    """Получает текущие коэффициенты распределения из БД."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM distribution_settings WHERE label = 'default'")
@@ -92,72 +90,62 @@ async def get_current_distribution():
             }
         return {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
 
-async def log_profit_split(total_profit):
-    """Логирует профит, используя динамические проценты из таблицы настроек."""
-    settings = await get_current_distribution()
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        try:
-            await conn.execute('''
-                INSERT INTO profit_distribution 
-                (total_amount, holders_share, staking_share, liquidity_share, treasury_share)
-                VALUES ($1, $2, $3, $4, $5)
-            ''', 
-            total_profit,
-            total_profit * settings['holders'],
-            total_profit * settings['staking'],
-            total_profit * settings['liquidity'],
-            total_profit * settings['treasury']
-            )
-        except Exception as e:
-            print(f"🚨 [FINANCE_ERROR]: {e}")
-
 async def get_market_state():
-    """Сбор контекста для ИИ из истории операций."""
+    """Сбор глубокого контекста для ИИ."""
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Берем чуть больше истории для анализа тренда
         history = await conn.fetch('''
-            SELECT cmd, amount, reason, timestamp 
+            SELECT cmd, amount, reason, market_snapshot, timestamp 
             FROM neural_mm_logs 
-            ORDER BY timestamp DESC LIMIT 15
+            ORDER BY timestamp DESC LIMIT 30
         ''')
         
+        # Вычисляем простую дельту цены если есть снимки
+        prices = [h['market_snapshot'].get('price_ton', 0) for h in history if h['market_snapshot']]
+        trend = "STABLE"
+        if len(prices) > 1:
+            delta = prices[0] - prices[-1]
+            trend = "UPWARD" if delta > 0 else "DOWNWARD"
+
         bot_memory = [
             {
                 "action": h['cmd'],
                 "amt": h['amount'],
                 "reason": h['reason'],
                 "time": h['timestamp'].strftime('%H:%M:%S')
-            } for h in history
+            } for h in history[:15]
         ]
 
         return {
             "current_metrics": {
-                "price_ton": 0.2854,
+                "price_ton": 0.2854, # В продакшене тут будет живая цена
                 "liquidity_ton": 15400.50,
                 "volatility_index": 0.045,
-                "market_sentiment": "BULLISH_AGGRESSIVE"
+                "market_trend": trend,
+                "sentiment": "NEURAL_ANALYZED"
             },
             "recent_memory": bot_memory,
-            "system_integrity": "OPTIMAL"
+            "integrity": "OPTIMAL"
         }
 
-async def log_ai_action(plan, market_snapshot=None):
-    """Запись действия и автоматическая очистка (Dead Hand Protocol)."""
+async def log_ai_action(plan, market_snapshot=None, perf_data=None):
+    """Запись действия с расчетом эффективности."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
             await conn.execute(
-                '''INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot) 
-                   VALUES ($1, $2, $3, $4, $5)''', 
+                '''INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot, performance_metrics) 
+                   VALUES ($1, $2, $3, $4, $5, $6)''', 
                 plan.get('cmd', 'WAIT'), 
                 float(plan.get('amt', 0)), 
                 int(plan.get('urgency', 1)), 
-                plan.get('reason', 'Neural Pulse Core Execution'),
-                json.dumps(market_snapshot) if market_snapshot else None
+                plan.get('reason', 'Core Analysis Execution'),
+                json.dumps(market_snapshot) if market_snapshot else None,
+                json.dumps(perf_data) if perf_data else None
             )
             
-            # Удаляем логи старше 7 дней для экономии места на сервере
+            # Оптимизация БД
             if os.getenv('DB_AUTO_OPTIMIZE', 'true').lower() == 'true':
                 await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < $1", 
                                  datetime.now() - timedelta(days=7))
@@ -165,13 +153,18 @@ async def log_ai_action(plan, market_snapshot=None):
             print(f"🚨 [DB_ERROR]: {e}")
 
 async def get_stats_for_web():
-    """Генерация JSON для фронтенда с учетом новых настроек."""
+    """Генерация JSON с расширенной аналитикой для фронтенда."""
     pool = await get_pool()
     settings = await get_current_distribution()
     async with pool.acquire() as conn:
         try:
+            # Агрегация данных
             total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs")
             total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution")
+            
+            # Анализ профита за 24 часа
+            day_ago = datetime.now() - timedelta(hours=24)
+            daily_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution WHERE timestamp > $1", day_ago)
             
             last = await conn.fetchrow('''
                 SELECT cmd, reason, timestamp FROM neural_mm_logs 
@@ -185,23 +178,4 @@ async def get_stats_for_web():
             return {
                 "summary": {
                     "total_ton_traded": round(total_vol or 0, 2),
-                    "total_profit_shared": round(total_profit or 0, 4),
-                    "ai_status": "NEURAL_LINK_ACTIVE"
-                },
-                "telemetry": {
-                    "last_cmd": last['cmd'] if last else "IDLE",
-                    "last_timestamp": last['timestamp'].strftime('%H:%M:%S') if last else "--:--:--"
-                },
-                "current_settings": {
-                    "holders": f"{settings['holders']*100}%",
-                    "staking": f"{settings['staking']*100}%",
-                    "liquidity": f"{settings['liquidity']*100}%",
-                    "treasury": f"{settings['treasury']*100}%"
-                },
-                "charts": {
-                    "distribution": {row['cmd']: row['count'] for row in distribution}
-                }
-            }
-        except Exception as e:
-            print(f"📊 [STATS_ERROR]: {e}")
-            return {"status": "error"}
+                    "total_profit_shared": round(
