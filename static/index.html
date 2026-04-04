@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>NEURAL SENTINEL | Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0a0b10; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; padding: 20px; overflow-x: hidden; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: rgba(16, 18, 27, 0.9); border: 1px solid #00f2ff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 242, 255, 0.1); }
+        h1 { text-align: center; text-shadow: 0 0 10px #00f2ff; letter-spacing: 4px; }
+        h2 { border-bottom: 1px solid #00f2ff; padding-bottom: 10px; text-transform: uppercase; font-size: 16px; }
+        .stat-val { font-size: 28px; color: #fff; text-shadow: 0 0 5px #00f2ff; font-weight: bold; }
+        .input-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        input { background: #1a1d2e; border: 1px solid #00f2ff; color: #fff; padding: 8px; width: 80px; border-radius: 4px; text-align: center; }
+        button { background: #00f2ff; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.3s; }
+        button:hover { background: #fff; box-shadow: 0 0 20px #fff; transform: scale(1.02); }
+        .status-online { color: #0f0; font-weight: bold; animation: blink 2s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
+    
+    <div class="grid">
+        <div class="card">
+            <h2>Системная Телеметрия</h2>
+            <p>Статус: <span id="ai_status" class="status-online">LOADING...</span></p>
+            <p>Объем торгов (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
+            <p>Прибыль распределена:<br><span id="total_profit" class="stat-val">0.00</span></p>
+            <p>Последняя команда: <span id="last_cmd" style="color: #f0f; font-weight: bold;">---</span></p>
+        </div>
+
+        <div class="card">
+            <h2>Финансовый Контроль (%)</h2>
+            <div class="input-group"><span>Holders:</span> <input type="number" id="inp_holders" value="2"></div>
+            <div class="input-group"><span>Staking:</span> <input type="number" id="inp_staking" value="30"></div>
+            <div class="input-group"><span>Liquidity:</span> <input type="number" id="inp_liquidity" value="38"></div>
+            <div class="input-group"><span>Treasury:</span> <input type="number" id="inp_treasury" value="30"></div>
+            <button onclick="updateSettings()">Применить протокол</button>
+        </div>
+
+        <div class="card" style="grid-column: span 2;">
+            <h2>Анализ Команд (Распределение действий)</h2>
+            <canvas id="chartOps" style="max-height: 250px;"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let myChart;
+
+        async function refreshStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                
+                // Обновление текстовых данных
+                document.getElementById('total_vol').innerText = data.summary.total_ton_traded;
+                document.getElementById('total_profit').innerText = data.summary.total_profit_shared;
+                document.getElementById('last_cmd').innerText = data.telemetry.last_cmd;
+                document.getElementById('ai_status').innerText = data.summary.ai_status;
+
+                // Обновление графика
+                const ctx = document.getElementById('chartOps').getContext('2d');
+                const labels = Object.keys(data.charts.distribution);
+                const values = Object.values(data.charts.distribution);
+
+                if (myChart) {
+                    myChart.data.labels = labels;
+                    myChart.data.datasets[0].data = values;
+                    myChart.update();
+                } else {
+                    myChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Количество операций',
+                                data: values,
+                                backgroundColor: '#00f2ff',
+                                borderColor: '#fff',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true, grid: { color: '#1a1d2e' } } },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            } catch (e) { console.error("Update failed", e); }
+        }
+
+        async function updateSettings() {
+            const body = {
+                holders: document.getElementById('inp_holders').value,
+                staking: document.getElementById('inp_staking').value,
+                liquidity: document.getElementById('inp_liquidity').value,
+                treasury: document.getElementById('inp_treasury').value
+            };
+            
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) alert("✅ Протокол обновлен. Данные синхронизированы с PostgreSQL.");
+            else alert("🚨 Ошибка при обновлении протокола.");
+        }
+
+        setInterval(refreshStats, 3000);
+        refreshStats();
+    </script>
+</body>
+</html>
