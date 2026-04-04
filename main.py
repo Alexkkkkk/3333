@@ -161,7 +161,7 @@ class OmniNeuralOverlord:
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static', show_index=True)
         
-        # Применение CORS
+        # Применение CORS ко всем маршрутам
         for route in list(app.router.routes()):
             cors.add(route)
 
@@ -228,7 +228,7 @@ class OmniNeuralOverlord:
                         if await self.dispatch_hft_pulse(wallet, plan):
                             await log_ai_action(plan, market_state['current_metrics'])
                     
-                    # Проверка обновлений конфига в фоне каждые 5 минут
+                    # Каждые 5 минут (300 сек) синхронизируем конфиг из БД
                     if int(time.time()) % 300 == 0:
                         await self.update_config_from_db()
                         
