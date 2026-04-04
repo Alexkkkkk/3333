@@ -11,9 +11,20 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# --- ИСПРАВЛЕННЫЕ ТОН ЛИБЫ ---
+# --- ДИНАМИЧЕСКИЙ ИМПОРТ TON ЛИБ (ФИКС ModuleNotFoundError) ---
 from pytoniq import LiteClient, WalletV4R2, Address
-from pytoniq.core import BeginCell  # Исправление для ImportError
+
+try:
+    # Пытаемся импортировать из нового расположения (pytoniq >= 0.1.30)
+    from pytoniq.core import BeginCell
+except (ImportError, ModuleNotFoundError):
+    try:
+        # Пытаемся импортировать из корня (старые версии)
+        from pytoniq import BeginCell
+    except ImportError:
+        # Если совсем беда — создаем заглушку, чтобы код не падал до старта
+        BeginCell = None
+        print("\033[91m⚠️ [CRITICAL]: BeginCell not found in pytoniq!\033[0m")
 
 # Модули БД (Убедись, что файл database.py в корне)
 from database import init_db, log_ai_action, get_market_state, get_stats_for_web, get_pool, add_profit_record
@@ -111,6 +122,10 @@ class OmniNeuralOverlord:
 
     async def dispatch_hft_pulse(self, wallet, plan, market):
         """Отправка транзакции со встроенным Jitter (анти-бот защита)."""
+        if BeginCell is None:
+            print("🚨 [ERROR]: Cannot dispatch - BeginCell is missing!")
+            return False
+
         amt = plan['amt']
         nano_amt = int(amt * 1e9)
         adjusted_gas = int(0.25e9 + (plan['urgency'] * 0.03e9))
@@ -138,7 +153,6 @@ class OmniNeuralOverlord:
     # --- WEB SERVER ---
     async def start_web_server(self):
         app = web.Application()
-        # Разрешаем CORS для твоего дизайна
         cors = aiohttp_cors.setup(app, defaults={
             "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
@@ -150,7 +164,7 @@ class OmniNeuralOverlord:
         resource = app.router.add_get('/api/stats', lambda r: web.json_response(get_stats_for_web()))
         cors.add(resource)
         
-        # Статика (дизайн kanderkander)
+        # Статика (дизайн kanderkander в папке static/)
         if os.path.exists('static'): 
             app.router.add_static('/', path='static', name='static')
         
@@ -180,7 +194,7 @@ class OmniNeuralOverlord:
         client = LiteClient.from_mainnet_config()
         await client.start()
         
-        # Получаем мнемонику из переменных окружения
+        # Получаем мнемонику
         mnemonic_list = os.getenv('MNEMONIC', '').split()
         if not mnemonic_list:
             print("\033[91m🚨 [FATAL]: MNEMONIC not found in ENV!\033[0m")
@@ -194,11 +208,9 @@ class OmniNeuralOverlord:
 
         while self.is_active:
             try:
-                # Получаем расширенный стейт из базы
                 market_state = await get_market_state()
                 p_curr = market_state['current_metrics']['price_ton']
                 
-                # Обновляем локальную синаптическую историю для FFT
                 self.synaptic_history.append({"price": p_curr, "time": time.time()})
                 if len(self.synaptic_history) > 200: self.synaptic_history.pop(0)
 
@@ -212,10 +224,9 @@ class OmniNeuralOverlord:
                     if await self.dispatch_hft_pulse(wallet, plan, market_state):
                         await self.backlog.put({"strategy": plan, "market": market_state['current_metrics']})
                 else:
-                    if random.random() < 0.1: # Логируем аналитику в 10% простоев
+                    if random.random() < 0.1:
                         await log_ai_action(plan, market_state['current_metrics'])
 
-                # Динамическая задержка
                 await asyncio.sleep(max(5, plan['delay'] + random.randint(-2, 3)))
 
             except Exception as e:
