@@ -111,14 +111,29 @@ async def load_remote_config():
         return dict(row) if row else None
 
 async def update_remote_config(data: dict):
-    """Обновление настроек через админку."""
+    """
+    Обновление настроек через админку.
+    Принимает: mnemonic, ai_api_key, target_jetton, dedust_pool, ai_strategy_level.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
-            INSERT INTO bot_config (mnemonic, ai_api_key, target_jetton, dedust_pool, ai_strategy_level)
-            VALUES ($1, $2, $3, $4, $5)
-        ''', data.get('mnemonic'), data.get('ai_api_key'), data.get('target_jetton'), 
-             data.get('dedust_pool'), data.get('ai_strategy_level', 10))
+            INSERT INTO bot_config (
+                mnemonic, 
+                ai_api_key, 
+                target_jetton, 
+                dedust_pool, 
+                ai_strategy_level, 
+                is_active
+            )
+            VALUES ($1, $2, $3, $4, $5, TRUE)
+        ''', 
+        data.get('mnemonic'), 
+        data.get('ai_api_key'), 
+        data.get('target_jetton'), 
+        data.get('dedust_pool'), 
+        int(data.get('ai_strategy_level', 10))
+        )
         return True
 
 # --- АНАЛИТИКА И ЛОГИРОВАНИЕ ---
@@ -142,7 +157,6 @@ async def get_market_state():
         for h in history:
             if h['market_snapshot']:
                 ms = h['market_snapshot']
-                # Обработка разных форматов возврата JSON от asyncpg
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
                 prices.append(val)
         
