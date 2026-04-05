@@ -136,19 +136,32 @@ class OmniNeuralOverlord:
         
         try:
             hyper = self._calculate_hyper_analytics()
-            # Инициализация клиента для каждой сессии (рекомендуется для OpenAI v1+)
-            client = openai.AsyncOpenAI(api_key=self.ai_key)
             
-            res = await asyncio.wait_for(client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
-                    {"role": "user", "content": json.dumps({"market": market_snapshot, "hyper": hyper})}
-                ],
-                response_format={ "type": "json_object" }
-            ), timeout=15)
-            
-            return json.loads(res.choices[0].message.content)
+            # Поддержка как старого (0.28), так и нового (1.0+) API OpenAI
+            if hasattr(openai, 'AsyncOpenAI'):
+                client = openai.AsyncOpenAI(api_key=self.ai_key)
+                res = await asyncio.wait_for(client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
+                        {"role": "user", "content": json.dumps({"market": market_snapshot, "hyper": hyper})}
+                    ],
+                    response_format={ "type": "json_object" }
+                ), timeout=15)
+                content = res.choices[0].message.content
+            else:
+                # Для версии 0.28.1
+                openai.api_key = self.ai_key
+                res = await asyncio.wait_for(openai.ChatCompletion.acreate(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
+                        {"role": "user", "content": json.dumps({"market": market_snapshot, "hyper": hyper})}
+                    ]
+                ), timeout=15)
+                content = res.choices[0].message.content
+
+            return json.loads(content)
         except Exception as e:
             log(f"Neural AI Error: {e}", "ERROR")
             return {"cmd": "WAIT", "reason": "AI Timeout/Error"}
@@ -273,3 +286,4 @@ if __name__ == "__main__":
         log("Shutdown requested", "WARNING")
     except Exception as fatal:
         log(f"Kernel Panic: {fatal}", "ERROR")
+        traceback.print_exc()
