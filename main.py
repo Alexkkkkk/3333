@@ -63,7 +63,7 @@ class OmniNeuralOverlord:
         # Настройки входа
         self.admin_login = "1"
         self.admin_pass = "1"
-        self.session_token = os.urandom(32).hex() # Токен сессии для куки
+        self.session_token = os.urandom(32).hex() 
         
         self.pool_addr = None
         self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
@@ -71,6 +71,9 @@ class OmniNeuralOverlord:
         self.mnemonic = None
         self.ai_key = None
         self.strategy_level = 10
+        
+        # Данные пула для отображения
+        self.pool_reserves = {"ton": "0.00", "token": "0.00"}
         
         self.synaptic_history = []
         self.last_status = "INITIALIZING"
@@ -90,8 +93,10 @@ class OmniNeuralOverlord:
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
                 pool_raw = self._clean_string(cfg.get('dedust_pool'))
                 if pool_raw: 
-                    try: self.pool_addr = Address(pool_raw)
-                    except: log("Ошибка формата адреса пула", "WARNING")
+                    try: 
+                        self.pool_addr = Address(pool_raw)
+                    except: 
+                        log("Ошибка формата адреса пула", "WARNING")
                 self.strategy_level = cfg.get('ai_strategy_level', 10)
                 self.last_status = "ACTIVE"
                 return True
@@ -128,6 +133,15 @@ class OmniNeuralOverlord:
         try:
             db_stats = await get_stats_for_web()
             db_stats['balance'] = f"{self.current_balance:.2f}"
+            
+            # Добавляем блок информации о пуле
+            db_stats['pool_info'] = {
+                "address": str(self.pool_addr) if self.pool_addr else "NOT CONFIGURED",
+                "reserve_ton": self.pool_reserves["ton"],
+                "reserve_token": self.pool_reserves["token"],
+                "status": "SYNCED" if self.pool_addr else "WAITING"
+            }
+            
             db_stats['engine'] = {
                 "core_id": self.core_id,
                 "ops_total": self.total_ops,
@@ -190,7 +204,6 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
         
-        # Роуты
         app.router.add_get('/', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
@@ -233,6 +246,9 @@ class OmniNeuralOverlord:
                         await self.update_config_from_db()
                         market_state = await get_market_state()
                         self.current_balance = (await wallet.get_balance()) / 1e9
+                        
+                        # (Опционально) Здесь можно добавить логику запроса резервов пула 
+                        # через client.run_get_method(self.pool_addr, 'get_reserves')
                         
                         plan = await self.fetch_neural_strategy(market_state)
                         if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
