@@ -130,14 +130,22 @@ class OmniNeuralOverlord:
 
     # --- API & WEB ---
     async def handle_index(self, request):
+        """Обработчик для входа в админку (quantum.bothost.tech/amin)"""
         static_dir = self.get_static_path()
         if static_dir:
-            index_path = os.path.join(static_dir, 'index.html')
+            # Исправлено: ищем index.html в подпапке admin согласно твоей структуре
+            index_path = os.path.join(static_dir, 'admin', 'index.html')
+            
             if os.path.exists(index_path):
                 return web.FileResponse(index_path)
+            
+            # Резервный поиск в корне static, если в admin нет
+            alt_path = os.path.join(static_dir, 'index.html')
+            if os.path.exists(alt_path):
+                return web.FileResponse(alt_path)
         
-        log(f"Критическая ошибка: index.html не найден в {static_dir}", "ERROR")
-        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Search path: {static_dir}</p>", content_type='text/html', status=404)
+        log(f"Критическая ошибка: index.html не найден. Проверен путь: {static_dir}/admin/", "ERROR")
+        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Search path: {static_dir}/admin/index.html</p>", content_type='text/html', status=404)
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -225,6 +233,7 @@ class OmniNeuralOverlord:
         static_dir = self.get_static_path()
         if static_dir:
             log(f"Статика подключена из: {static_dir}", "SUCCESS")
+            # Позволяет серверу видеть файлы внутри static/admin/ и static/images/
             app.router.add_static('/static/', path=static_dir, name='static')
         else:
             log("ВНИМАНИЕ: Папка static не найдена в окружении!", "WARNING")
@@ -255,7 +264,6 @@ class OmniNeuralOverlord:
                     log("Ожидание конфига в БД...", "WARNING")
                     await asyncio.sleep(10); continue
 
-                # Пытаемся подключиться к TON Mainnet
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
@@ -267,23 +275,18 @@ class OmniNeuralOverlord:
                     
                     while self.is_active:
                         try:
-                            # Принудительная синхронизация сессии
                             await client.reconnect()
-                            
                             await self.update_config_from_db()
                             market_state = await get_market_state()
                             
-                            # Попытка получить баланс с таймаутом, чтобы не зависать на плохих нодах
                             try:
                                 balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=12.0)
                                 self.current_balance = balance_nano / 1e9
                             except asyncio.TimeoutError:
-                                log("TON Node Timeout: Узел не ответил. Смена сервера...", "WARNING")
-                                break # Переподключаемся к другой ноде
+                                log("TON Node Timeout: Смена сервера...", "WARNING")
+                                break
                             except Exception as be:
-                                err_be = str(be)
-                                if "-400" in err_be or "Liteserver" in err_be:
-                                    raise be # Передаем выше для перезапуска клиента
+                                if "-400" in str(be): raise be
                                 log(f"Ошибка получения баланса: {be}", "WARNING")
 
                             plan = await self.fetch_neural_strategy(market_state)
@@ -292,14 +295,10 @@ class OmniNeuralOverlord:
                                     await log_ai_action(plan, market_state.get('current_metrics', {}))
                             
                             await asyncio.sleep(20)
-                            
                         except Exception as inner_e:
-                            err_str = str(inner_e)
-                            # Список критических ошибок TON, требующих смены сервера
-                            if any(msg in err_str for msg in ["-400", "Connect call failed", "Liteserver crashed", "closed by server"]):
-                                log(f"Сбой узла TON: {err_str[:60]}... Ищу новый сервер.", "WARNING")
-                                break # Выход из внутреннего цикла и 'async with' для смены ноды
-                            
+                            if any(msg in str(inner_e) for msg in ["-400", "Connect call failed", "Liteserver crashed"]):
+                                log("Сбой узла TON. Переподключение...", "WARNING")
+                                break
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
             
