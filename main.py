@@ -255,6 +255,7 @@ class OmniNeuralOverlord:
                     log("Ожидание конфига в БД...", "WARNING")
                     await asyncio.sleep(10); continue
 
+                # Пытаемся подключиться к TON Mainnet
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
@@ -266,14 +267,23 @@ class OmniNeuralOverlord:
                     
                     while self.is_active:
                         try:
+                            # Принудительная синхронизация сессии
+                            await client.reconnect()
+                            
                             await self.update_config_from_db()
                             market_state = await get_market_state()
                             
+                            # Попытка получить баланс с таймаутом, чтобы не зависать на плохих нодах
                             try:
-                                balance_nano = await wallet.get_balance()
+                                balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=12.0)
                                 self.current_balance = balance_nano / 1e9
+                            except asyncio.TimeoutError:
+                                log("TON Node Timeout: Узел не ответил. Смена сервера...", "WARNING")
+                                break # Переподключаемся к другой ноде
                             except Exception as be:
-                                if "-400" in str(be): raise be
+                                err_be = str(be)
+                                if "-400" in err_be or "Liteserver" in err_be:
+                                    raise be # Передаем выше для перезапуска клиента
                                 log(f"Ошибка получения баланса: {be}", "WARNING")
 
                             plan = await self.fetch_neural_strategy(market_state)
@@ -282,10 +292,14 @@ class OmniNeuralOverlord:
                                     await log_ai_action(plan, market_state.get('current_metrics', {}))
                             
                             await asyncio.sleep(20)
+                            
                         except Exception as inner_e:
-                            if "-400" in str(inner_e):
-                                log("Обнаружена рассинхронизация TON (-400). Переподключение клиента...", "WARNING")
-                                break 
+                            err_str = str(inner_e)
+                            # Список критических ошибок TON, требующих смены сервера
+                            if any(msg in err_str for msg in ["-400", "Connect call failed", "Liteserver crashed", "closed by server"]):
+                                log(f"Сбой узла TON: {err_str[:60]}... Ищу новый сервер.", "WARNING")
+                                break # Выход из внутреннего цикла и 'async with' для смены ноды
+                            
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
             
