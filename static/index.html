@@ -194,6 +194,7 @@
             const div = document.createElement('div');
             div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
             logBox.prepend(div);
+            if (logBox.children.length > 20) logBox.lastElementChild.remove();
         }
 
         async function attemptLogin() {
@@ -208,8 +209,10 @@
                 if (res.ok) {
                     document.getElementById('auth-overlay').classList.add('hidden');
                     document.getElementById('main-content').classList.remove('hidden');
+                    // После входа сразу подгружаем данные и запускаем цикл обновления
                     refreshStats();
                     setInterval(refreshStats, 5000);
+                    addLog("Система готова. Доступ разрешен.");
                 } else {
                     document.getElementById('auth_error').classList.remove('hidden');
                 }
@@ -219,6 +222,7 @@
         async function refreshStats() {
             try {
                 const res = await fetch('/api/stats');
+                // Если сессия истекла (401), возвращаем на экран логина
                 if (res.status === 401) { location.reload(); return; }
                 const data = await res.json();
                 
@@ -230,10 +234,11 @@
 
                 // Обновление данных пула
                 if (data.pool_info) {
-                    document.getElementById('pool_addr_display').innerText = data.pool_info.address.substring(0, 12) + "...";
+                    const addr = data.pool_info.address;
+                    document.getElementById('pool_addr_display').innerText = addr !== "NOT CONFIGURED" ? addr.substring(0, 12) + "..." : "Not Configured";
                     document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
                     document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
-                    document.getElementById('pool_status').innerText = data.pool_info.status || "ACTIVE";
+                    document.getElementById('pool_status').innerText = data.pool_info.status || "WAITING";
                 }
 
                 updateChart(data.engine?.ops_total || 0);
@@ -257,15 +262,22 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    addLog("✅ База данных обновлена. Пул: " + settings.dedust_pool.substring(0, 8));
-                    alert("Протокол применен!");
+                    addLog("✅ Настройки применены. Пул: " + (settings.dedust_pool.substring(0, 8) || "N/A"));
+                    alert("Протокол настроек обновлен в БД!");
                 }
             } catch (e) { addLog("🚨 Ошибка записи в БД"); }
         }
 
         function updateChart(opsCount) {
             const ctx = document.getElementById('chartOps').getContext('2d');
-            const dataValues = [opsCount * 0.4, opsCount * 0.3, opsCount * 0.1, opsCount * 0.2];
+            // Симуляция распределения операций для красоты графика
+            const dataValues = [
+                Math.floor(opsCount * 0.4), 
+                Math.floor(opsCount * 0.3), 
+                Math.floor(opsCount * 0.1), 
+                Math.floor(opsCount * 0.2)
+            ];
+            
             if (myChart) {
                 myChart.data.datasets[0].data = dataValues;
                 myChart.update();
