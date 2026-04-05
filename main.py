@@ -133,7 +133,7 @@ class OmniNeuralOverlord:
             return web.json_response({"status": "error"}, status=400)
 
     async def handle_index(self, request):
-        """Раздает index.html из папки static/admin или static/."""
+        """Раздает index.html. Теперь поддерживает / и /admin и /amin."""
         static_dir = self.get_static_path()
         if not static_dir:
             return web.Response(text="Static directory not found", status=404)
@@ -146,7 +146,7 @@ class OmniNeuralOverlord:
             if os.path.exists(path):
                 return web.FileResponse(path)
         
-        return web.Response(text="index.html not found in static paths", status=404)
+        return web.Response(text=f"index.html not found in {static_dir}", status=404)
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -209,7 +209,6 @@ class OmniNeuralOverlord:
             if amt <= 0: return False
             nano_amt = int(amt * 1e9)
             
-            # Тело транзакции для свопа (DeDust/Ston.fi style)
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 300), 64) 
@@ -233,17 +232,26 @@ class OmniNeuralOverlord:
             )
         })
         
-        # Маршруты
+        # Маршруты (обработка всех вариантов ссылок)
         app.router.add_get('/', self.handle_index)
+        app.router.add_get('/admin', self.handle_index)
         app.router.add_get('/amin', self.handle_index)
+        
+        # API
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
         
         static_dir = self.get_static_path()
         if static_dir:
+            # Для доступа к изображениям и скриптам через /static/...
             app.router.add_static('/static/', path=static_dir, name='static')
-            log(f"Статика подключена: {static_dir}", "SUCCESS")
+            # Если файлы админки лежат в static/admin, пробрасываем и этот путь
+            admin_subpath = os.path.join(static_dir, 'admin')
+            if os.path.exists(admin_subpath):
+                app.router.add_static('/admin/', path=admin_subpath, name='admin_static')
+            
+            log(f"Статика успешно подключена: {static_dir}", "SUCCESS")
         
         for route in list(app.router.routes()): cors.add(route)
         
@@ -251,10 +259,9 @@ class OmniNeuralOverlord:
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        log(f"ADMIN PANEL: https://quantum.bothost.tech/amin", "SUCCESS")
+        log(f"SERVER READY: https://quantum.bothost.tech/admin", "SUCCESS")
 
     async def core_loop(self):
-        # 1. Сначала БД
         while True:
             try:
                 await init_db()
@@ -264,10 +271,8 @@ class OmniNeuralOverlord:
                 log("Ожидание базы данных...", "WARNING")
                 await asyncio.sleep(5)
 
-        # 2. Запуск веб-сервера
         asyncio.create_task(self.start_web_server())
 
-        # 3. Основной цикл TON
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
