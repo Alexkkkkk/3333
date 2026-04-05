@@ -49,7 +49,7 @@ try:
                           get_stats_for_web, load_remote_config, update_remote_config)
     log("Модули базы данных: OK", "SUCCESS")
 except ImportError:
-    log("Файл database.py не найден! Убедитесь, что он в корневой папке.", "ERROR")
+    log("Файл database.py не найден!", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -83,10 +83,11 @@ class OmniNeuralOverlord:
         return "".join(char for char in str(text) if ord(char) < 128).strip()
 
     def get_static_path(self):
-        """Умный поиск папки static"""
+        """Определяет путь к папке со статикой на сервере."""
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         check_paths = [
+            os.path.join(base_dir, 'static'),
             os.path.join(os.getcwd(), 'static'),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
             '/app/static'
         ]
         for p in check_paths:
@@ -95,6 +96,7 @@ class OmniNeuralOverlord:
         return None
 
     async def update_config_from_db(self):
+        """Загружает настройки из PostgreSQL в память бота."""
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
@@ -116,10 +118,12 @@ class OmniNeuralOverlord:
     def is_auth(self, request):
         return request.cookies.get("auth_token") == self.session_token
 
+    # --- WEB HANDLERS ---
+
     async def handle_login(self, request):
         try:
             data = await request.json()
-            if data.get("login") == self.admin_login and data.get("password") == self.admin_pass:
+            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
                 res.set_cookie("auth_token", self.session_token, max_age=86400, httponly=True)
                 log("Успешный вход в админ-панель", "SUCCESS")
@@ -128,24 +132,21 @@ class OmniNeuralOverlord:
         except:
             return web.json_response({"status": "error"}, status=400)
 
-    # --- API & WEB ---
     async def handle_index(self, request):
-        """Обработчик для входа в админку (quantum.bothost.tech/amin)"""
+        """Раздает index.html из папки static/admin или static/."""
         static_dir = self.get_static_path()
-        if static_dir:
-            # Исправлено: ищем index.html в подпапке admin согласно твоей структуре
-            index_path = os.path.join(static_dir, 'admin', 'index.html')
-            
-            if os.path.exists(index_path):
-                return web.FileResponse(index_path)
-            
-            # Резервный поиск в корне static, если в admin нет
-            alt_path = os.path.join(static_dir, 'index.html')
-            if os.path.exists(alt_path):
-                return web.FileResponse(alt_path)
+        if not static_dir:
+            return web.Response(text="Static directory not found", status=404)
+
+        paths = [
+            os.path.join(static_dir, 'admin', 'index.html'),
+            os.path.join(static_dir, 'index.html')
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return web.FileResponse(path)
         
-        log(f"Критическая ошибка: index.html не найден. Проверен путь: {static_dir}/admin/", "ERROR")
-        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Search path: {static_dir}/admin/index.html</p>", content_type='text/html', status=404)
+        return web.Response(text="index.html not found in static paths", status=404)
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -181,7 +182,8 @@ class OmniNeuralOverlord:
         except Exception as e:
             return web.json_response({"status": "error", "msg": str(e)}, status=400)
 
-    # --- ANALYTICS & NEURAL ---
+    # --- CORE ENGINE ---
+
     async def fetch_neural_strategy(self, market_snapshot):
         if not self.ai_key: return {"cmd": "WAIT", "reason": "No AI Key"}
         try:
@@ -206,6 +208,8 @@ class OmniNeuralOverlord:
             amt = float(plan.get('amt', 0))
             if amt <= 0: return False
             nano_amt = int(amt * 1e9)
+            
+            # Тело транзакции для свопа (DeDust/Ston.fi style)
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 300), 64) 
@@ -223,8 +227,14 @@ class OmniNeuralOverlord:
 
     async def start_web_server(self):
         app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*", allow_credentials=True)})
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_headers="*", allow_methods="*", allow_credentials=True
+            )
+        })
         
+        # Маршруты
+        app.router.add_get('/', self.handle_index)
         app.router.add_get('/amin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
@@ -232,11 +242,8 @@ class OmniNeuralOverlord:
         
         static_dir = self.get_static_path()
         if static_dir:
-            log(f"Статика подключена из: {static_dir}", "SUCCESS")
-            # Позволяет серверу видеть файлы внутри static/admin/ и static/images/
             app.router.add_static('/static/', path=static_dir, name='static')
-        else:
-            log("ВНИМАНИЕ: Папка static не найдена в окружении!", "WARNING")
+            log(f"Статика подключена: {static_dir}", "SUCCESS")
         
         for route in list(app.router.routes()): cors.add(route)
         
@@ -244,9 +251,10 @@ class OmniNeuralOverlord:
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        log(f"Secure Admin Panel ONLINE at /amin (Port {port})", "SUCCESS")
+        log(f"ADMIN PANEL: https://quantum.bothost.tech/amin", "SUCCESS")
 
     async def core_loop(self):
+        # 1. Сначала БД
         while True:
             try:
                 await init_db()
@@ -256,8 +264,10 @@ class OmniNeuralOverlord:
                 log("Ожидание базы данных...", "WARNING")
                 await asyncio.sleep(5)
 
+        # 2. Запуск веб-сервера
         asyncio.create_task(self.start_web_server())
 
+        # 3. Основной цикл TON
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
@@ -282,12 +292,9 @@ class OmniNeuralOverlord:
                             try:
                                 balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=12.0)
                                 self.current_balance = balance_nano / 1e9
-                            except asyncio.TimeoutError:
+                            except:
                                 log("TON Node Timeout: Смена сервера...", "WARNING")
                                 break
-                            except Exception as be:
-                                if "-400" in str(be): raise be
-                                log(f"Ошибка получения баланса: {be}", "WARNING")
 
                             plan = await self.fetch_neural_strategy(market_state)
                             if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
@@ -296,8 +303,7 @@ class OmniNeuralOverlord:
                             
                             await asyncio.sleep(20)
                         except Exception as inner_e:
-                            if any(msg in str(inner_e) for msg in ["-400", "Connect call failed", "Liteserver crashed"]):
-                                log("Сбой узла TON. Переподключение...", "WARNING")
+                            if any(msg in str(inner_e) for msg in ["-400", "Connect call failed"]):
                                 break
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
