@@ -123,6 +123,7 @@ class OmniNeuralOverlord:
 
     # --- API & WEB ---
     async def handle_index(self, request):
+        # Файл index.html всегда берем из папки static по вашему правилу
         if os.path.exists('./static/index.html'):
             return web.FileResponse('./static/index.html')
         return web.Response(text="<h1>QUANTUM CORE ACTIVE</h1>", content_type='text/html')
@@ -134,7 +135,7 @@ class OmniNeuralOverlord:
             db_stats = await get_stats_for_web()
             db_stats['balance'] = f"{self.current_balance:.2f}"
             
-            # Добавляем блок информации о пуле
+            # Данные о пуле для веб-интерфейса
             db_stats['pool_info'] = {
                 "address": str(self.pool_addr) if self.pool_addr else "NOT CONFIGURED",
                 "reserve_ton": self.pool_reserves["ton"],
@@ -204,11 +205,13 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
         
-        app.router.add_get('/', self.handle_index)
+        # Настройка путей для /amin
+        app.router.add_get('/amin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
         
+        # Сохраняем доступ к папке static для картинок и стилей
         if os.path.exists('static'):
             app.router.add_static('/static/', path='static', name='static')
         
@@ -218,7 +221,7 @@ class OmniNeuralOverlord:
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        log(f"Secure Admin Panel ONLINE (Port {port})", "SUCCESS")
+        log(f"Secure Admin Panel ONLINE at /amin (Port {port})", "SUCCESS")
 
     async def core_loop(self):
         while True:
@@ -246,9 +249,6 @@ class OmniNeuralOverlord:
                         await self.update_config_from_db()
                         market_state = await get_market_state()
                         self.current_balance = (await wallet.get_balance()) / 1e9
-                        
-                        # (Опционально) Здесь можно добавить логику запроса резервов пула 
-                        # через client.run_get_method(self.pool_addr, 'get_reserves')
                         
                         plan = await self.fetch_neural_strategy(market_state)
                         if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
