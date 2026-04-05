@@ -3,325 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM NEURAL | Secure Command Center</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>QUANTUM | Neural Liquidity Protocol</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #00f2ff;
-            --secondary: #7000ff;
-            --bg: #020508;
-            --panel: rgba(10, 15, 25, 0.8);
-        }
-
         body {
-            background-color: var(--bg);
+            background: #020508;
             color: #e2e8f0;
             font-family: 'Rajdhani', sans-serif;
-            margin: 0;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(0, 242, 255, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 90% 80%, rgba(112, 0, 255, 0.05) 0%, transparent 50%);
+            background-image: radial-gradient(circle at 50% -20%, #1a3a5a 0%, transparent 60%);
         }
-
         .orbitron { font-family: 'Orbitron', sans-serif; }
-
-        .glass {
-            background: var(--panel);
-            backdrop-filter: blur(12px) saturate(160%);
-            border: 1px solid rgba(0, 242, 255, 0.15);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
-        }
-
-        .neon-border {
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
-        }
-
-        .cyber-input {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 242, 255, 0.3);
-            color: white;
-            transition: all 0.3s ease;
-        }
-
-        .cyber-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
-            outline: none;
-        }
-
-        .btn-action {
-            background: linear-gradient(90deg, #0082ff, #00f2ff);
-            color: black;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%);
-        }
-
-        .btn-action:hover {
-            filter: brightness(1.2);
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
-        }
-
-        /* Анимация сканирования */
-        .scanner-line {
-            position: absolute;
-            width: 100%;
-            height: 2px;
-            background: var(--primary);
-            opacity: 0.5;
-            box-shadow: 0 0 15px var(--primary);
-            animation: scan 3s linear infinite;
-        }
-
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: #0f0;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            box-shadow: 0 0 8px #0f0;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
-        }
-
-        #log-container {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            color: #00f2ff;
-            height: 120px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 8px;
+        .hero-glow { text-shadow: 0 0 30px rgba(0, 242, 255, 0.5); }
+        .glass-card {
+            background: rgba(10, 15, 25, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 242, 255, 0.1);
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col p-4">
+<body class="min-h-screen">
+    <nav class="flex justify-between items-center p-8 max-w-7xl mx-auto">
+        <div class="orbitron text-2xl font-bold tracking-tighter text-[#00f2ff]">QUANTUM</div>
+        <div class="space-x-8 text-xs uppercase tracking-widest text-gray-400">
+            <a href="#" class="hover:text-white transition">Protocol</a>
+            <a href="#" class="hover:text-white transition">Analytics</a>
+            <a href="/admin" class="px-4 py-2 border border-[#00f2ff] text-[#00f2ff] rounded-full hover:bg-[#00f2ff] hover:text-black transition">Terminal</a>
+        </div>
+    </nav>
 
-    <div id="auth-overlay" class="fixed inset-0 z-[999] flex items-center justify-center bg-[#020508]">
-        <div class="glass p-10 w-full max-w-sm relative overflow-hidden text-center">
-            <div class="scanner-line"></div>
-            <h2 class="orbitron text-xl font-bold mb-6 tracking-widest text-[#00f2ff]">RESTRICTED ACCESS</h2>
-            <div class="space-y-4">
-                <input type="text" id="login_field" placeholder="IDENTITY ID" class="w-full p-3 cyber-input rounded orbitron text-xs">
-                <input type="password" id="pass_field" placeholder="ENCRYPTED KEY" class="w-full p-3 cyber-input rounded orbitron text-xs">
-                <button onclick="attemptLogin()" class="w-full py-4 btn-action orbitron text-sm">Initialize Link</button>
-                <p id="auth_error" class="hidden text-red-500 text-xs mt-4 orbitron">ERROR: ACCESS DENIED</p>
+    <main class="max-w-4xl mx-auto text-center mt-20 px-6">
+        <h1 class="orbitron text-6xl md:text-8xl font-bold mb-6 hero-glow italic">NEURAL<br><span class="text-[#00f2ff]">SENTINEL</span></h1>
+        <p class="text-xl text-gray-400 mb-12 max-w-2xl mx-auto">Самообучающийся протокол ликвидности на базе ИИ. Анализ DeDust в реальном времени.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="glass-card p-8 rounded-2xl">
+                <div class="text-[#00f2ff] mb-2 text-xs uppercase">Liquidity</div>
+                <div class="text-3xl orbitron">$4.2M</div>
+            </div>
+            <div class="glass-card p-8 rounded-2xl">
+                <div class="text-[#00f2ff] mb-2 text-xs uppercase">Daily Volume</div>
+                <div class="text-3xl orbitron">$128K</div>
+            </div>
+            <div class="glass-card p-8 rounded-2xl">
+                <div class="text-[#00f2ff] mb-2 text-xs uppercase">AI Efficiency</div>
+                <div class="text-3xl orbitron">99.4%</div>
             </div>
         </div>
-    </div>
-
-    <div id="main-content" class="hidden max-w-6xl mx-auto w-full">
-        <header class="mb-8 text-center pt-6">
-            <h1 class="orbitron text-3xl font-bold tracking-[0.3em] text-white">QUANTUM <span class="text-[#00f2ff]">SENTINEL</span></h1>
-            <p class="text-[10px] text-gray-500 uppercase tracking-[0.5em] mt-2 italic">Neural Command Layer V3.0</p>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            <div class="glass p-6 flex flex-col justify-between">
-                <div>
-                    <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">System Telemetry</h2>
-                    <p class="mb-2 text-sm"><span class="status-dot"></span> Status: <span id="ai_status" class="text-[#0f0] font-bold">ACTIVE</span></p>
-                    <div class="mt-4">
-                        <p class="text-[10px] text-gray-500 uppercase">Balance (TON)</p>
-                        <p id="total_vol" class="orbitron text-4xl font-bold text-white">0.00</p>
-                    </div>
-                </div>
-                <div class="mt-6 pt-4 border-t border-white/5">
-                    <p class="text-[10px] text-gray-500 uppercase">Market Value</p>
-                    <p id="total_profit" class="orbitron text-xl text-cyan-400">$0.00</p>
-                    <p class="text-[9px] text-pink-500 mt-1">Core ID: <span id="core_id">---</span></p>
-                </div>
-            </div>
-
-            <div class="glass p-6">
-                <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">Liquidity Pool (DEX)</h2>
-                <div class="bg-black/30 p-3 rounded mb-4">
-                    <p class="text-[9px] text-gray-500 mb-1">Contract Address</p>
-                    <p id="pool_addr_display" class="text-[10px] text-cyan-700 break-all">Not Synced</p>
-                </div>
-                <div class="grid grid-cols-2 gap-4 text-center">
-                    <div class="p-3 border border-white/5 rounded">
-                        <span class="block text-[10px] text-gray-500 mb-1 uppercase">Reserve TON</span>
-                        <span id="pool_ton" class="orbitron text-lg text-white">0.00</span>
-                    </div>
-                    <div class="p-3 border border-white/5 rounded">
-                        <span class="block text-[10px] text-gray-500 mb-1 uppercase">Reserve Token</span>
-                        <span id="pool_token" class="orbitron text-lg text-white">0.00</span>
-                    </div>
-                </div>
-                <p class="mt-4 text-xs text-center">Engine State: <span id="pool_status" class="text-[#0f0]">WAITING</span></p>
-            </div>
-
-            <div class="glass p-6 lg:row-span-2">
-                <h2 class="orbitron text-xs text-gray-400 mb-6 uppercase">Core Configuration</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase block mb-1">Mnemonic Phrase</label>
-                        <input type="password" id="cfg_mnemonic" placeholder="•••• •••• ••••" class="w-full p-2 cyber-input rounded text-xs">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase block mb-1">OpenAI Intelligence Key</label>
-                        <input type="password" id="cfg_ai_key" placeholder="sk-..." class="w-full p-2 cyber-input rounded text-xs">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase block mb-1">DeDust Pool Address</label>
-                        <input type="text" id="cfg_pool" placeholder="EQ..." class="w-full p-2 cyber-input rounded text-xs">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase block mb-1">Strategy Aggression</label>
-                        <input type="number" id="cfg_strategy" value="10" class="w-full p-2 cyber-input rounded text-xs">
-                    </div>
-                    <button onclick="saveConfig()" class="w-full py-4 btn-action orbitron text-xs mt-4">Overwrite Protocol</button>
-                </div>
-            </div>
-
-            <div class="glass p-6 lg:col-span-2">
-                <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">Neural Synapse Analysis</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="h-[150px]">
-                        <canvas id="chartOps"></canvas>
-                    </div>
-                    <div id="log-container">
-                        [SYSTEM] Awaiting neural uplink...
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <script>
-        let myChart;
-        const logBox = document.getElementById('log-container');
-
-        function addLog(msg) {
-            const div = document.createElement('div');
-            div.className = "mb-1 border-l-2 border-cyan-500 pl-2";
-            div.innerText = `> ${new Date().toLocaleTimeString()} :: ${msg}`;
-            logBox.prepend(div);
-            if (logBox.children.length > 25) logBox.lastElementChild.remove();
-        }
-
-        async function attemptLogin() {
-            const login = document.getElementById('login_field').value;
-            const password = document.getElementById('pass_field').value;
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ login, password })
-                });
-                if (res.ok) {
-                    document.getElementById('auth-overlay').style.display = 'none';
-                    document.getElementById('main-content').classList.remove('hidden');
-                    refreshStats();
-                    setInterval(refreshStats, 5000);
-                    addLog("Uplink established. System online.");
-                } else {
-                    document.getElementById('auth_error').classList.remove('hidden');
-                }
-            } catch (e) { alert("Core Connection Failed"); }
-        }
-
-        async function refreshStats() {
-            try {
-                const res = await fetch('/api/stats');
-                if (res.status === 401) { location.reload(); return; }
-                const data = await res.json();
-                
-                document.getElementById('total_vol').innerText = data.balance || "0.00";
-                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
-                document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
-                document.getElementById('core_id').innerText = data.engine?.core_id || "OFFLINE";
-
-                if (data.pool_info) {
-                    const addr = data.pool_info.address;
-                    document.getElementById('pool_addr_display').innerText = addr;
-                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
-                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
-                    document.getElementById('pool_status').innerText = data.pool_info.status || "WAITING";
-                }
-
-                updateChart(data.engine?.ops_total || 0);
-            } catch (e) { 
-                document.getElementById('ai_status').innerText = "DISCONNECTED";
-                document.getElementById('ai_status').style.color = "red";
-            }
-        }
-
-        async function saveConfig() {
-            const settings = {
-                mnemonic: document.getElementById('cfg_mnemonic').value,
-                ai_api_key: document.getElementById('cfg_ai_key').value,
-                dedust_pool: document.getElementById('cfg_pool').value,
-                ai_strategy_level: parseInt(document.getElementById('cfg_strategy').value)
-            };
-            try {
-                const res = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(settings)
-                });
-                if (res.ok) {
-                    addLog("Protocol updated in core database.");
-                    alert("PROTOCOL OVERWRITTEN");
-                }
-            } catch (e) { addLog("Write Error: Database locked."); }
-        }
-
-        function updateChart(ops) {
-            const ctx = document.getElementById('chartOps').getContext('2d');
-            const values = [ops * 0.4, ops * 0.3, ops * 0.1, ops * 0.2];
-            if (myChart) {
-                myChart.data.datasets[0].data = values;
-                myChart.update();
-            } else {
-                myChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['S1', 'S2', 'S3', 'S4'],
-                        datasets: [{
-                            data: values,
-                            borderColor: '#00f2ff',
-                            backgroundColor: 'rgba(0, 242, 255, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { 
-                            y: { display: false },
-                            x: { grid: { display: false }, ticks: { color: '#444', font: { size: 8 } } }
-                        }
-                    }
-                });
-            }
-        }
-    </script>
+    </main>
 </body>
 </html>
