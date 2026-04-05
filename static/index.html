@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL SENTINEL | Command Center</title>
+    <title>NEURAL SENTINEL | Secure Command Center</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
@@ -101,34 +101,65 @@
             color: #0f0;
             margin-top: 10px;
         }
+
+        /* --- СТИЛИ АВТОРИЗАЦИИ --- */
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0b10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .auth-card {
+            width: 320px;
+            text-align: center;
+        }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
-    
-    <div class="grid">
-        <div class="card">
-            <h2>Системная Телеметрия</h2>
-            <p>Статус: <span id="ai_status" class="status-online">CONNECTING...</span></p>
-            <p>Баланс кошелька (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
-            <p>Текущая цена TON:<br><span id="total_profit" class="stat-val">$0.00</span></p>
-            <p>Core ID: <span id="core_id" style="color: #f0f;">---</span></p>
-        </div>
 
-        <div class="card">
-            <h2>Конфигурация Ядра</h2>
-            <div class="input-group"><span>Mnemonic:</span> <input type="password" id="cfg_mnemonic" placeholder="12/24 words"></div>
-            <div class="input-group"><span>OpenAI Key:</span> <input type="password" id="cfg_ai_key" placeholder="sk-..."></div>
-            <div class="input-group"><span>DeDust Pool:</span> <input type="text" id="cfg_pool" placeholder="EQ..."></div>
-            <div class="input-group"><span>AI Strategy:</span> <input type="number" id="cfg_strategy" value="10"></div>
-            <button onclick="saveConfig()">Применить протокол настроек</button>
+    <div id="auth-overlay">
+        <div class="card auth-card">
+            <h2>ACCESS RESTRICTED</h2>
+            <div style="margin: 15px 0;">
+                <input type="text" id="login_field" placeholder="ID" style="width: 100%; margin-bottom: 10px;">
+                <input type="password" id="pass_field" placeholder="PASSWORD" style="width: 100%;">
+            </div>
+            <button onclick="attemptLogin()">INITIALIZE ACCESS</button>
+            <p id="auth_error" style="color: red; font-size: 12px; margin-top: 10px;" class="hidden">WRONG CREDENTIALS</p>
         </div>
+    </div>
 
-        <div class="card" style="grid-column: span 2;">
-            <h2>Анализ Команд ИИ (Распределение)</h2>
-            <canvas id="chartOps" style="max-height: 200px;"></canvas>
-            <div id="log-container">
-                [SYSTEM] Ожидание синхронизации с основным процессом...
+    <div id="main-content" class="hidden">
+        <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>Системная Телеметрия</h2>
+                <p>Статус: <span id="ai_status" class="status-online">CONNECTING...</span></p>
+                <p>Баланс кошелька (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
+                <p>Текущая цена TON:<br><span id="total_profit" class="stat-val">$0.00</span></p>
+                <p>Core ID: <span id="core_id" style="color: #f0f;">---</span></p>
+            </div>
+
+            <div class="card">
+                <h2>Конфигурация Ядра</h2>
+                <div class="input-group"><span>Mnemonic:</span> <input type="password" id="cfg_mnemonic" placeholder="12/24 words"></div>
+                <div class="input-group"><span>OpenAI Key:</span> <input type="password" id="cfg_ai_key" placeholder="sk-..."></div>
+                <div class="input-group"><span>DeDust Pool:</span> <input type="text" id="cfg_pool" placeholder="EQ..."></div>
+                <div class="input-group"><span>AI Strategy:</span> <input type="number" id="cfg_strategy" value="10"></div>
+                <button onclick="saveConfig()">Применить протокол настроек</button>
+            </div>
+
+            <div class="card" style="grid-column: span 2;">
+                <h2>Анализ Команд ИИ (Распределение)</h2>
+                <canvas id="chartOps" style="max-height: 200px;"></canvas>
+                <div id="log-container">
+                    [SYSTEM] Сессия авторизована. Синхронизация...
+                </div>
             </div>
         </div>
     </div>
@@ -143,13 +174,40 @@
             logBox.prepend(div);
         }
 
+        // --- ЛОГИКА АВТОРИЗАЦИИ ---
+        async function attemptLogin() {
+            const login = document.getElementById('login_field').value;
+            const password = document.getElementById('pass_field').value;
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ login, password })
+                });
+
+                if (res.ok) {
+                    document.getElementById('auth-overlay').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    refreshStats();
+                    setInterval(refreshStats, 5000);
+                } else {
+                    document.getElementById('auth_error').classList.remove('hidden');
+                }
+            } catch (e) {
+                alert("Server Connection Error");
+            }
+        }
+
         async function refreshStats() {
             try {
                 const res = await fetch('/api/stats');
-                if (!res.ok) throw new Error("Offline");
+                if (res.status === 401) {
+                    location.reload(); // Перезагрузка, если сессия истекла
+                    return;
+                }
                 const data = await res.json();
                 
-                // Обновление интерфейса данными из твоего main.py
                 document.getElementById('total_vol').innerText = data.balance || "0.00";
                 document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
                 document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
@@ -158,7 +216,6 @@
                 updateChart(data.engine?.ops_total || 0);
             } catch (e) { 
                 document.getElementById('ai_status').innerText = "OFFLINE";
-                document.getElementById('ai_status').className = "";
                 document.getElementById('ai_status').style.color = "red";
             }
         }
@@ -178,8 +235,8 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    addLog("✅ Протокол синхронизирован. Перезагрузка ядра...");
-                    alert("Настройки сохранены!");
+                    addLog("✅ База данных обновлена. Конфиг синхронизирован.");
+                    alert("Протокол применен!");
                 }
             } catch (e) { addLog("🚨 Ошибка записи в БД"); }
         }
@@ -187,7 +244,6 @@
         function updateChart(opsCount) {
             const ctx = document.getElementById('chartOps').getContext('2d');
             const labels = ['Wait', 'Buy', 'Sell', 'HFT Pulse'];
-            // Имитация распределения для красоты, пока нет реальной мапы
             const dataValues = [opsCount * 0.4, opsCount * 0.3, opsCount * 0.1, opsCount * 0.2];
 
             if (myChart) {
@@ -218,9 +274,6 @@
                 });
             }
         }
-
-        setInterval(refreshStats, 5000);
-        refreshStats();
     </script>
 </body>
 </html>
