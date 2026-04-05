@@ -25,6 +25,7 @@ def log(message, level="INFO"):
     }
     reset = "\033[0m"
     color = colors.get(level, reset)
+    # flush=True гарантирует мгновенное появление лога в терминале Bothost
     print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
 log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM <<<", "CORE")
@@ -36,7 +37,7 @@ load_dotenv()
 log("Шаг 2: Импорт библиотек TON (pytoniq)...", "TRACE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
-    # Исправление импорта BeginCell для разных версий pytoniq
+    # Попытка импорта BeginCell из разных веток библиотеки
     try:
         from pytoniq_core import BeginCell
         log("BeginCell загружен из pytoniq_core", "TRACE")
@@ -76,7 +77,7 @@ class OmniNeuralOverlord:
         log(f"Ядро создано. ID: {self.core_id}", "CORE")
 
     async def update_config_from_db(self):
-        """Синхронизация локальных переменных с базой данных."""
+        """Синхронизация локальных настроек с данными из PostgreSQL."""
         try:
             cfg = await load_remote_config()
             if not cfg:
@@ -98,7 +99,7 @@ class OmniNeuralOverlord:
             log(f"Ошибка синхронизации конфига: {e}", "ERROR")
             return False
 
-    # --- API & WEB ---
+    # --- API & WEB DASHBOARD ---
     async def handle_index(self, request):
         if os.path.exists('./static/index.html'):
             return web.FileResponse('./static/index.html')
@@ -127,8 +128,9 @@ class OmniNeuralOverlord:
         except Exception as e:
             return web.json_response({"status": "error", "msg": str(e)}, status=400)
 
-    # --- ANALYTICS & NEURAL ---
+    # --- ANALYTICS & NEURAL ENGINE ---
     def _calculate_hyper_analytics(self):
+        """Расчет индекса фрактальной эффективности (FEI)."""
         try:
             if len(self.synaptic_history) < 5: return None
             prices = np.array([h['price'] for h in self.synaptic_history if h['price'] > 0])
@@ -142,6 +144,7 @@ class OmniNeuralOverlord:
         except: return None
 
     async def fetch_neural_strategy(self, market_snapshot):
+        """Запрос торгового решения у AI (GPT-4o)."""
         if not self.ai_key: 
             return {"cmd": "WAIT", "reason": "No AI Key"}
         
@@ -149,7 +152,7 @@ class OmniNeuralOverlord:
             hyper = self._calculate_hyper_analytics()
             openai.api_key = self.ai_key
             
-            # Универсальный вызов OpenAI (поддержка разных версий библиотеки)
+            # Поддержка разных версий библиотеки OpenAI (v0.28 vs v1.0+)
             if hasattr(openai, 'AsyncOpenAI'):
                 client = openai.AsyncOpenAI(api_key=self.ai_key)
                 res = await asyncio.wait_for(client.chat.completions.create(
@@ -177,6 +180,7 @@ class OmniNeuralOverlord:
             return {"cmd": "WAIT", "reason": "AI Timeout/Error"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
+        """Исполнение транзакции в сети TON."""
         if not self.pool_addr: return False
         try:
             amt = float(plan.get('amt', 0))
@@ -184,6 +188,7 @@ class OmniNeuralOverlord:
             
             nano_amt = int(amt * 1e9)
             
+            # Формирование Payload для свопа (DeDust)
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 300), 64) 
@@ -199,8 +204,9 @@ class OmniNeuralOverlord:
             log(f"TON: Pulse failed: {e}", "ERROR")
             return False
 
-    # --- RUNNERS ---
+    # --- SERVER RUNNERS ---
     async def start_web_server(self):
+        """Запуск внутреннего API и статики для Dashboard."""
         try:
             app = web.Application()
             cors = aiohttp_cors.setup(app, defaults={
@@ -230,6 +236,7 @@ class OmniNeuralOverlord:
             log(f"Ошибка Web-сервера: {e}", "ERROR")
 
     async def core_loop(self):
+        """Основной бесконечный цикл работы ядра."""
         log("Запуск основного цикла управления...", "CORE")
         
         while True:
@@ -242,6 +249,7 @@ class OmniNeuralOverlord:
                 log(f"БД недоступна, повтор через 5с... ({e})", "WARNING")
                 await asyncio.sleep(5)
 
+        # Веб-сервер запускается в фоне
         asyncio.create_task(self.start_web_server())
 
         while self.is_active:
@@ -252,6 +260,7 @@ class OmniNeuralOverlord:
                     await asyncio.sleep(10)
                     continue
 
+                log("Подключение к LiteClient...", "TRACE")
                 client = LiteClient.from_mainnet_config()
                 await client.start()
                 
@@ -260,10 +269,13 @@ class OmniNeuralOverlord:
                     log(f"Кошелек активен: {wallet.address}", "SUCCESS")
                     
                     while self.is_active:
+                        # Каждую итерацию проверяем, не изменились ли настройки в БД
                         await self.update_config_from_db()
+                        
                         market_state = await get_market_state()
                         p_curr = market_state['current_metrics']['price_ton']
                         
+                        # Накопление истории цен
                         self.synaptic_history.append({"price": p_curr, "time": time.time()})
                         if len(self.synaptic_history) > 500: self.synaptic_history.pop(0)
 
@@ -271,8 +283,10 @@ class OmniNeuralOverlord:
                         balance = balance_nano / 1e9
                         log(f"Баланс: {balance:.2f} TON | Цена: {p_curr:.4f}", "INFO")
 
+                        # Запрос стратегии у AI
                         plan = await self.fetch_neural_strategy(market_state)
                         
+                        # Если AI решил покупать и хватает баланса
                         if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 0.5):
                             if await self.dispatch_hft_pulse(wallet, plan):
                                 await log_ai_action(plan, market_state['current_metrics'])
@@ -280,6 +294,7 @@ class OmniNeuralOverlord:
                         await asyncio.sleep(20)
 
                 finally:
+                    log("Завершение сессии LiteClient", "TRACE")
                     await client.stop()
 
             except Exception as e:
@@ -292,7 +307,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Shutdown requested", "WARNING")
+        log("Остановка по запросу пользователя (SIGINT)", "WARNING")
     except Exception as fatal:
-        log(f"KERNEL PANIC: {fatal}", "ERROR")
+        log(f"KERNEL PANIC (Критический сбой): {fatal}", "ERROR")
         traceback.print_exc()
