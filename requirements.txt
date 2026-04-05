@@ -6,11 +6,8 @@ asyncio
 aiohttp>=3.9.0
 aiohttp_cors
 aiogram>=3.0.0
-magic-filter>=1.0.12
-pytoniq>=0.1.43
-pytoniq-core>=0.1.46
+pytoniq==0.1.43
+pytoniq-core==0.1.46
 cryptography>=42.0.0
-certifi>=2026.2.25
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9
-typing_extensions>=4.5.0
