@@ -73,10 +73,8 @@ class OmniNeuralOverlord:
         self.ai_key = None
         self.strategy_level = 10
         
-        # Данные пула для отображения в вебе
+        # Данные для веб-интерфейса
         self.pool_reserves = {"ton": "0.00", "token": "0.00"}
-        
-        self.synaptic_history = []
         self.last_status = "INITIALIZING"
         self.total_ops = 0
         self.current_balance = 0.0
@@ -84,17 +82,14 @@ class OmniNeuralOverlord:
 
     def _clean_string(self, text):
         if not text: return ""
-        # Удаляем непечатаемые символы и лишние пробелы
         return "".join(char for char in str(text) if ord(char) < 128).strip()
 
     async def update_config_from_db(self):
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
-                # Очистка мнемоники от переносов строк и лишних пробелов
                 raw_mnemonic = cfg.get('mnemonic', '')
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
-                
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
                 
                 pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
@@ -130,11 +125,10 @@ class OmniNeuralOverlord:
 
     # --- API & WEB ---
     async def handle_index(self, request):
-        # Согласно вашему правилу: index.html всегда в папке static
         index_path = os.path.join(os.getcwd(), 'static', 'index.html')
         if os.path.exists(index_path):
             return web.FileResponse(index_path)
-        return web.Response(text="<h1>QUANTUM CORE ACTIVE</h1><p>index.html not found in static/</p>", content_type='text/html')
+        return web.Response(text="<h1>QUANTUM CORE ACTIVE</h1>", content_type='text/html')
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -142,14 +136,12 @@ class OmniNeuralOverlord:
         try:
             db_stats = await get_stats_for_web()
             db_stats['balance'] = f"{self.current_balance:.2f}"
-            
             db_stats['pool_info'] = {
                 "address": str(self.pool_addr) if self.pool_addr else "NOT CONFIGURED",
                 "reserve_ton": self.pool_reserves["ton"],
                 "reserve_token": self.pool_reserves["token"],
                 "status": "SYNCED" if self.pool_addr else "WAITING"
             }
-            
             db_stats['engine'] = {
                 "core_id": self.core_id,
                 "ops_total": self.total_ops,
@@ -158,7 +150,6 @@ class OmniNeuralOverlord:
             }
             return web.json_response(db_stats)
         except Exception as e:
-            log(f"Ошибка сбора статистики: {e}", "ERROR")
             return web.json_response({"status": "error", "msg": str(e)})
 
     async def handle_update_config(self, request):
@@ -168,18 +159,15 @@ class OmniNeuralOverlord:
             data = await request.json()
             await update_remote_config(data)
             await self.update_config_from_db()
-            log("Конфигурация обновлена через Web-интерфейс", "SUCCESS")
+            log("Конфигурация обновлена через Web", "SUCCESS")
             return web.json_response({"status": "success"})
         except Exception as e:
             return web.json_response({"status": "error", "msg": str(e)}, status=400)
 
     # --- ANALYTICS & NEURAL ---
     async def fetch_neural_strategy(self, market_snapshot):
-        if not self.ai_key: 
-            return {"cmd": "WAIT", "reason": "No AI Key"}
+        if not self.ai_key: return {"cmd": "WAIT", "reason": "No AI Key"}
         try:
-            openai.api_key = self.ai_key
-            # Асинхронный вызов OpenAI
             client = openai.AsyncOpenAI(api_key=self.ai_key)
             res = await client.chat.completions.create(
                 model="gpt-4o",
@@ -196,15 +184,11 @@ class OmniNeuralOverlord:
             return {"cmd": "WAIT", "reason": "AI Error"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
-        if not self.pool_addr: 
-            log("Ошибка: Адрес пула не настроен", "WARNING")
-            return False
+        if not self.pool_addr: return False
         try:
             amt = float(plan.get('amt', 0))
             if amt <= 0: return False
-            
             nano_amt = int(amt * 1e9)
-            # Формирование полезной нагрузки для Swap через DeDust/Vault
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 300), 64) 
@@ -214,7 +198,7 @@ class OmniNeuralOverlord:
             
             await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=swap_payload)
             self.total_ops += 1
-            log(f"Импульс отправлен: {amt} TON -> {self.pool_addr}", "SUCCESS")
+            log(f"Импульс отправлен: {amt} TON", "SUCCESS")
             return True
         except Exception as e:
             log(f"TON: Ошибка импульса: {e}", "ERROR")
@@ -222,27 +206,14 @@ class OmniNeuralOverlord:
 
     async def start_web_server(self):
         app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_headers="*",
-                allow_methods="*",
-                allow_credentials=True
-            )
-        })
-        
-        # Маршруты согласно дизайну
+        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*", allow_credentials=True)})
         app.router.add_get('/amin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
-        
-        # Раздача статики (картинки, стили)
         if os.path.exists('static'):
             app.router.add_static('/static/', path='static', name='static')
-        
-        for route in list(app.router.routes()):
-            cors.add(route)
-        
+        for route in list(app.router.routes()): cors.add(route)
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
@@ -250,69 +221,58 @@ class OmniNeuralOverlord:
         log(f"Secure Admin Panel ONLINE at /amin (Port {port})", "SUCCESS")
 
     async def core_loop(self):
-        # Ожидание инициализации БД
         while True:
             try:
                 await init_db()
                 log("Соединение с БД установлено", "SUCCESS")
                 break
-            except Exception as e:
-                log(f"Ожидание БД... ({e})", "WARNING")
-                await asyncio.sleep(5)
+            except: await asyncio.sleep(5)
 
-        # Запуск веб-сервера отдельной задачей
         asyncio.create_task(self.start_web_server())
 
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
-                    log("Ожидание полной конфигурации в БД (мнемоника, ключи)...", "WARNING")
-                    await asyncio.sleep(10)
-                    continue
+                    log("Ожидание конфига в БД...", "WARNING")
+                    await asyncio.sleep(10); continue
 
+                # Исправление ошибки -400: создаем клиент внутри блока
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
-                        log("Ошибка: Мнемоника короче 12 слов!", "ERROR")
-                        await asyncio.sleep(30)
-                        continue
+                        await asyncio.sleep(30); continue
 
-                    # Инициализация кошелька
                     wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
-                    log(f"Кошелек подключен: {wallet.address}", "SUCCESS")
+                    log(f"Ядро подключено к кошельку: {wallet.address}", "SUCCESS")
                     
                     while self.is_active:
-                        # Обновляем конфиг каждую итерацию на случай изменений в вебе
-                        await self.update_config_from_db()
-                        
-                        # Получаем состояние рынка из БД
-                        market_state = await get_market_state()
-                        
-                        # Обновляем баланс
                         try:
-                            balance_nano = await wallet.get_balance()
-                            self.current_balance = balance_nano / 1e9
-                        except:
-                            log("Не удалось получить баланс TON", "WARNING")
+                            await self.update_config_from_db()
+                            market_state = await get_market_state()
+                            
+                            # Получение баланса с защитой от вылета
+                            try:
+                                balance_nano = await wallet.get_balance()
+                                self.current_balance = balance_nano / 1e9
+                            except Exception as be:
+                                if "-400" in str(be): raise be # Прокидываем наверх для рестарта клиента
+                                log("Ошибка получения баланса", "WARNING")
 
-                        # Запрос стратегии у AI
-                        plan = await self.fetch_neural_strategy(market_state)
-                        
-                        if plan.get('cmd') == "BUY":
-                            required_amt = float(plan.get('amt', 0))
-                            # Проверка баланса (сумма + комиссия ~0.5 TON)
-                            if self.current_balance > (required_amt + 0.5):
+                            plan = await self.fetch_neural_strategy(market_state)
+                            if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
                                 if await self.dispatch_hft_pulse(wallet, plan):
                                     await log_ai_action(plan, market_state.get('current_metrics', {}))
-                            else:
-                                log(f"Недостаточно средств для операции: {required_amt} TON", "WARNING")
-                        
-                        # Пауза между циклами (20 секунд)
-                        await asyncio.sleep(20)
+                            
+                            await asyncio.sleep(20)
+                        except Exception as inner_e:
+                            if "-400" in str(inner_e):
+                                log("Обнаружена рассинхронизация TON (-400). Переподключение...", "WARNING")
+                                break # Выход из внутреннего цикла для пересоздания LiteClient
+                            log(f"Ошибка итерации: {inner_e}", "TRACE")
+                            await asyncio.sleep(10)
             
             except Exception as e:
-                log(f"Критическая ошибка ядра: {e}", "ERROR")
-                traceback.print_exc()
+                log(f"Критический сбой ядра: {e}", "ERROR")
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
@@ -320,6 +280,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Quantum Core Shutdown by User", "WARNING")
+        log("Shutdown", "WARNING")
     except Exception as e:
-        log(f"Fatal Error: {e}", "ERROR")
+        log(f"Fatal: {e}", "ERROR")
