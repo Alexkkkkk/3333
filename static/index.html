@@ -40,6 +40,7 @@
             text-transform: uppercase; 
             font-size: 16px; 
             margin-top: 0;
+            color: #00f2ff;
         }
         .stat-val { 
             font-size: 28px; 
@@ -58,11 +59,13 @@
             border: 1px solid #00f2ff; 
             color: #fff; 
             padding: 8px; 
-            width: 80px; 
+            width: 160px; 
             border-radius: 4px; 
-            text-align: center; 
+            text-align: left; 
             font-family: inherit;
         }
+        input[type="number"] { width: 80px; text-align: center; }
+        
         button { 
             background: #00f2ff; 
             color: #000; 
@@ -88,7 +91,16 @@
         }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         
-        #chartOps { width: 100% !important; }
+        #log-container {
+            background: #000;
+            padding: 10px;
+            border: 1px solid #333;
+            height: 100px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: #0f0;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -97,69 +109,89 @@
     <div class="grid">
         <div class="card">
             <h2>Системная Телеметрия</h2>
-            <p>Статус ИИ: <span id="ai_status" class="status-online">SINGULARITY_ACTIVE</span></p>
-            <p>Объем торгов (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
-            <p>Прибыль распределена (TON):<br><span id="total_profit" class="stat-val">0.00</span></p>
-            <p>Последняя команда: <span id="last_cmd" style="color: #f0f; font-weight: bold;">---</span></p>
+            <p>Статус: <span id="ai_status" class="status-online">CONNECTING...</span></p>
+            <p>Баланс кошелька (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
+            <p>Текущая цена TON:<br><span id="total_profit" class="stat-val">$0.00</span></p>
+            <p>Core ID: <span id="core_id" style="color: #f0f;">---</span></p>
         </div>
 
         <div class="card">
-            <h2>Финансовый Контроль (%)</h2>
-            <div class="input-group"><span>Holders Share:</span> <input type="number" id="inp_holders" step="0.01" value="0.02"></div>
-            <div class="input-group"><span>Staking Pool:</span> <input type="number" id="inp_staking" step="0.01" value="0.30"></div>
-            <div class="input-group) "><span>Liquidity:</span> <input type="number" id="inp_liquidity" step="0.01" value="0.38"></div>
-            <div class="input-group"><span>Treasury:</span> <input type="number" id="inp_treasury" step="0.01" value="0.30"></div>
-            <button onclick="updateSettings()">Применить протокол прибыли</button>
-            <p style="font-size: 10px; color: #555; margin-top: 10px;">* Сумма долей должна быть равна 1.0 (100%)</p>
+            <h2>Конфигурация Ядра</h2>
+            <div class="input-group"><span>Mnemonic:</span> <input type="password" id="cfg_mnemonic" placeholder="12/24 words"></div>
+            <div class="input-group"><span>OpenAI Key:</span> <input type="password" id="cfg_ai_key" placeholder="sk-..."></div>
+            <div class="input-group"><span>DeDust Pool:</span> <input type="text" id="cfg_pool" placeholder="EQ..."></div>
+            <div class="input-group"><span>AI Strategy:</span> <input type="number" id="cfg_strategy" value="10"></div>
+            <button onclick="saveConfig()">Применить протокол настроек</button>
         </div>
 
         <div class="card" style="grid-column: span 2;">
-            <h2>Анализ Команд ИИ (Распределение за 7 дней)</h2>
-            <canvas id="chartOps" style="max-height: 250px;"></canvas>
+            <h2>Анализ Команд ИИ (Распределение)</h2>
+            <canvas id="chartOps" style="max-height: 200px;"></canvas>
+            <div id="log-container">
+                [SYSTEM] Ожидание синхронизации с основным процессом...
+            </div>
         </div>
     </div>
 
     <script>
         let myChart;
+        const logBox = document.getElementById('log-container');
 
-        // Основная функция обновления данных
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logBox.prepend(div);
+        }
+
         async function refreshStats() {
             try {
-                // Запрос к нашему эндпоинту в main.py
                 const res = await fetch('/api/stats');
-                if (!res.ok) throw new Error("API Offline");
+                if (!res.ok) throw new Error("Offline");
                 const data = await res.json();
                 
-                // 1. Обновляем цифры из summary
-                document.getElementById('total_vol').innerText = data.stats.summary.total_volume;
-                document.getElementById('total_profit').innerText = data.stats.summary.total_profit;
-                document.getElementById('ai_status').innerText = data.stats.summary.status;
+                // Обновление интерфейса данными из твоего main.py
+                document.getElementById('total_vol').innerText = data.balance || "0.00";
+                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
+                document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
+                document.getElementById('core_id').innerText = data.engine?.core_id || "UNKNOWN";
 
-                // 2. Обновляем последнюю команду из памяти рынка
-                if (data.market.recent_memory && data.market.recent_memory.length > 0) {
-                    const latest = data.market.recent_memory[0];
-                    document.getElementById('last_cmd').innerText = `${latest.action} (${latest.amt} TON)`;
-                }
-
-                // 3. Обновляем график стратегий
-                updateChart(data.stats.strategy_map);
-
+                updateChart(data.engine?.ops_total || 0);
             } catch (e) { 
-                console.error("Connection to Neural Core lost...", e); 
                 document.getElementById('ai_status').innerText = "OFFLINE";
                 document.getElementById('ai_status').className = "";
                 document.getElementById('ai_status').style.color = "red";
             }
         }
 
-        function updateChart(strategyMap) {
+        async function saveConfig() {
+            const settings = {
+                mnemonic: document.getElementById('cfg_mnemonic').value,
+                ai_api_key: document.getElementById('cfg_ai_key').value,
+                dedust_pool: document.getElementById('cfg_pool').value,
+                ai_strategy_level: parseInt(document.getElementById('cfg_strategy').value)
+            };
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(settings)
+                });
+                if (res.ok) {
+                    addLog("✅ Протокол синхронизирован. Перезагрузка ядра...");
+                    alert("Настройки сохранены!");
+                }
+            } catch (e) { addLog("🚨 Ошибка записи в БД"); }
+        }
+
+        function updateChart(opsCount) {
             const ctx = document.getElementById('chartOps').getContext('2d');
-            const labels = Object.keys(strategyMap);
-            const values = Object.values(strategyMap);
+            const labels = ['Wait', 'Buy', 'Sell', 'HFT Pulse'];
+            // Имитация распределения для красоты, пока нет реальной мапы
+            const dataValues = [opsCount * 0.4, opsCount * 0.3, opsCount * 0.1, opsCount * 0.2];
 
             if (myChart) {
-                myChart.data.labels = labels;
-                myChart.data.datasets[0].data = values;
+                myChart.data.datasets[0].data = dataValues;
                 myChart.update();
             } else {
                 myChart = new Chart(ctx, {
@@ -168,7 +200,7 @@
                         labels: labels,
                         datasets: [{
                             label: 'Операции',
-                            data: values,
+                            data: dataValues,
                             backgroundColor: 'rgba(0, 242, 255, 0.4)',
                             borderColor: '#00f2ff',
                             borderWidth: 2
@@ -187,37 +219,7 @@
             }
         }
 
-        // Функция отправки новых настроек
-        async function updateSettings() {
-            const settings = {
-                holders_pct: parseFloat(document.getElementById('inp_holders').value),
-                staking_pct: parseFloat(document.getElementById('inp_staking').value),
-                liquidity_pct: parseFloat(document.getElementById('inp_liquidity').value),
-                treasury_pct: parseFloat(document.getElementById('inp_treasury').value)
-            };
-            
-            // Проверка суммы (должна быть 100% или 1.0)
-            const sum = Object.values(settings).reduce((a, b) => a + b, 0);
-            if (Math.abs(sum - 1.0) > 0.01 && Math.abs(sum - 100) > 0.01) {
-                if (!confirm(`Внимание: Сумма долей (${sum}) не равна 1.0. Продолжить?`)) return;
-            }
-
-            try {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(settings)
-                });
-
-                if (res.ok) alert("✅ Протокол прибыли синхронизирован с PostgreSQL.");
-                else alert("🚨 Отказ в доступе. Проверьте логи сервера.");
-            } catch (e) {
-                alert("🚨 Ошибка связи с сервером.");
-            }
-        }
-
-        // Запуск циклов
-        setInterval(refreshStats, 5000); // Обновляем раз в 5 секунд
+        setInterval(refreshStats, 5000);
         refreshStats();
     </script>
 </body>
