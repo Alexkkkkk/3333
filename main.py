@@ -30,8 +30,6 @@ load_dotenv()
 log("Шаг 2: Импорт библиотек TON...", "TRACE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
-    
-    # Пытаемся импортировать современный метод begin_cell
     try:
         from pytoniq import begin_cell
         log("Метод begin_cell готов (pytoniq native)", "SUCCESS")
@@ -40,7 +38,6 @@ try:
             from pytoniq_core import begin_cell
             log("Метод begin_cell готов (from pytoniq_core)", "SUCCESS")
         except ImportError:
-            # Последний шанс: старый стиль BeginCell
             from pytoniq import BeginCell as begin_cell
             log("Используется резервный BeginCell", "WARNING")
             
@@ -48,7 +45,7 @@ except Exception as e:
     log(f"КРИТИЧЕСКАЯ ОШИБКА ТОН: {e}", "ERROR")
     sys.exit(1)
 
-# Подключение твоей базы данных
+# Импорт базы данных
 try:
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
@@ -63,21 +60,28 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         self.pool_addr = None
-        self.vault_ton = Address("EQCt0-Ba6Y_9_6p20tH_E_Oq_H_O_O_O_O_O_O_O_O_O_O_O_O")
+        
+        # ВСТАВЛЕН ВАШ АДРЕС
+        self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
+            
         self.mnemonic = None
         self.ai_key = None
         self.total_ops = 0
         self.last_status = "BOOTING"
 
     async def update_config(self):
-        cfg = await load_remote_config()
-        if cfg and cfg.get('mnemonic'):
-            self.mnemonic = cfg.get('mnemonic').strip()
-            self.ai_key = cfg.get('ai_api_key', '').strip()
-            if cfg.get('dedust_pool'):
-                self.pool_addr = Address(cfg.get('dedust_pool'))
-            return True
-        return False
+        try:
+            cfg = await load_remote_config()
+            if cfg and cfg.get('mnemonic'):
+                self.mnemonic = cfg.get('mnemonic').strip()
+                self.ai_key = cfg.get('ai_api_key', '').strip()
+                if cfg.get('dedust_pool'):
+                    self.pool_addr = Address(cfg.get('dedust_pool'))
+                return True
+            return False
+        except Exception as e:
+            log(f"Ошибка конфига: {e}", "ERROR")
+            return False
 
     async def fetch_strategy(self, market):
         if not self.ai_key: return {"cmd": "WAIT"}
@@ -94,12 +98,13 @@ class OmniNeuralOverlord:
         except: return {"cmd": "WAIT"}
 
     async def send_transaction(self, wallet, plan):
-        if not self.pool_addr: return False
+        if not self.pool_addr or not self.vault_ton: 
+            log("Пропуск: адрес хранилища или пула не задан", "WARNING")
+            return False
         try:
             amt = float(plan.get('amt', 0))
             nano_amt = int(amt * 1e9)
             
-            # Формируем ячейку через найденный при импорте метод
             payload = (begin_cell()
                        .store_uint(0xea06185d, 32) 
                        .store_uint(int(time.time() + 300), 64) 
@@ -109,21 +114,25 @@ class OmniNeuralOverlord:
             
             await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=payload)
             self.total_ops += 1
-            log(f"Сделка #{self.total_ops} отправлена!", "SUCCESS")
+            log(f"Сделка #{self.total_ops} отправлена на {self.vault_ton}", "SUCCESS")
             return True
         except Exception as e:
             log(f"Ошибка транзакции: {e}", "ERROR")
             return False
 
     async def start_web(self):
-        app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
-        app.router.add_get('/', lambda r: web.FileResponse('./static/index.html') if os.path.exists('./static/index.html') else web.Response(text="Quantum Active"))
-        app.router.add_get('/api/stats', lambda r: web.json_response({"ops": self.total_ops, "uptime": int(time.time()-self.session_start)}))
-        
-        runner = web.AppRunner(app)
-        await runner.setup()
-        await web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 3000))).start()
+        try:
+            app = web.Application()
+            cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
+            app.router.add_get('/', lambda r: web.FileResponse('./static/index.html') if os.path.exists('./static/index.html') else web.Response(text="Quantum Active"))
+            app.router.add_get('/api/stats', lambda r: web.json_response({"ops": self.total_ops, "uptime": int(time.time()-self.session_start)}))
+            
+            runner = web.AppRunner(app)
+            await runner.setup()
+            await web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 3000))).start()
+            log("API Dashboard запущен на порту 3000", "SUCCESS")
+        except Exception as e:
+            log(f"Ошибка веб-сервера: {e}", "ERROR")
 
     async def run(self):
         await init_db()
@@ -138,8 +147,14 @@ class OmniNeuralOverlord:
                 client = LiteClient.from_mainnet_config()
                 await client.start()
                 try:
-                    wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
+                    mnemonic_list = self.mnemonic.split()
+                    if len(mnemonic_list) < 12:
+                        log("Ошибка: неверный формат мнемоники в БД!", "ERROR")
+                        await asyncio.sleep(30); continue
+                        
+                    wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                     log(f"Кошелек активен: {wallet.address}", "SUCCESS")
+                    
                     while self.is_active:
                         market = await get_market_state()
                         plan = await self.fetch_strategy(market)
@@ -150,7 +165,6 @@ class OmniNeuralOverlord:
                     await client.stop()
             except Exception as e:
                 log(f"Рестарт цикла: {e}", "ERROR")
-                traceback.print_exc()
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
