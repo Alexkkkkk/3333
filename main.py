@@ -66,14 +66,12 @@ class OmniNeuralOverlord:
         self.session_token = os.urandom(32).hex() 
         
         self.pool_addr = None
-        # Адрес хранилища (Vault)
         self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
         
         self.mnemonic = None
         self.ai_key = None
         self.strategy_level = 10
         
-        # Данные для веб-интерфейса
         self.pool_reserves = {"ton": "0.00", "token": "0.00"}
         self.last_status = "INITIALIZING"
         self.total_ops = 0
@@ -91,14 +89,10 @@ class OmniNeuralOverlord:
                 raw_mnemonic = cfg.get('mnemonic', '')
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
-                
                 pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
                 if pool_raw: 
-                    try: 
-                        self.pool_addr = Address(pool_raw)
-                    except: 
-                        log(f"Ошибка формата адреса пула: {pool_raw}", "WARNING")
-                
+                    try: self.pool_addr = Address(pool_raw)
+                    except: log(f"Ошибка формата адреса пула: {pool_raw}", "WARNING")
                 self.strategy_level = cfg.get('ai_strategy_level', 10)
                 self.last_status = "ACTIVE"
                 return True
@@ -107,7 +101,6 @@ class OmniNeuralOverlord:
             log(f"Ошибка синхронизации конфига: {e}", "ERROR")
             return False
 
-    # --- СИСТЕМА АВТОРИЗАЦИИ ---
     def is_auth(self, request):
         return request.cookies.get("auth_token") == self.session_token
 
@@ -128,7 +121,9 @@ class OmniNeuralOverlord:
         index_path = os.path.join(os.getcwd(), 'static', 'index.html')
         if os.path.exists(index_path):
             return web.FileResponse(index_path)
-        return web.Response(text="<h1>QUANTUM CORE ACTIVE</h1>", content_type='text/html')
+        # Если 404, бот напишет в логи причину
+        log(f"Критическая ошибка: Файл не найден по пути {index_path}", "ERROR")
+        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Path: {index_path}</p>", content_type='text/html', status=404)
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -207,13 +202,23 @@ class OmniNeuralOverlord:
     async def start_web_server(self):
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*", allow_credentials=True)})
+        
+        # Регистрация маршрутов
         app.router.add_get('/amin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
-        if os.path.exists('static'):
-            app.router.add_static('/static/', path='static', name='static')
+        
+        # Проверка статики перед раздачей
+        static_path = os.path.join(os.getcwd(), 'static')
+        if os.path.exists(static_path):
+            log(f"Статика обнаружена: {static_path}", "SUCCESS")
+            app.router.add_static('/static/', path=static_path, name='static')
+        else:
+            log(f"ВНИМАНИЕ: Папка {static_path} не найдена!", "WARNING")
+        
         for route in list(app.router.routes()): cors.add(route)
+        
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
@@ -236,7 +241,6 @@ class OmniNeuralOverlord:
                     log("Ожидание конфига в БД...", "WARNING")
                     await asyncio.sleep(10); continue
 
-                # Исправление ошибки -400: создаем клиент внутри блока
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
@@ -250,12 +254,11 @@ class OmniNeuralOverlord:
                             await self.update_config_from_db()
                             market_state = await get_market_state()
                             
-                            # Получение баланса с защитой от вылета
                             try:
                                 balance_nano = await wallet.get_balance()
                                 self.current_balance = balance_nano / 1e9
                             except Exception as be:
-                                if "-400" in str(be): raise be # Прокидываем наверх для рестарта клиента
+                                if "-400" in str(be): raise be
                                 log("Ошибка получения баланса", "WARNING")
 
                             plan = await self.fetch_neural_strategy(market_state)
@@ -267,7 +270,7 @@ class OmniNeuralOverlord:
                         except Exception as inner_e:
                             if "-400" in str(inner_e):
                                 log("Обнаружена рассинхронизация TON (-400). Переподключение...", "WARNING")
-                                break # Выход из внутреннего цикла для пересоздания LiteClient
+                                break 
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
             
@@ -282,4 +285,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log("Shutdown", "WARNING")
     except Exception as e:
-        log(f"Fatal: {e}", "ERROR")
+        log(f"Fatal: {traceback.format_exc()}", "ERROR")
