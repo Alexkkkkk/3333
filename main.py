@@ -12,36 +12,52 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# --- СИСТЕМА ЛОГИРОВАНИЯ ---
+# --- УЛЬТРА-СИСТЕМА ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    colors = {"INFO": "\033[94m", "SUCCESS": "\033[92m", "WARNING": "\033[93m", "ERROR": "\033[91m", "CORE": "\033[95m", "TRACE": "\033[90m"}
+    colors = {
+        "INFO": "\033[94m",    # Blue
+        "SUCCESS": "\033[92m", # Green
+        "WARNING": "\033[93m", # Yellow
+        "ERROR": "\033[91m",    # Red
+        "CORE": "\033[95m",    # Magenta
+        "TRACE": "\033[90m"     # Gray
+    }
     reset = "\033[0m"
     color = colors.get(level, reset)
     print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
 log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM <<<", "CORE")
 
-# --- ШАГ 1: ENV ---
+# --- ПОШАГОВЫЙ ИМПОРТ ---
+log("Шаг 1: Загрузка переменных окружения (.env)...", "TRACE")
 load_dotenv()
 
-# --- ШАГ 2: ИСПРАВЛЕННЫЙ ИМПОРТ TON ---
-log("Шаг 2: Импорт библиотек TON...", "TRACE")
+log("Шаг 2: Импорт библиотек TON (FIXED)...", "TRACE")
 try:
+    # Базовые классы
     from pytoniq import LiteClient, WalletV4R2, Address
+    
+    # ПРИНУДИТЕЛЬНЫЙ ИМПОРТ BeginCell
+    # В новых версиях он живет ТОЛЬКО в pytoniq_core.builder
     try:
-        # Пробуем импортировать из нового пакета pytoniq-core
-        from pytoniq_core import BeginCell
-        log("BeginCell загружен из pytoniq_core", "SUCCESS")
+        from pytoniq_core.builder import BeginCell
+        log("BeginCell успешно импортирован из pytoniq_core.builder", "SUCCESS")
     except ImportError:
-        # Если не вышло, пробуем из основного
-        from pytoniq import BeginCell
-        log("BeginCell загружен из pytoniq", "SUCCESS")
+        try:
+            from pytoniq_core import BeginCell
+            log("BeginCell импортирован из корня pytoniq_core", "SUCCESS")
+        except ImportError:
+            from pytoniq import BeginCell
+            log("Откат: BeginCell импортирован из pytoniq", "WARNING")
+            
+    log("Зависимости TON: ПОЛНОСТЬЮ ГОТОВЫ", "SUCCESS")
 except Exception as e:
     log(f"КРИТИЧЕСКАЯ ОШИБКА ИМПОРТА: {e}", "ERROR")
+    traceback.print_exc()
     sys.exit(1)
 
-# --- ШАГ 3: DATABASE ---
+log("Шаг 3: Подключение модуля базы данных (database.py)...", "TRACE")
 try:
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
@@ -62,7 +78,6 @@ class OmniNeuralOverlord:
         self.synaptic_history = []
         self.last_status = "BOOTING"
         self.total_ops = 0
-        log(f"Ядро создано. ID: {self.core_id}", "CORE")
 
     async def update_config_from_db(self):
         try:
@@ -87,19 +102,19 @@ class OmniNeuralOverlord:
             res = await asyncio.wait_for(openai.ChatCompletion.acreate(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float}"},
+                    {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\", \"amt\": 1.0}"},
                     {"role": "user", "content": json.dumps(market_snapshot)}
                 ]
             ), timeout=15)
             return json.loads(res.choices[0].message.content)
-        except:
-            return {"cmd": "WAIT"}
+        except: return {"cmd": "WAIT"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
         if not self.pool_addr: return False
         try:
             amt = float(plan.get('amt', 0))
             nano_amt = int(amt * 1e9)
+            # Использование BeginCell для создания ячейки транзакции
             payload = (BeginCell()
                        .store_uint(0xea06185d, 32) 
                        .store_uint(int(time.time() + 300), 64) 
@@ -109,55 +124,57 @@ class OmniNeuralOverlord:
             
             await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=payload)
             self.total_ops += 1
-            log(f"Транзакция отправлена! Сумма: {amt} TON", "SUCCESS")
+            log(f"Сделка исполнена: {amt} TON", "SUCCESS")
             return True
         except Exception as e:
-            log(f"Ошибка транзакции: {e}", "ERROR")
+            log(f"Ошибка сети TON: {e}", "ERROR")
             return False
 
     async def start_web_server(self):
-        app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
-        app.router.add_get('/', lambda r: web.FileResponse('./static/index.html') if os.path.exists('./static/index.html') else web.Response(text="Core Active"))
-        app.router.add_get('/api/stats', lambda r: web.json_response({"core_id": self.core_id, "ops": self.total_ops}))
-        
-        runner = web.AppRunner(app)
-        await runner.setup()
-        await web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 3000))).start()
-        log("Web-сервер запущен", "SUCCESS")
+        try:
+            app = web.Application()
+            cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*")})
+            app.router.add_get('/', lambda r: web.FileResponse('./static/index.html') if os.path.exists('./static/index.html') else web.Response(text="Quantum Core Active"))
+            app.router.add_get('/api/stats', lambda r: web.json_response({"ops": self.total_ops, "status": self.last_status}))
+            
+            runner = web.AppRunner(app)
+            await runner.setup()
+            await web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 3000))).start()
+            log("API Dashboard запущен", "SUCCESS")
+        except: pass
 
     async def core_loop(self):
+        log("Вход в главный поток...", "CORE")
         await init_db()
         asyncio.create_task(self.start_web_server())
 
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
-                    log("Жду настройки в БД...", "WARNING")
+                    log("Ожидание конфигурации из БД...", "WARNING")
                     await asyncio.sleep(10); continue
 
                 client = LiteClient.from_mainnet_config()
                 await client.start()
-                
                 try:
                     wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
-                    log(f"Кошелек: {wallet.address}", "SUCCESS")
-                    
+                    log(f"Подключен кошелек: {wallet.address}", "SUCCESS")
                     while self.is_active:
-                        market_state = await get_market_state()
+                        market = await get_market_state()
                         balance = (await wallet.get_balance()) / 1e9
-                        log(f"Баланс: {balance:.2f} TON", "INFO")
-
-                        plan = await self.fetch_neural_strategy(market_state)
+                        log(f"Мониторинг... Баланс: {balance:.2f} TON", "INFO")
+                        plan = await self.fetch_neural_strategy(market)
                         if plan.get('cmd') == "BUY" and balance > (float(plan.get('amt', 0)) + 0.5):
                             await self.dispatch_hft_pulse(wallet, plan)
-                        
                         await asyncio.sleep(20)
                 finally:
                     await client.stop()
             except Exception as e:
-                log(f"Ошибка цикла: {e}", "ERROR")
+                log(f"Перезагрузка цикла: {e}", "ERROR")
                 await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    asyncio.run(OmniNeuralOverlord().core_loop())
+    try:
+        asyncio.run(OmniNeuralOverlord().core_loop())
+    except KeyboardInterrupt:
+        log("Выход...", "WARNING")
