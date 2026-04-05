@@ -4,11 +4,11 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 
-# Глобальный пул соединений
+# Глобальный пул соединений для эффективной работы на Bothost
 _pool = None
 
 async def get_pool():
-    """Создает пул соединений с High-Load лимитами (Bothost Optimized)."""
+    """Создает пул соединений с High-Load лимитами."""
     global _pool
     db_url = os.getenv('DATABASE_URL')
     if _pool is None:
@@ -26,7 +26,7 @@ async def get_pool():
     return _pool
 
 async def init_db():
-    """Инициализация архитектуры: Настройки, Логи, Финансы и Аналитика."""
+    """Инициализация всей архитектуры БД: Конфиг, Логи, Профит."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         # 0. ТАБЛИЦА ГЛОБАЛЬНОЙ КОНФИГУРАЦИИ
@@ -63,7 +63,7 @@ async def init_db():
             ON CONFLICT (label) DO NOTHING
         ''')
 
-        # 2. ТАБЛИЦА НЕЙРО-ЛОГОВ
+        # 2. ТАБЛИЦА НЕЙРО-ЛОГОВ (Хранение истории действий ИИ)
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -77,7 +77,7 @@ async def init_db():
             )
         ''')
         
-        # 3. ТАБЛИЦА ПРИБЫЛИ
+        # 3. ТАБЛИЦА РАСПРЕДЕЛЕНИЯ ПРИБЫЛИ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS profit_distribution (
                 id SERIAL PRIMARY KEY,
@@ -90,7 +90,7 @@ async def init_db():
             )
         ''')
         
-        # Индексы для скорости работы админки
+        # Оптимизация: Индексы для ускорения работы Admin Panel
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_config_active ON bot_config(is_active)')
         
@@ -99,7 +99,7 @@ async def init_db():
 # --- ФУНКЦИИ УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
-    """Загрузка последних активных настроек."""
+    """Загрузка настроек для работы торгового ядра."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow('''
@@ -131,14 +131,14 @@ async def update_remote_config(data: dict):
 # --- АНАЛИТИКА И ЛОГИРОВАНИЕ ---
 
 async def get_current_distribution():
-    """Получение текущих долей распределения прибыли."""
+    """Получение текущих коэффициентов прибыли."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT holders_pct, staking_pct, liquidity_pct, treasury_pct FROM distribution_settings WHERE label = 'default'")
         return dict(row) if row else {"holders_pct": 0.02, "staking_pct": 0.30, "liquidity_pct": 0.38, "treasury_pct": 0.30}
 
 async def get_market_state():
-    """Сбор последних данных рынка для анализа ИИ."""
+    """Анализ тренда на основе истории логов."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -151,7 +151,7 @@ async def get_market_state():
         for h in history:
             ms = h['market_snapshot']
             if ms:
-                # Безопасная обработка JSONB (asyncpg может вернуть dict или str)
+                # Безопасная распаковка JSONB
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
                 prices.append(float(val))
         
@@ -186,7 +186,7 @@ async def get_market_state():
         }
 
 async def log_ai_action(strategy, market, perf_data=None):
-    """Логирование действий торгового ядра с авто-очисткой."""
+    """Запись действий ИИ и автоматическая очистка старых записей."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -200,13 +200,13 @@ async def log_ai_action(strategy, market, perf_data=None):
                 VALUES ($1, $2, $3, $4, $5, $6)
             ''', cmd, amount, urgency, reason, json.dumps(market), json.dumps(perf_data) if perf_data else None)
             
-            # Оптимизация базы: храним логи только 7 дней
+            # Очистка базы: удаляем логи старше 7 дней, чтобы не забивать диск
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
 
 async def add_profit_record(amount):
-    """Расчет и запись распределения профита."""
+    """Фиксация прибыли и её автоматическое распределение."""
     pool = await get_pool()
     s = await get_current_distribution()
     amount = float(amount)
@@ -219,13 +219,14 @@ async def add_profit_record(amount):
         print(f"💰 [PROFIT] {amount} TON shared by neural algorithm.")
 
 async def get_stats_for_web():
-    """Сводная статистика для визуализации в админке."""
+    """Сбор статистики для графиков в админ-панели."""
     pool = await get_pool()
     dist_settings = await get_current_distribution()
     async with pool.acquire() as conn:
         total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs") or 0
         total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution") or 0
         
+        # Распределение типов команд для круговой диаграммы
         distribution_rows = await conn.fetch("SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd")
         cmd_dist = {row['cmd']: row['count'] for row in distribution_rows}
 
