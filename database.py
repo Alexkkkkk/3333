@@ -90,7 +90,7 @@ async def init_db():
             )
         ''')
         
-        # Индексы для скорости
+        # Индексы для скорости работы админки
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_timestamp_desc ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_config_active ON bot_config(is_active)')
         
@@ -99,7 +99,7 @@ async def init_db():
 # --- ФУНКЦИИ УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
-    """Загрузка настроек для main.py из базы данных."""
+    """Загрузка последних активных настроек."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow('''
@@ -111,7 +111,7 @@ async def load_remote_config():
         return dict(row) if row else None
 
 async def update_remote_config(data: dict):
-    """Обновление настроек через админку."""
+    """Обновление настроек через Admin Panel."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
@@ -131,12 +131,14 @@ async def update_remote_config(data: dict):
 # --- АНАЛИТИКА И ЛОГИРОВАНИЕ ---
 
 async def get_current_distribution():
+    """Получение текущих долей распределения прибыли."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT holders_pct, staking_pct, liquidity_pct, treasury_pct FROM distribution_settings WHERE label = 'default'")
         return dict(row) if row else {"holders_pct": 0.02, "staking_pct": 0.30, "liquidity_pct": 0.38, "treasury_pct": 0.30}
 
 async def get_market_state():
+    """Сбор последних данных рынка для анализа ИИ."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -149,7 +151,7 @@ async def get_market_state():
         for h in history:
             ms = h['market_snapshot']
             if ms:
-                # Обработка JSONB
+                # Безопасная обработка JSONB (asyncpg может вернуть dict или str)
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
                 prices.append(float(val))
         
@@ -184,7 +186,7 @@ async def get_market_state():
         }
 
 async def log_ai_action(strategy, market, perf_data=None):
-    """Построчное логирование действий ИИ в базу."""
+    """Логирование действий торгового ядра с авто-очисткой."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -198,12 +200,13 @@ async def log_ai_action(strategy, market, perf_data=None):
                 VALUES ($1, $2, $3, $4, $5, $6)
             ''', cmd, amount, urgency, reason, json.dumps(market), json.dumps(perf_data) if perf_data else None)
             
-            # Авто-очистка логов старше 7 дней
+            # Оптимизация базы: храним логи только 7 дней
             await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
         except Exception as e:
             print(f"🚨 [DB_LOG_ERROR]: {e}")
 
 async def add_profit_record(amount):
+    """Расчет и запись распределения профита."""
     pool = await get_pool()
     s = await get_current_distribution()
     amount = float(amount)
@@ -216,10 +219,10 @@ async def add_profit_record(amount):
         print(f"💰 [PROFIT] {amount} TON shared by neural algorithm.")
 
 async def get_stats_for_web():
+    """Сводная статистика для визуализации в админке."""
     pool = await get_pool()
     dist_settings = await get_current_distribution()
     async with pool.acquire() as conn:
-        # Агрегация данных для фронтенда
         total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs") or 0
         total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution") or 0
         
