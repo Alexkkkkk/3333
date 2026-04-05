@@ -149,7 +149,7 @@ async def get_market_state():
         for h in history:
             ms = h['market_snapshot']
             if ms:
-                # Обработка JSONB: asyncpg может вернуть уже распакованный dict
+                # Обработка JSONB
                 val = ms.get('price_ton', 0) if isinstance(ms, dict) else json.loads(ms).get('price_ton', 0)
                 prices.append(float(val))
         
@@ -219,6 +219,7 @@ async def get_stats_for_web():
     pool = await get_pool()
     dist_settings = await get_current_distribution()
     async with pool.acquire() as conn:
+        # Агрегация данных для фронтенда
         total_vol = await conn.fetchval("SELECT SUM(amount) FROM neural_mm_logs") or 0
         total_profit = await conn.fetchval("SELECT SUM(total_amount) FROM profit_distribution") or 0
         
