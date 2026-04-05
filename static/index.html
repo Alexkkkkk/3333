@@ -3,186 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL SENTINEL | Secure Command Center</title>
+    <title>QUANTUM NEURAL | Secure Command Center</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            background: #0a0b10; 
-            color: #00f2ff; 
-            font-family: 'Courier New', monospace; 
-            margin: 0; 
-            padding: 20px; 
-            overflow-x: hidden; 
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --bg: #020508;
+            --panel: rgba(10, 15, 25, 0.8);
         }
-        .grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 20px; 
-            max-width: 1200px; 
-            margin: 0 auto; 
+
+        body {
+            background-color: var(--bg);
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 242, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(112, 0, 255, 0.05) 0%, transparent 50%);
         }
-        .card { 
-            background: rgba(16, 18, 27, 0.9); 
-            border: 1px solid #00f2ff; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.1); 
+
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        .glass {
+            background: var(--panel);
+            backdrop-filter: blur(12px) saturate(160%);
+            border: 1px solid rgba(0, 242, 255, 0.15);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
         }
-        h1 { 
-            text-align: center; 
-            text-shadow: 0 0 10px #00f2ff; 
-            letter-spacing: 4px; 
-            text-transform: uppercase;
+
+        .neon-border {
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
         }
-        h2 { 
-            border-bottom: 1px solid #00f2ff; 
-            padding-bottom: 10px; 
-            text-transform: uppercase; 
-            font-size: 14px; 
-            margin-top: 0;
-            color: #00f2ff;
+
+        .cyber-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            color: white;
+            transition: all 0.3s ease;
         }
-        .stat-val { 
-            font-size: 28px; 
-            color: #fff; 
-            text-shadow: 0 0 5px #00f2ff; 
-            font-weight: bold; 
+
+        .cyber-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+            outline: none;
         }
-        .input-group { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 10px; 
-        }
-        input { 
-            background: #1a1d2e; 
-            border: 1px solid #00f2ff; 
-            color: #fff; 
-            padding: 8px; 
-            width: 160px; 
-            border-radius: 4px; 
-            text-align: left; 
-            font-family: inherit;
-        }
-        input[type="number"] { width: 80px; text-align: center; }
-        
-        button { 
-            background: #00f2ff; 
-            color: #000; 
-            border: none; 
-            padding: 15px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            width: 100%; 
-            margin-top: 10px; 
-            transition: 0.3s; 
+
+        .btn-action {
+            background: linear-gradient(90deg, #0082ff, #00f2ff);
+            color: black;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
+            transition: all 0.3s;
+            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%);
         }
-        button:hover { 
-            background: #fff; 
-            box-shadow: 0 0 20px #fff; 
-            transform: scale(1.02); 
+
+        .btn-action:hover {
+            filter: brightness(1.2);
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
         }
-        .status-online { 
-            color: #0f0; 
-            font-weight: bold; 
-            animation: blink 2s infinite; 
+
+        /* Анимация сканирования */
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            opacity: 0.5;
+            box-shadow: 0 0 15px var(--primary);
+            animation: scan 3s linear infinite;
         }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #0f0;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #0f0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
         #log-container {
-            background: #000;
-            padding: 10px;
-            border: 1px solid #333;
-            height: 100px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #00f2ff;
+            height: 120px;
             overflow-y: auto;
-            font-size: 12px;
-            color: #0f0;
-            margin-top: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
         }
-
-        #auth-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #0a0b10;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .auth-card { width: 320px; text-align: center; }
-        .hidden { display: none !important; }
-
-        .pool-data {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 10px;
-            border-top: 1px solid #1a1d2e;
-            padding-top: 10px;
-        }
-        .pool-box { text-align: center; }
-        .pool-label { font-size: 10px; color: #888; display: block; }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col p-4">
 
-    <div id="auth-overlay">
-        <div class="card auth-card">
-            <h2>ACCESS RESTRICTED</h2>
-            <div style="margin: 15px 0;">
-                <input type="text" id="login_field" placeholder="ID" style="width: 100%; margin-bottom: 10px;">
-                <input type="password" id="pass_field" placeholder="PASSWORD" style="width: 100%;">
+    <div id="auth-overlay" class="fixed inset-0 z-[999] flex items-center justify-center bg-[#020508]">
+        <div class="glass p-10 w-full max-w-sm relative overflow-hidden text-center">
+            <div class="scanner-line"></div>
+            <h2 class="orbitron text-xl font-bold mb-6 tracking-widest text-[#00f2ff]">RESTRICTED ACCESS</h2>
+            <div class="space-y-4">
+                <input type="text" id="login_field" placeholder="IDENTITY ID" class="w-full p-3 cyber-input rounded orbitron text-xs">
+                <input type="password" id="pass_field" placeholder="ENCRYPTED KEY" class="w-full p-3 cyber-input rounded orbitron text-xs">
+                <button onclick="attemptLogin()" class="w-full py-4 btn-action orbitron text-sm">Initialize Link</button>
+                <p id="auth_error" class="hidden text-red-500 text-xs mt-4 orbitron">ERROR: ACCESS DENIED</p>
             </div>
-            <button onclick="attemptLogin()">INITIALIZE ACCESS</button>
-            <p id="auth_error" style="color: red; font-size: 12px; margin-top: 10px;" class="hidden">WRONG CREDENTIALS</p>
         </div>
     </div>
 
-    <div id="main-content" class="hidden">
-        <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
-        
-        <div class="grid">
-            <div class="card">
-                <h2>Системная Телеметрия</h2>
-                <p>Статус: <span id="ai_status" class="status-online">CONNECTING...</span></p>
-                <p>Баланс (TON): <span id="total_vol" class="stat-val">0.00</span></p>
-                <p>Цена TON: <span id="total_profit" class="stat-val">$0.00</span></p>
-                <p>Core ID: <span id="core_id" style="color: #f0f;">---</span></p>
-            </div>
+    <div id="main-content" class="hidden max-w-6xl mx-auto w-full">
+        <header class="mb-8 text-center pt-6">
+            <h1 class="orbitron text-3xl font-bold tracking-[0.3em] text-white">QUANTUM <span class="text-[#00f2ff]">SENTINEL</span></h1>
+            <p class="text-[10px] text-gray-500 uppercase tracking-[0.5em] mt-2 italic">Neural Command Layer V3.0</p>
+        </header>
 
-            <div class="card">
-                <h2>Пул Ликвидности (DEX)</h2>
-                <p style="font-size: 11px;">Address: <span id="pool_addr_display" style="color: #888;">Not Configured</span></p>
-                <div class="pool-data">
-                    <div class="pool-box">
-                        <span class="pool-label">RESERVE TON</span>
-                        <span id="pool_ton" style="color: #fff; font-weight: bold;">0.00</span>
-                    </div>
-                    <div class="pool-box">
-                        <span class="pool-label">RESERVE TOKEN</span>
-                        <span id="pool_token" style="color: #fff; font-weight: bold;">0.00</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div class="glass p-6 flex flex-col justify-between">
+                <div>
+                    <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">System Telemetry</h2>
+                    <p class="mb-2 text-sm"><span class="status-dot"></span> Status: <span id="ai_status" class="text-[#0f0] font-bold">ACTIVE</span></p>
+                    <div class="mt-4">
+                        <p class="text-[10px] text-gray-500 uppercase">Balance (TON)</p>
+                        <p id="total_vol" class="orbitron text-4xl font-bold text-white">0.00</p>
                     </div>
                 </div>
-                <p style="margin-top: 10px; font-size: 12px;">Статус пула: <span id="pool_status" style="color: #0f0;">WAITING</span></p>
-            </div>
-
-            <div class="card" style="grid-column: span 1;">
-                <h2>Конфигурация Ядра</h2>
-                <div class="input-group"><span>Mnemonic:</span> <input type="password" id="cfg_mnemonic" placeholder="12/24 words"></div>
-                <div class="input-group"><span>OpenAI Key:</span> <input type="password" id="cfg_ai_key" placeholder="sk-..."></div>
-                <div class="input-group"><span>DeDust Pool:</span> <input type="text" id="cfg_pool" placeholder="EQ..."></div>
-                <div class="input-group"><span>AI Strategy:</span> <input type="number" id="cfg_strategy" value="10"></div>
-                <button onclick="saveConfig()">Применить протокол настроек</button>
-            </div>
-
-            <div class="card">
-                <h2>Анализ Команд ИИ</h2>
-                <canvas id="chartOps" style="max-height: 120px;"></canvas>
-                <div id="log-container">
-                    [SYSTEM] Сессия авторизована. Синхронизация...
+                <div class="mt-6 pt-4 border-t border-white/5">
+                    <p class="text-[10px] text-gray-500 uppercase">Market Value</p>
+                    <p id="total_profit" class="orbitron text-xl text-cyan-400">$0.00</p>
+                    <p class="text-[9px] text-pink-500 mt-1">Core ID: <span id="core_id">---</span></p>
                 </div>
             </div>
+
+            <div class="glass p-6">
+                <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">Liquidity Pool (DEX)</h2>
+                <div class="bg-black/30 p-3 rounded mb-4">
+                    <p class="text-[9px] text-gray-500 mb-1">Contract Address</p>
+                    <p id="pool_addr_display" class="text-[10px] text-cyan-700 break-all">Not Synced</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="p-3 border border-white/5 rounded">
+                        <span class="block text-[10px] text-gray-500 mb-1 uppercase">Reserve TON</span>
+                        <span id="pool_ton" class="orbitron text-lg text-white">0.00</span>
+                    </div>
+                    <div class="p-3 border border-white/5 rounded">
+                        <span class="block text-[10px] text-gray-500 mb-1 uppercase">Reserve Token</span>
+                        <span id="pool_token" class="orbitron text-lg text-white">0.00</span>
+                    </div>
+                </div>
+                <p class="mt-4 text-xs text-center">Engine State: <span id="pool_status" class="text-[#0f0]">WAITING</span></p>
+            </div>
+
+            <div class="glass p-6 lg:row-span-2">
+                <h2 class="orbitron text-xs text-gray-400 mb-6 uppercase">Core Configuration</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase block mb-1">Mnemonic Phrase</label>
+                        <input type="password" id="cfg_mnemonic" placeholder="•••• •••• ••••" class="w-full p-2 cyber-input rounded text-xs">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase block mb-1">OpenAI Intelligence Key</label>
+                        <input type="password" id="cfg_ai_key" placeholder="sk-..." class="w-full p-2 cyber-input rounded text-xs">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase block mb-1">DeDust Pool Address</label>
+                        <input type="text" id="cfg_pool" placeholder="EQ..." class="w-full p-2 cyber-input rounded text-xs">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase block mb-1">Strategy Aggression</label>
+                        <input type="number" id="cfg_strategy" value="10" class="w-full p-2 cyber-input rounded text-xs">
+                    </div>
+                    <button onclick="saveConfig()" class="w-full py-4 btn-action orbitron text-xs mt-4">Overwrite Protocol</button>
+                </div>
+            </div>
+
+            <div class="glass p-6 lg:col-span-2">
+                <h2 class="orbitron text-xs text-gray-400 mb-4 uppercase">Neural Synapse Analysis</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="h-[150px]">
+                        <canvas id="chartOps"></canvas>
+                    </div>
+                    <div id="log-container">
+                        [SYSTEM] Awaiting neural uplink...
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -192,9 +217,10 @@
 
         function addLog(msg) {
             const div = document.createElement('div');
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.className = "mb-1 border-l-2 border-cyan-500 pl-2";
+            div.innerText = `> ${new Date().toLocaleTimeString()} :: ${msg}`;
             logBox.prepend(div);
-            if (logBox.children.length > 20) logBox.lastElementChild.remove();
+            if (logBox.children.length > 25) logBox.lastElementChild.remove();
         }
 
         async function attemptLogin() {
@@ -207,35 +233,31 @@
                     body: JSON.stringify({ login, password })
                 });
                 if (res.ok) {
-                    document.getElementById('auth-overlay').classList.add('hidden');
+                    document.getElementById('auth-overlay').style.display = 'none';
                     document.getElementById('main-content').classList.remove('hidden');
-                    // После входа сразу подгружаем данные и запускаем цикл обновления
                     refreshStats();
                     setInterval(refreshStats, 5000);
-                    addLog("Система готова. Доступ разрешен.");
+                    addLog("Uplink established. System online.");
                 } else {
                     document.getElementById('auth_error').classList.remove('hidden');
                 }
-            } catch (e) { alert("Server Connection Error"); }
+            } catch (e) { alert("Core Connection Failed"); }
         }
 
         async function refreshStats() {
             try {
                 const res = await fetch('/api/stats');
-                // Если сессия истекла (401), возвращаем на экран логина
                 if (res.status === 401) { location.reload(); return; }
                 const data = await res.json();
                 
-                // Обновление основной телеметрии
                 document.getElementById('total_vol').innerText = data.balance || "0.00";
                 document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
                 document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
-                document.getElementById('core_id').innerText = data.engine?.core_id || "UNKNOWN";
+                document.getElementById('core_id').innerText = data.engine?.core_id || "OFFLINE";
 
-                // Обновление данных пула
                 if (data.pool_info) {
                     const addr = data.pool_info.address;
-                    document.getElementById('pool_addr_display').innerText = addr !== "NOT CONFIGURED" ? addr.substring(0, 12) + "..." : "Not Configured";
+                    document.getElementById('pool_addr_display').innerText = addr;
                     document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
                     document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
                     document.getElementById('pool_status').innerText = data.pool_info.status || "WAITING";
@@ -243,7 +265,7 @@
 
                 updateChart(data.engine?.ops_total || 0);
             } catch (e) { 
-                document.getElementById('ai_status').innerText = "OFFLINE";
+                document.getElementById('ai_status').innerText = "DISCONNECTED";
                 document.getElementById('ai_status').style.color = "red";
             }
         }
@@ -262,45 +284,40 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    addLog("✅ Настройки применены. Пул: " + (settings.dedust_pool.substring(0, 8) || "N/A"));
-                    alert("Протокол настроек обновлен в БД!");
+                    addLog("Protocol updated in core database.");
+                    alert("PROTOCOL OVERWRITTEN");
                 }
-            } catch (e) { addLog("🚨 Ошибка записи в БД"); }
+            } catch (e) { addLog("Write Error: Database locked."); }
         }
 
-        function updateChart(opsCount) {
+        function updateChart(ops) {
             const ctx = document.getElementById('chartOps').getContext('2d');
-            // Симуляция распределения операций для красоты графика
-            const dataValues = [
-                Math.floor(opsCount * 0.4), 
-                Math.floor(opsCount * 0.3), 
-                Math.floor(opsCount * 0.1), 
-                Math.floor(opsCount * 0.2)
-            ];
-            
+            const values = [ops * 0.4, ops * 0.3, ops * 0.1, ops * 0.2];
             if (myChart) {
-                myChart.data.datasets[0].data = dataValues;
+                myChart.data.datasets[0].data = values;
                 myChart.update();
             } else {
                 myChart = new Chart(ctx, {
-                    type: 'bar',
+                    type: 'line',
                     data: {
-                        labels: ['Wait', 'Buy', 'Sell', 'Pulse'],
+                        labels: ['S1', 'S2', 'S3', 'S4'],
                         datasets: [{
-                            data: dataValues,
-                            backgroundColor: 'rgba(0, 242, 255, 0.4)',
+                            data: values,
                             borderColor: '#00f2ff',
-                            borderWidth: 2
+                            backgroundColor: 'rgba(0, 242, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
                         scales: { 
-                            y: { beginAtZero: true, grid: { color: '#1a1d2e' }, ticks: { color: '#00f2ff', font: { size: 10 } } },
-                            x: { ticks: { color: '#00f2ff', font: { size: 10 } } }
-                        },
-                        plugins: { legend: { display: false } }
+                            y: { display: false },
+                            x: { grid: { display: false }, ticks: { color: '#444', font: { size: 8 } } }
+                        }
                     }
                 });
             }
