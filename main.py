@@ -82,6 +82,18 @@ class OmniNeuralOverlord:
         if not text: return ""
         return "".join(char for char in str(text) if ord(char) < 128).strip()
 
+    def get_static_path(self):
+        """Умный поиск папки static"""
+        check_paths = [
+            os.path.join(os.getcwd(), 'static'),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
+            '/app/static'
+        ]
+        for p in check_paths:
+            if os.path.exists(p):
+                return p
+        return None
+
     async def update_config_from_db(self):
         try:
             cfg = await load_remote_config()
@@ -118,12 +130,14 @@ class OmniNeuralOverlord:
 
     # --- API & WEB ---
     async def handle_index(self, request):
-        index_path = os.path.join(os.getcwd(), 'static', 'index.html')
-        if os.path.exists(index_path):
-            return web.FileResponse(index_path)
-        # Если 404, бот напишет в логи причину
-        log(f"Критическая ошибка: Файл не найден по пути {index_path}", "ERROR")
-        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Path: {index_path}</p>", content_type='text/html', status=404)
+        static_dir = self.get_static_path()
+        if static_dir:
+            index_path = os.path.join(static_dir, 'index.html')
+            if os.path.exists(index_path):
+                return web.FileResponse(index_path)
+        
+        log(f"Критическая ошибка: index.html не найден в {static_dir}", "ERROR")
+        return web.Response(text=f"<h1>404: Static Index Not Found</h1><p>Search path: {static_dir}</p>", content_type='text/html', status=404)
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request):
@@ -203,19 +217,17 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_headers="*", allow_methods="*", allow_credentials=True)})
         
-        # Регистрация маршрутов
         app.router.add_get('/amin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
         
-        # Проверка статики перед раздачей
-        static_path = os.path.join(os.getcwd(), 'static')
-        if os.path.exists(static_path):
-            log(f"Статика обнаружена: {static_path}", "SUCCESS")
-            app.router.add_static('/static/', path=static_path, name='static')
+        static_dir = self.get_static_path()
+        if static_dir:
+            log(f"Статика подключена из: {static_dir}", "SUCCESS")
+            app.router.add_static('/static/', path=static_dir, name='static')
         else:
-            log(f"ВНИМАНИЕ: Папка {static_path} не найдена!", "WARNING")
+            log("ВНИМАНИЕ: Папка static не найдена в окружении!", "WARNING")
         
         for route in list(app.router.routes()): cors.add(route)
         
@@ -231,7 +243,9 @@ class OmniNeuralOverlord:
                 await init_db()
                 log("Соединение с БД установлено", "SUCCESS")
                 break
-            except: await asyncio.sleep(5)
+            except: 
+                log("Ожидание базы данных...", "WARNING")
+                await asyncio.sleep(5)
 
         asyncio.create_task(self.start_web_server())
 
@@ -244,6 +258,7 @@ class OmniNeuralOverlord:
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
+                        log("Мнемоника в БД невалидна!", "ERROR")
                         await asyncio.sleep(30); continue
 
                     wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
@@ -259,7 +274,7 @@ class OmniNeuralOverlord:
                                 self.current_balance = balance_nano / 1e9
                             except Exception as be:
                                 if "-400" in str(be): raise be
-                                log("Ошибка получения баланса", "WARNING")
+                                log(f"Ошибка получения баланса: {be}", "WARNING")
 
                             plan = await self.fetch_neural_strategy(market_state)
                             if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
@@ -269,7 +284,7 @@ class OmniNeuralOverlord:
                             await asyncio.sleep(20)
                         except Exception as inner_e:
                             if "-400" in str(inner_e):
-                                log("Обнаружена рассинхронизация TON (-400). Переподключение...", "WARNING")
+                                log("Обнаружена рассинхронизация TON (-400). Переподключение клиента...", "WARNING")
                                 break 
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
@@ -283,6 +298,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Shutdown", "WARNING")
+        log("Система остановлена пользователем", "WARNING")
     except Exception as e:
-        log(f"Fatal: {traceback.format_exc()}", "ERROR")
+        log(f"FATAL EXCEPTION:\n{traceback.format_exc()}", "ERROR")
