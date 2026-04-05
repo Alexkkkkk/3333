@@ -71,7 +71,6 @@ class OmniNeuralOverlord:
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
-                # Очистка строки от мусора
                 self.mnemonic = cfg.get('mnemonic').strip().replace('\n', ' ').replace('\r', '')
                 self.ai_key = cfg.get('ai_api_key', '').strip()
                 
@@ -137,7 +136,7 @@ class OmniNeuralOverlord:
         try:
             hyper = self._calculate_hyper_analytics()
             
-            # Поддержка как старого (0.28), так и нового (1.0+) API OpenAI
+            # Поддержка разных версий OpenAI
             if hasattr(openai, 'AsyncOpenAI'):
                 client = openai.AsyncOpenAI(api_key=self.ai_key)
                 res = await asyncio.wait_for(client.chat.completions.create(
@@ -150,7 +149,6 @@ class OmniNeuralOverlord:
                 ), timeout=15)
                 content = res.choices[0].message.content
             else:
-                # Для версии 0.28.1
                 openai.api_key = self.ai_key
                 res = await asyncio.wait_for(openai.ChatCompletion.acreate(
                     model="gpt-4o",
@@ -174,7 +172,6 @@ class OmniNeuralOverlord:
             
             nano_amt = int(amt * 1e9)
             
-            # DeDust Swap Payload (0xea06185d - swap op)
             swap_payload = (BeginCell()
                             .store_uint(0xea06185d, 32) 
                             .store_uint(int(time.time() + 300), 64) 
@@ -222,7 +219,6 @@ class OmniNeuralOverlord:
     async def core_loop(self):
         log("Entering Core Loop...", "CORE")
         
-        # Ожидание БД
         while True:
             try:
                 await init_db()
@@ -250,9 +246,7 @@ class OmniNeuralOverlord:
                     log(f"Wallet active: {wallet.address}", "SUCCESS")
                     
                     while self.is_active:
-                        # Регулярная проверка обновлений конфига в БД
                         await self.update_config_from_db()
-                        
                         market_state = await get_market_state()
                         p_curr = market_state['current_metrics']['price_ton']
                         self.synaptic_history.append({"price": p_curr, "time": time.time()})
