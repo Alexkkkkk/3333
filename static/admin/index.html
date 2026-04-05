@@ -1,1 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM | Core Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #000;
+            color: #00f2ff;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .terminal-box {
+            border: 1px solid #00f2ff;
+            box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.1), 0 0 10px rgba(0, 242, 255, 0.1);
+            background: rgba(0, 10, 15, 0.9);
+        }
+        .scanline {
+            width: 100%; height: 2px; background: rgba(0, 242, 255, 0.1);
+            position: absolute; animation: scan 4s linear infinite;
+        }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+        input { background: #00151a; border: 1px solid #00444d; color: #fff; padding: 5px 10px; border-radius: 4px; }
+        .status-on { color: #0f0; text-shadow: 0 0 10px #0f0; }
+    </style>
+</head>
+<body class="p-6">
+    <div id="auth-gate" class="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <div class="terminal-box p-10 w-96 text-center relative overflow-hidden">
+            <div class="scanline"></div>
+            <h2 class="orbitron mb-6 text-xl tracking-widest">QUANTUM AUTH</h2>
+            <input type="password" id="admin_pass" placeholder="ENTER ACCESS KEY" class="w-full mb-4 text-center">
+            <button onclick="login()" class="w-full py-2 bg-[#00f2ff] text-black font-bold hover:bg-white transition">INITIALIZE</button>
+        </div>
+    </div>
 
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-end mb-8 border-b border-[#00f2ff] pb-4">
+            <div>
+                <h1 class="orbitron text-2xl font-bold">CORE_ADMIN_TERMINAL</h1>
+                <p class="text-[10px] opacity-50">UPLINK: SECURE | NODE: NL_4</p>
+            </div>
+            <div class="text-right">
+                <span class="status-on">● SYSTEM ONLINE</span>
+                <p id="clock" class="text-xs">00:00:00</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="terminal-box p-6 space-y-4">
+                <h3 class="text-xs uppercase opacity-50">Telemetry</h3>
+                <div>
+                    <div class="text-[10px]">TOTAL_RESERVE</div>
+                    <div id="bal" class="text-3xl orbitron">0.00 <span class="text-sm">TON</span></div>
+                </div>
+                <div>
+                    <div class="text-[10px]">AI_OPERATIONS</div>
+                    <div id="ops" class="text-xl orbitron">---</div>
+                </div>
+            </div>
+
+            <div class="terminal-box p-6 lg:col-span-2">
+                <canvas id="liveChart" height="100"></canvas>
+            </div>
+
+            <div class="terminal-box p-6 lg:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <label class="block text-[10px] mb-2 uppercase text-gray-500">Mnemonic</label>
+                    <input type="password" id="mnem" class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-[10px] mb-2 uppercase text-gray-500">OpenAI Key</label>
+                    <input type="password" id="oai" class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-[10px] mb-2 uppercase text-gray-500">DEX Pool</label>
+                    <input type="text" id="pool" class="w-full text-xs">
+                </div>
+                <button onclick="update()" class="h-full bg-cyan-900/50 hover:bg-cyan-700 border border-cyan-500 text-xs">APPLY_CHANGES</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Логика авторизации и обновления данных такая же, как в ваших скриптах
+        function login() {
+            // Ваш API вызов /api/login
+            document.getElementById('auth-gate').style.display = 'none';
+        }
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        // Инициализация Chart.js для админки
+        const ctx = document.getElementById('liveChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['1', '2', '3', '4', '5'],
+                datasets: [{
+                    data: [12, 19, 3, 5, 2],
+                    borderColor: '#00f2ff',
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: 'rgba(0, 242, 255, 0.05)'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { display: false }, x: { display: false } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    </script>
+</body>
+</html>
