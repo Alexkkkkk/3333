@@ -38,7 +38,7 @@
             border-bottom: 1px solid #00f2ff; 
             padding-bottom: 10px; 
             text-transform: uppercase; 
-            font-size: 16px; 
+            font-size: 14px; 
             margin-top: 0;
             color: #00f2ff;
         }
@@ -102,7 +102,6 @@
             margin-top: 10px;
         }
 
-        /* --- СТИЛИ АВТОРИЗАЦИИ --- */
         #auth-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -112,11 +111,18 @@
             align-items: center;
             z-index: 9999;
         }
-        .auth-card {
-            width: 320px;
-            text-align: center;
-        }
+        .auth-card { width: 320px; text-align: center; }
         .hidden { display: none !important; }
+
+        .pool-data {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            border-top: 1px solid #1a1d2e;
+            padding-top: 10px;
+        }
+        .pool-box { text-align: center; }
+        .pool-label { font-size: 10px; color: #888; display: block; }
     </style>
 </head>
 <body>
@@ -140,12 +146,28 @@
             <div class="card">
                 <h2>Системная Телеметрия</h2>
                 <p>Статус: <span id="ai_status" class="status-online">CONNECTING...</span></p>
-                <p>Баланс кошелька (TON):<br><span id="total_vol" class="stat-val">0.00</span></p>
-                <p>Текущая цена TON:<br><span id="total_profit" class="stat-val">$0.00</span></p>
+                <p>Баланс (TON): <span id="total_vol" class="stat-val">0.00</span></p>
+                <p>Цена TON: <span id="total_profit" class="stat-val">$0.00</span></p>
                 <p>Core ID: <span id="core_id" style="color: #f0f;">---</span></p>
             </div>
 
             <div class="card">
+                <h2>Пул Ликвидности (DEX)</h2>
+                <p style="font-size: 11px;">Address: <span id="pool_addr_display" style="color: #888;">Not Configured</span></p>
+                <div class="pool-data">
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE TON</span>
+                        <span id="pool_ton" style="color: #fff; font-weight: bold;">0.00</span>
+                    </div>
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE TOKEN</span>
+                        <span id="pool_token" style="color: #fff; font-weight: bold;">0.00</span>
+                    </div>
+                </div>
+                <p style="margin-top: 10px; font-size: 12px;">Статус пула: <span id="pool_status" style="color: #0f0;">WAITING</span></p>
+            </div>
+
+            <div class="card" style="grid-column: span 1;">
                 <h2>Конфигурация Ядра</h2>
                 <div class="input-group"><span>Mnemonic:</span> <input type="password" id="cfg_mnemonic" placeholder="12/24 words"></div>
                 <div class="input-group"><span>OpenAI Key:</span> <input type="password" id="cfg_ai_key" placeholder="sk-..."></div>
@@ -154,9 +176,9 @@
                 <button onclick="saveConfig()">Применить протокол настроек</button>
             </div>
 
-            <div class="card" style="grid-column: span 2;">
-                <h2>Анализ Команд ИИ (Распределение)</h2>
-                <canvas id="chartOps" style="max-height: 200px;"></canvas>
+            <div class="card">
+                <h2>Анализ Команд ИИ</h2>
+                <canvas id="chartOps" style="max-height: 120px;"></canvas>
                 <div id="log-container">
                     [SYSTEM] Сессия авторизована. Синхронизация...
                 </div>
@@ -174,18 +196,15 @@
             logBox.prepend(div);
         }
 
-        // --- ЛОГИКА АВТОРИЗАЦИИ ---
         async function attemptLogin() {
             const login = document.getElementById('login_field').value;
             const password = document.getElementById('pass_field').value;
-            
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ login, password })
                 });
-
                 if (res.ok) {
                     document.getElementById('auth-overlay').classList.add('hidden');
                     document.getElementById('main-content').classList.remove('hidden');
@@ -194,24 +213,28 @@
                 } else {
                     document.getElementById('auth_error').classList.remove('hidden');
                 }
-            } catch (e) {
-                alert("Server Connection Error");
-            }
+            } catch (e) { alert("Server Connection Error"); }
         }
 
         async function refreshStats() {
             try {
                 const res = await fetch('/api/stats');
-                if (res.status === 401) {
-                    location.reload(); // Перезагрузка, если сессия истекла
-                    return;
-                }
+                if (res.status === 401) { location.reload(); return; }
                 const data = await res.json();
                 
+                // Обновление основной телеметрии
                 document.getElementById('total_vol').innerText = data.balance || "0.00";
                 document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
                 document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
                 document.getElementById('core_id').innerText = data.engine?.core_id || "UNKNOWN";
+
+                // Обновление данных пула
+                if (data.pool_info) {
+                    document.getElementById('pool_addr_display').innerText = data.pool_info.address.substring(0, 12) + "...";
+                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
+                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
+                    document.getElementById('pool_status').innerText = data.pool_info.status || "ACTIVE";
+                }
 
                 updateChart(data.engine?.ops_total || 0);
             } catch (e) { 
@@ -227,7 +250,6 @@
                 dedust_pool: document.getElementById('cfg_pool').value,
                 ai_strategy_level: parseInt(document.getElementById('cfg_strategy').value)
             };
-
             try {
                 const res = await fetch('/api/config', {
                     method: 'POST',
@@ -235,7 +257,7 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    addLog("✅ База данных обновлена. Конфиг синхронизирован.");
+                    addLog("✅ База данных обновлена. Пул: " + settings.dedust_pool.substring(0, 8));
                     alert("Протокол применен!");
                 }
             } catch (e) { addLog("🚨 Ошибка записи в БД"); }
@@ -243,9 +265,7 @@
 
         function updateChart(opsCount) {
             const ctx = document.getElementById('chartOps').getContext('2d');
-            const labels = ['Wait', 'Buy', 'Sell', 'HFT Pulse'];
             const dataValues = [opsCount * 0.4, opsCount * 0.3, opsCount * 0.1, opsCount * 0.2];
-
             if (myChart) {
                 myChart.data.datasets[0].data = dataValues;
                 myChart.update();
@@ -253,9 +273,8 @@
                 myChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: labels,
+                        labels: ['Wait', 'Buy', 'Sell', 'Pulse'],
                         datasets: [{
-                            label: 'Операции',
                             data: dataValues,
                             backgroundColor: 'rgba(0, 242, 255, 0.4)',
                             borderColor: '#00f2ff',
@@ -266,8 +285,8 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: { 
-                            y: { beginAtZero: true, grid: { color: '#1a1d2e' }, ticks: { color: '#00f2ff' } },
-                            x: { ticks: { color: '#00f2ff' } }
+                            y: { beginAtZero: true, grid: { color: '#1a1d2e' }, ticks: { color: '#00f2ff', font: { size: 10 } } },
+                            x: { ticks: { color: '#00f2ff', font: { size: 10 } } }
                         },
                         plugins: { legend: { display: false } }
                     }
