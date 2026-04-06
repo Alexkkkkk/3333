@@ -1,8 +1,4 @@
-/**
- * QUANTUM CORE v4.1 - LOGIC MODULE
- */
-
-// 1. Инициализация TON Connect
+// Конфигурация TonConnect
 const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
     manifestUrl: 'https://quantum.bothost.tech/static/tonconnect-manifest.json',
     buttonRootId: 'connectBtn'
@@ -10,7 +6,7 @@ const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
 
 let userWallet = null;
 
-// Слушатель изменения статуса кошелька
+// Слушатель статуса кошелька
 tonConnectUI.onStatusChange(async wallet => {
     userWallet = wallet;
     updateUIState();
@@ -22,7 +18,7 @@ tonConnectUI.onStatusChange(async wallet => {
     }
 });
 
-// 2. Получение данных кошелька и активов
+// Получение данных кошелька через TonAPI
 async function fetchWalletData(address) {
     try {
         const shortAddr = `${address.slice(0, 4)}...${address.slice(-4)}`;
@@ -34,11 +30,11 @@ async function fetchWalletData(address) {
         document.getElementById('profile-wallet-info').classList.remove('hidden');
         document.getElementById('profile-connect-prompt').classList.add('hidden');
 
-        // Баланс Jettons
+        // Загрузка жетонов
         const response = await fetch(`https://tonapi.io/v2/accounts/${address}/jettons`);
         const data = await response.json();
         
-        // Баланс TON
+        // Загрузка баланса TON
         const accRes = await fetch(`https://tonapi.io/v2/accounts/${address}`);
         const accData = await accRes.json();
         const tonBalance = (accData.balance / 1e9).toFixed(2);
@@ -51,13 +47,12 @@ async function fetchWalletData(address) {
     }
 }
 
-// 3. Рендеринг списка токенов
+// Рендер списка токенов
 function renderJettons(balances, tonBalance) {
     const list = document.getElementById('tokenList');
     if (!list) return;
-
+    
     list.innerHTML = '';
-    // Всегда добавляем TON первым
     list.innerHTML += createTokenRow("TON", "TON", tonBalance, "https://ton.org/download/ton_symbol.png", "5.24");
 
     balances.forEach(item => {
@@ -88,20 +83,19 @@ function createTokenRow(name, symbol, balance, img, price) {
     `;
 }
 
-// 4. Сброс данных при выходе
+// Сброс данных при отключении
 function resetWalletData() {
-    const mini = document.getElementById('user-profile-mini');
-    if(mini) mini.classList.add('hidden');
-    
+    document.getElementById('user-profile-mini').classList.add('hidden');
     document.getElementById('main-balance-ton').innerText = "0.00 TON";
-    document.getElementById('tokenList').innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек</p>';
+    const list = document.getElementById('tokenList');
+    if(list) list.innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек</p>';
     
     document.getElementById('profile-status').innerText = "GUEST OPERATOR";
     document.getElementById('profile-wallet-info').classList.add('hidden');
     document.getElementById('profile-connect-prompt').classList.remove('hidden');
 }
 
-// 5. Обновление состояния кнопок
+// Обновление текста кнопок
 function updateUIState() {
     const swapBtn = document.getElementById('mainSwapBtn');
     const deployBtn = document.getElementById('deployBtn');
@@ -114,22 +108,19 @@ function updateUIState() {
     }
 }
 
-// 6. Навигация
+// Навигация по вкладкам
 function switchTab(id, el) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    
     const target = document.getElementById(id);
     if(target) target.classList.add('active');
     if (el) el.classList.add('active');
-    
     if (id === 'analytics') setTimeout(initChart, 100);
 }
 
-// 7. Функции действий (Mint, Stake, Swap)
+// Создание токена (Mint)
 async function deployJetton() {
     if (!userWallet) { await tonConnectUI.connectWallet(); return; }
-    
     const name = document.getElementById('jettonName').value;
     const symbol = document.getElementById('jettonSymbol').value;
     const supply = document.getElementById('jettonSupply').value;
@@ -153,25 +144,26 @@ async function deployJetton() {
         showWhaleAlert("Mint Success", `${symbol} is on Mainnet`);
     } catch (e) {
         console.error(e);
-        showWhaleAlert("Mint Error", "Transaction rejected");
     } finally {
         btn.disabled = false;
         updateUIState();
     }
 }
 
+// Стейкинг
 async function executeStaking() {
     if (!userWallet) { await tonConnectUI.connectWallet(); return; }
     showWhaleAlert("Stake Initiated", "Requesting signature...");
 }
 
+// Логика калькулятора обмена
 const RATE = 54.32;
 const swapInput = document.getElementById('swapInput');
 if(swapInput) {
     swapInput.oninput = (e) => {
         const val = parseFloat(e.target.value) || 0;
         const output = document.getElementById('swapOutput');
-        output.value = val > 0 ? (val * RATE).toFixed(2) : "";
+        if(output) output.value = val > 0 ? (val * RATE).toFixed(2) : "";
     };
 }
 
@@ -180,9 +172,10 @@ async function executeSwap() {
     showWhaleAlert("Swap Prepared", "Waiting for confirmation...");
 }
 
-// 8. Визуальные эффекты (Уведомления, Канвас, Графики)
+// Уведомления
 function showWhaleAlert(title, text) {
     const container = document.getElementById('whale-alerts');
+    if(!container) return;
     const alert = document.createElement('div');
     alert.className = 'whale-toast';
     alert.innerHTML = `<p class="text-cyan-400 font-bold text-xs uppercase">${title}</p><p class="text-white text-[10px]">${text}</p>`;
@@ -190,33 +183,36 @@ function showWhaleAlert(title, text) {
     setTimeout(() => alert.remove(), 4000);
 }
 
-// Анимация фона (точки)
+// Анимация фона (Particles)
 const canvas = document.getElementById('bg-canvas');
-const ctxP = canvas.getContext('2d');
-let pts = [];
+if(canvas) {
+    const ctxP = canvas.getContext('2d');
+    let pts = [];
 
-function initCanvas() {
-    canvas.width = window.innerWidth; 
-    canvas.height = window.innerHeight;
-    pts = Array.from({length: 40}, () => ({ 
-        x: Math.random()*canvas.width, 
-        y: Math.random()*canvas.height, 
-        s: Math.random()*1.5 + 0.5, 
-        v: Math.random()*0.3 + 0.1 
-    }));
+    function initCanvas() {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        pts = Array.from({length: 40}, () => ({ 
+            x: Math.random()*canvas.width, y: Math.random()*canvas.height, 
+            s: Math.random()*1.5 + 0.5, v: Math.random()*0.3 + 0.1 
+        }));
+    }
+
+    function draw() {
+        ctxP.clearRect(0,0,canvas.width, canvas.height);
+        ctxP.fillStyle = "rgba(0, 242, 255, 0.3)";
+        pts.forEach(p => { 
+            p.y -= p.v; if(p.y < 0) p.y = canvas.height; 
+            ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); 
+        });
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', initCanvas);
+    initCanvas();
+    draw();
 }
 
-function draw() {
-    ctxP.clearRect(0,0,canvas.width, canvas.height);
-    ctxP.fillStyle = "rgba(0, 242, 255, 0.3)";
-    pts.forEach(p => { 
-        p.y -= p.v; if(p.y < 0) p.y = canvas.height; 
-        ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); 
-    });
-    requestAnimationFrame(draw);
-}
-
-// Эффект свечения за мышкой для карточек
+// Интерактив карточек (Mouse Move)
 function handleMouseMove(e) {
     const cards = document.querySelectorAll('.glass-card, .card-grid-item');
     cards.forEach(card => {
@@ -226,7 +222,7 @@ function handleMouseMove(e) {
     });
 }
 
-// Инициализация графика
+// Инициализация графика (Chart.js)
 function initChart() {
     const ctx = document.getElementById('liquidityChart');
     if (!ctx) return;
@@ -252,10 +248,3 @@ function initChart() {
         }
     });
 }
-
-window.onload = () => { 
-    initCanvas(); 
-    draw(); 
-    updateUIState(); 
-    window.onresize = initCanvas; 
-};
