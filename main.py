@@ -116,28 +116,37 @@ class OmniNeuralOverlord:
             return False
 
     def is_auth(self, request):
+        """Проверяет наличие валидного токена в куках."""
         return request.cookies.get("auth_token") == self.session_token
 
     # --- WEB HANDLERS ---
 
     async def handle_login(self, request):
+        """Обработка входа в админку."""
         try:
             data = await request.json()
-            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
+            user_login = str(data.get("login"))
+            user_pass = str(data.get("password"))
+            
+            if user_login == self.admin_login and user_pass == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
+                # Устанавливаем защищенную куку на 24 часа
                 res.set_cookie("auth_token", self.session_token, max_age=86400, httponly=True)
-                log("Успешный вход в админ-панель", "SUCCESS")
+                log(f"LOGIN_SUCCESS: Terminal accessed from {request.remote}", "SUCCESS")
                 return res
-            return web.json_response({"status": "error", "msg": "Access Denied"}, status=401)
-        except:
-            return web.json_response({"status": "error"}, status=400)
+            
+            log(f"LOGIN_FAILED: Unauthorized access attempt from {request.remote}", "WARNING")
+            return web.json_response({"status": "error", "msg": "INVALID ACCESS KEY"}, status=401)
+        except Exception as e:
+            return web.json_response({"status": "error", "msg": "INTERNAL SERVER ERROR"}, status=500)
 
     async def handle_index(self, request):
-        """Раздает index.html. Теперь поддерживает / и /admin и /amin."""
+        """Раздает index.html. Поддерживает /, /admin и /amin."""
         static_dir = self.get_static_path()
         if not static_dir:
             return web.Response(text="Static directory not found", status=404)
 
+        # Приоритет отдаем index.html в подпапке admin, если она есть
         paths = [
             os.path.join(static_dir, 'admin', 'index.html'),
             os.path.join(static_dir, 'index.html')
@@ -149,6 +158,7 @@ class OmniNeuralOverlord:
         return web.Response(text=f"index.html not found in {static_dir}", status=404)
 
     async def handle_get_stats(self, request):
+        """Возвращает статистику только авторизованным пользователям."""
         if not self.is_auth(request):
             return web.json_response({"status": "unauthorized"}, status=401)
         try:
@@ -171,13 +181,14 @@ class OmniNeuralOverlord:
             return web.json_response({"status": "error", "msg": str(e)})
 
     async def handle_update_config(self, request):
+        """Обновляет конфиг только для авторизованных сессий."""
         if not self.is_auth(request):
             return web.json_response({"status": "unauthorized"}, status=401)
         try:
             data = await request.json()
             await update_remote_config(data)
             await self.update_config_from_db()
-            log("Конфигурация обновлена через Web", "SUCCESS")
+            log("Конфигурация успешно обновлена через терминал", "SUCCESS")
             return web.json_response({"status": "success"})
         except Exception as e:
             return web.json_response({"status": "error", "msg": str(e)}, status=400)
@@ -232,26 +243,26 @@ class OmniNeuralOverlord:
             )
         })
         
-        # Маршруты (обработка всех вариантов ссылок)
+        # Маршруты страниц
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
         app.router.add_get('/amin', self.handle_index)
         
-        # API
+        # API эндпоинты
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         app.router.add_post('/api/config', self.handle_update_config)
         
         static_dir = self.get_static_path()
         if static_dir:
-            # Для доступа к изображениям и скриптам через /static/...
+            # Общая статика
             app.router.add_static('/static/', path=static_dir, name='static')
-            # Если файлы админки лежат в static/admin, пробрасываем и этот путь
+            # Если папка admin существует внутри static, даем к ней прямой доступ
             admin_subpath = os.path.join(static_dir, 'admin')
             if os.path.exists(admin_subpath):
                 app.router.add_static('/admin/', path=admin_subpath, name='admin_static')
             
-            log(f"Статика успешно подключена: {static_dir}", "SUCCESS")
+            log(f"Путь статики подтвержден: {static_dir}", "SUCCESS")
         
         for route in list(app.router.routes()): cors.add(route)
         
@@ -259,7 +270,7 @@ class OmniNeuralOverlord:
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        log(f"SERVER READY: https://quantum.bothost.tech/admin", "SUCCESS")
+        log(f"WEB_SERVER_ACTIVE: Uplink URL https://quantum.bothost.tech/admin", "SUCCESS")
 
     async def core_loop(self):
         while True:
@@ -268,7 +279,7 @@ class OmniNeuralOverlord:
                 log("Соединение с БД установлено", "SUCCESS")
                 break
             except: 
-                log("Ожидание базы данных...", "WARNING")
+                log("Ожидание базы данных PostgreSQL...", "WARNING")
                 await asyncio.sleep(5)
 
         asyncio.create_task(self.start_web_server())
@@ -276,17 +287,17 @@ class OmniNeuralOverlord:
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
-                    log("Ожидание конфига в БД...", "WARNING")
+                    log("Конфигурация в БД отсутствует. Ожидание ввода в терминале...", "WARNING")
                     await asyncio.sleep(10); continue
 
                 async with LiteClient.from_mainnet_config() as client:
                     mnemonic_list = self.mnemonic.split()
                     if len(mnemonic_list) < 12:
-                        log("Мнемоника в БД невалидна!", "ERROR")
+                        log("КРИТИЧЕСКИЙ СБОЙ: Мнемоника невалидна!", "ERROR")
                         await asyncio.sleep(30); continue
 
                     wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
-                    log(f"Ядро подключено к кошельку: {wallet.address}", "SUCCESS")
+                    log(f"Успешное подключение к ядру кошелька: {wallet.address}", "SUCCESS")
                     
                     while self.is_active:
                         try:
@@ -298,7 +309,7 @@ class OmniNeuralOverlord:
                                 balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=12.0)
                                 self.current_balance = balance_nano / 1e9
                             except:
-                                log("TON Node Timeout: Смена сервера...", "WARNING")
+                                log("TON Node Timeout: Переподключение к другому узлу...", "WARNING")
                                 break
 
                             plan = await self.fetch_neural_strategy(market_state)
@@ -310,7 +321,7 @@ class OmniNeuralOverlord:
                         except Exception as inner_e:
                             if any(msg in str(inner_e) for msg in ["-400", "Connect call failed"]):
                                 break
-                            log(f"Ошибка итерации: {inner_e}", "TRACE")
+                            log(f"Ошибка цикла итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
             
             except Exception as e:
@@ -322,6 +333,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Система остановлена пользователем", "WARNING")
+        log("Завершение работы системы пользователем", "WARNING")
     except Exception as e:
         log(f"FATAL EXCEPTION:\n{traceback.format_exc()}", "ERROR")
