@@ -3,268 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM NEURAL | PRE-ALPHA V.7</title>
+    <title>QUANTUM | DECENTRALIZED PROTOCOL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@300;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --cyan: #00f2ff;
-            --purple: #bc00ff;
-            --bg: #010204;
-            --panel: rgba(5, 10, 20, 0.8);
+            --accent: #0088cc; /* Фирменный синий TON/DeDust */
+            --bg: #0a0e12;
+            --panel: rgba(23, 28, 35, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
         }
 
         body {
-            background: var(--bg);
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(0, 136, 204, 0.15), transparent 40%),
+                radial-gradient(circle at 0% 100%, rgba(188, 0, 255, 0.05), transparent 30%);
             color: #fff;
-            font-family: 'Rajdhani', sans-serif;
-            overflow-x: hidden;
-            perspective: 1000px;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
         }
 
-        .orbitron { font-family: 'Orbitron', sans-serif; }
-
-        /* Эффект старого монитора (Scanlines) */
-        body::before {
-            content: " ";
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 4px, 3px 100%;
-            z-index: 100;
-            pointer-events: none;
-        }
-
-        /* Анимированное квантовое ядро на фоне */
-        .quantum-core {
-            position: fixed;
-            top: 50%; left: 50%;
-            width: 800px; height: 800px;
-            background: radial-gradient(circle, rgba(0, 242, 255, 0.15) 0%, transparent 70%);
-            transform: translate(-50%, -50%);
-            z-index: -1;
-            animation: pulse-core 8s ease-in-out infinite;
-        }
-
-        @keyframes pulse-core {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.8; }
-        }
-
-        /* 3D Glass Panel */
-        .cyber-panel {
+        /* Glassmorphism Panel */
+        .dedust-panel {
             background: var(--panel);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 242, 255, 0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .dedust-panel:hover {
+            border-color: rgba(0, 136, 204, 0.3);
+        }
+
+        /* Inputs */
+        .swap-input-group {
+            background: rgba(13, 18, 23, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .swap-input-group:focus-within {
+            border-color: var(--accent);
+        }
+
+        /* Buttons */
+        .action-btn {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            border-radius: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.2);
+        }
+
+        .action-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .secondary-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: background 0.2s;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Navigation */
+        .nav-link {
+            color: #94a3b8;
+            font-weight: 500;
             position: relative;
-            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-            transform-style: preserve-3d;
+            padding: 8px 12px;
+            transition: color 0.2s;
         }
-
-        .cyber-panel:hover {
-            border-color: var(--cyan);
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
-            transform: translateZ(20px) rotateX(2deg) rotateY(-2deg);
-        }
-
-        /* Скошенные углы (Cybercut) */
-        .cut-corner {
-            clip-path: polygon(0 0, 95% 0, 100% 15%, 100% 100%, 5% 100%, 0 85%);
-        }
-
-        /* Глитч-анимация текста */
-        .glitch {
-            position: relative;
-            animation: glitch-skew 1s infinite linear alternate-reverse;
-        }
-
-        @keyframes glitch-skew {
-            0% { transform: skew(2deg); }
-            10% { transform: skew(-3deg); }
-            100% { transform: skew(0); }
-        }
-
-        /* Кнопки с неоновым «дыханием» */
-        .neon-btn {
-            background: transparent;
-            border: 2px solid var(--cyan);
-            color: var(--cyan);
-            padding: 10px 25px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            position: relative;
-            overflow: hidden;
-            transition: 0.3s;
-        }
-
-        .neon-btn::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.4), transparent);
-            transition: 0.5s;
-        }
-
-        .neon-btn:hover::before { left: 100%; }
-        .neon-btn:hover {
-            background: var(--cyan);
-            color: #000;
-            box-shadow: 0 0 20px var(--cyan);
-        }
-
-        /* Кастомный скроллбар */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--cyan); }
 
         .nav-link.nav-active {
-            color: var(--cyan);
-            text-shadow: 0 0 10px var(--cyan);
+            color: #fff;
         }
 
-        .tab-content { display: none; opacity: 0; }
-        .tab-content.active { display: block; animation: slideUp 0.6s forwards; }
+        .nav-link.nav-active::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <canvas id="canvas-bg" class="fixed inset-0 z-[-2] opacity-40"></canvas>
-    <div class="quantum-core"></div>
-
-    <header class="max-w-7xl mx-auto flex justify-between items-center mb-16 relative z-10">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-cyan-400 cut-corner flex items-center justify-center text-black font-black text-2xl animate-pulse">Q</div>
-            <div>
-                <h1 class="orbitron text-2xl font-black tracking-tighter leading-none">QUANTUM<span class="text-cyan-400">_NODE</span></h1>
-                <p class="text-[9px] uppercase tracking-[0.5em] text-gray-500">Neural Liquidity Protocol</p>
+<body class="p-4">
+    <header class="max-w-6xl mx-auto flex justify-between items-center py-6 mb-8">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-[#0088cc] rounded-xl flex items-center justify-center shadow-lg">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </div>
+            <span class="text-xl font-bold tracking-tight">QUANTUM</span>
         </div>
 
-        <nav class="hidden md:flex gap-8">
-            <button class="nav-link nav-active orbitron text-[11px] uppercase tracking-widest" data-tab="home" onclick="switchTab('home')">Overview</button>
-            <button class="nav-link orbitron text-[11px] uppercase tracking-widest" data-tab="swap" onclick="switchTab('swap')">Terminal</button>
-            <button class="nav-link orbitron text-[11px] uppercase tracking-widest" data-tab="analytics" onclick="switchTab('analytics')">Neural_Net</button>
+        <nav class="flex gap-4">
+            <button class="nav-link nav-active" data-tab="home" onclick="switchTab('home')">Обзор</button>
+            <button class="nav-link" data-tab="swap" onclick="switchTab('swap')">Своп</button>
+            <button class="nav-link" data-tab="analytics" onclick="switchTab('analytics')">Пулы</button>
         </nav>
 
-        <button class="neon-btn orbitron text-xs cut-corner">Connect_User</button>
+        <button class="action-btn px-6 py-2.5 text-sm">Подключить кошелек</button>
     </header>
 
-    <main class="max-w-7xl mx-auto relative z-10">
+    <main class="max-w-6xl mx-auto">
         
         <section id="home" class="tab-content active">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-8">
-                    <div class="cyber-panel cut-corner p-12 mb-6 overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 orbitron text-[10px] text-cyan-400/30">ID: 884-X99</div>
-                        <h2 class="orbitron text-6xl md:text-8xl font-black mb-6 glitch">SYSTEM:<br><span class="text-cyan-400">ONLINE</span></h2>
-                        <p class="text-gray-400 text-xl max-w-xl mb-10 leading-relaxed">
-                            Добро пожаловать в будущее децентрализованных финансов. 
-                            Наша нейронная сеть обрабатывает 10,000+ операций в секунду, обеспечивая минимальный спред в сети TON.
-                        </p>
-                        <div class="flex gap-6">
-                            <button onclick="switchTab('swap')" class="neon-btn">Launch_App</button>
-                            <div class="flex items-center gap-3 text-xs orbitron text-gray-500 uppercase tracking-widest">
-                                <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                                All Nodes Operational
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="dedust-panel p-10 relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h2 class="text-4xl font-bold mb-4">Neural Pulse Protocol</h2>
+                            <p class="text-slate-400 text-lg max-w-lg mb-8">
+                                Самый быстрый способ обмена активов в сети TON с использованием квантовых алгоритмов оптимизации ликвидности.
+                            </p>
+                            <div class="flex gap-4">
+                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3">Начать обмен</button>
+                                <button class="secondary-btn px-8 py-3">Документация</button>
                             </div>
                         </div>
+                        <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full"></div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="cyber-panel p-6 border-l-4 border-l-cyan-400">
-                            <p class="text-[10px] uppercase text-gray-500 mb-2">Neural Efficiency</p>
-                            <div class="flex items-end gap-4">
-                                <span class="orbitron text-4xl font-bold">99.98%</span>
-                                <span class="text-green-500 text-xs mb-1">↑ 2.4%</span>
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="dedust-panel p-6">
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Общий объем (TVL)</p>
+                            <p class="text-2xl font-bold">$82,142,090</p>
+                            <span class="text-green-400 text-xs font-medium">↑ 2.5% за 24ч</span>
                         </div>
-                        <div class="cyber-panel p-6 border-l-4 border-l-purple-500">
-                            <p class="text-[10px] uppercase text-gray-500 mb-2">Block Latency</p>
-                            <div class="flex items-end gap-4">
-                                <span class="orbitron text-4xl font-bold">0.12ms</span>
-                                <span class="text-cyan-500 text-xs mb-1">STABLE</span>
-                            </div>
+                        <div class="dedust-panel p-6">
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Объем 24ч</p>
+                            <p class="text-2xl font-bold">$12,405,112</p>
+                            <span class="text-blue-400 text-xs font-medium">14,201 сделок</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="cyber-panel p-8 cut-corner text-center">
-                        <p class="orbitron text-xs text-gray-500 mb-6 uppercase tracking-tighter">Current_TVL</p>
-                        <p class="orbitron text-5xl font-black text-white">$82.1M</p>
-                        <canvas id="miniChart" class="mt-8" height="150"></canvas>
-                    </div>
-                    <div class="cyber-panel p-6">
-                        <h3 class="orbitron text-xs mb-4 text-cyan-400">Recent Transactions</h3>
-                        <div class="space-y-4">
-                            <div class="flex justify-between text-[10px] border-b border-white/5 pb-2">
-                                <span class="text-gray-400">0x...f3a</span>
-                                <span class="text-cyan-400">+1.4k TON</span>
+                <div class="dedust-panel p-6">
+                    <h3 class="font-bold mb-4 flex justify-between items-center">
+                        Топ токенов
+                        <span class="text-xs text-slate-500 font-normal underline cursor-pointer">Все</span>
+                    </h3>
+                    <div class="space-y-5">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-blue-500 rounded-full"></div>
+                                <div>
+                                    <p class="font-semibold text-sm leading-none">TON</p>
+                                    <p class="text-[11px] text-slate-500 italic">Toncoin</p>
+                                </div>
                             </div>
-                            <div class="flex justify-between text-[10px] border-b border-white/5 pb-2">
-                                <span class="text-gray-400">0x...92b</span>
-                                <span class="text-purple-400">+12.1k QUAN</span>
+                            <div class="text-right">
+                                <p class="text-sm font-medium">$5.24</p>
+                                <p class="text-[10px] text-green-400">+1.2%</p>
                             </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-purple-500 rounded-full"></div>
+                                <div>
+                                    <p class="font-semibold text-sm leading-none">QUAN</p>
+                                    <p class="text-[11px] text-slate-500 italic">Quantum</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-medium">$0.12</p>
+                                <p class="text-[10px] text-red-400">-0.4%</p>
+                            </div>
+                        </div>
+                        <div class="pt-4 mt-4 border-t border-white/5">
+                            <canvas id="miniChart" height="100"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="swap" class="tab-content max-w-2xl mx-auto">
-            <div class="cyber-panel cut-corner p-10">
-                <div class="flex justify-between mb-8">
-                    <h2 class="orbitron text-2xl font-black">EXCHANGE_HUB</h2>
-                    <div class="text-right">
-                        <p class="text-[9px] text-gray-500 uppercase">System load</p>
-                        <p class="text-xs text-green-500 orbitron">LOW_LATENCY</p>
+        <section id="swap" class="tab-content max-w-md mx-auto mt-10">
+            <div class="dedust-panel p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Своп</h2>
+                    <button class="p-2 hover:bg-white/5 rounded-lg transition">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-1 relative">
+                    <div class="swap-input-group">
+                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
+                            <span>Вы отдаете</span>
+                            <span>Баланс: 42.0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount">
+                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 hover:border-blue-500/50">
+                                <div class="w-5 h-5 bg-blue-500 rounded-full"></div>
+                                <span class="font-bold text-sm">TON</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                        <button class="w-10 h-10 bg-[#1e252e] border border-white/10 rounded-xl flex items-center justify-center hover:border-blue-500 transition shadow-xl">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M7 10l5 5 5-5"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="swap-input-group">
+                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
+                            <span>Вы получаете</span>
+                            <span>~ $214.2</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <input type="number" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-400">
+                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2">
+                                <div class="w-5 h-5 bg-purple-500 rounded-full"></div>
+                                <span class="font-bold text-sm">QUAN</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="space-y-2">
-                    <div class="bg-black/50 p-6 border border-white/10 rounded-lg">
-                        <div class="flex justify-between text-[10px] text-gray-500 uppercase mb-4"><span>From (Input)</span><span>Bal: 42.0</span></div>
-                        <div class="flex justify-between">
-                            <input type="number" value="1.0" class="bg-transparent text-5xl orbitron outline-none w-1/2">
-                            <select class="bg-white/5 orbitron p-2 rounded border border-white/10 text-cyan-400 outline-none">
-                                <option>TON</option>
-                                <option>USDT</option>
-                            </select>
-                        </div>
+                <div class="mt-4 p-4 space-y-2">
+                    <div class="flex justify-between text-xs text-slate-500 italic">
+                        <span>Курс</span>
+                        <span>1 TON ≈ 42.12 QUAN</span>
                     </div>
-                    <div class="flex justify-center -my-4 relative z-20">
-                        <div class="w-10 h-10 bg-cyan-400 rounded-full flex items-center justify-center text-black cursor-pointer hover:rotate-180 transition duration-500">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-                        </div>
-                    </div>
-                    <div class="bg-black/50 p-6 border border-white/10 rounded-lg">
-                        <div class="flex justify-between text-[10px] text-gray-500 uppercase mb-4"><span>To (Output)</span><span>Bal: 0.0</span></div>
-                        <div class="flex justify-between">
-                            <input type="number" readonly value="42.12" class="bg-transparent text-5xl orbitron outline-none w-1/2 text-cyan-400">
-                            <select class="bg-white/5 orbitron p-2 rounded border border-white/10 text-purple-400 outline-none">
-                                <option>QUAN</option>
-                                <option>STAKED</option>
-                            </select>
-                        </div>
+                    <div class="flex justify-between text-xs text-slate-500 italic">
+                        <span>Проскальзывание</span>
+                        <span>0.5%</span>
                     </div>
                 </div>
 
-                <button class="w-full mt-8 neon-btn py-6 text-xl">EXECUTE_QUANTUM_SWAP</button>
+                <button class="w-full mt-4 action-btn py-4 text-lg">Обменять</button>
             </div>
         </section>
 
         <section id="analytics" class="tab-content">
-            <div class="cyber-panel p-10 cut-corner">
-                <h2 class="orbitron text-2xl font-black mb-10">NEURAL_TRAFFIC_ANALYSIS</h2>
-                <div class="h-[500px]">
+            <div class="dedust-panel p-8">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold">Ликвидность пулов</h2>
+                        <p class="text-slate-500 text-sm italic">Статистика в реальном времени</p>
+                    </div>
+                    <div class="flex bg-black/20 p-1 rounded-xl">
+                        <button class="px-4 py-1.5 text-xs font-bold bg-white/10 rounded-lg">TVL</button>
+                        <button class="px-4 py-1.5 text-xs font-bold text-slate-500">Volume</button>
+                    </div>
+                </div>
+                <div class="h-[400px]">
                     <canvas id="bigChart"></canvas>
                 </div>
             </div>
@@ -273,50 +286,6 @@
     </main>
 
     <script>
-        // Particles Background
-        const canvas = document.getElementById('canvas-bg');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-
-        class Part {
-            constructor() {
-                this.reset();
-            }
-            reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.v = Math.random() * 0.5 + 0.2;
-                this.a = Math.random() * Math.PI * 2;
-            }
-            update() {
-                this.x += Math.cos(this.a) * this.v;
-                this.y += Math.sin(this.a) * this.v;
-                if(this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
-            }
-            draw() {
-                ctx.fillStyle = Math.random() > 0.1 ? '#00f2ff' : '#bc00ff';
-                ctx.fillRect(this.x, this.y, 2, 2);
-            }
-        }
-
-        for(let i=0; i<150; i++) particles.push(new Part());
-
-        function anim() {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            particles.forEach(p => { p.update(); p.draw(); });
-            requestAnimationFrame(anim);
-        }
-
-        window.addEventListener('resize', resize);
-        resize();
-        anim();
-
-        // Tabs
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
@@ -328,36 +297,43 @@
             if(id === 'analytics') renderBigChart();
         }
 
-        // Charts
+        // Mini Chart Implementation
         const miniCtx = document.getElementById('miniChart').getContext('2d');
         new Chart(miniCtx, {
             type: 'line',
             data: {
-                labels: [1,2,3,4,5,6],
+                labels: [1,2,3,4,5,6,7,8,9,10],
                 datasets: [{
-                    data: [10, 25, 15, 35, 25, 45],
-                    borderColor: '#00f2ff',
+                    data: [10, 12, 11, 15, 14, 20, 18, 25, 22, 30],
+                    borderColor: '#0088cc',
+                    borderWidth: 2,
                     tension: 0.4,
                     pointRadius: 0,
                     fill: true,
-                    backgroundColor: 'rgba(0, 242, 255, 0.1)'
+                    backgroundColor: 'rgba(0, 136, 204, 0.05)'
                 }]
             },
-            options: { plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+            options: { 
+                plugins: { legend: { display: false } }, 
+                scales: { x: { display: false }, y: { display: false } },
+                maintainAspectRatio: false
+            }
         });
 
         function renderBigChart() {
             const bigCtx = document.getElementById('bigChart').getContext('2d');
-            new Chart(bigCtx, {
+            if (window.myBigChart) window.myBigChart.destroy();
+            
+            window.myBigChart = new Chart(bigCtx, {
                 type: 'bar',
                 data: {
-                    labels: ['NODE_A', 'NODE_B', 'NODE_C', 'NODE_D', 'NODE_E', 'NODE_F'],
+                    labels: ['TON/USDT', 'TON/QUAN', 'TON/DOGE', 'TON/NOT', 'QUAN/USDT'],
                     datasets: [{
-                        label: 'Throughput',
-                        data: [450, 620, 380, 890, 540, 710],
-                        backgroundColor: '#bc00ff',
-                        borderColor: '#00f2ff',
-                        borderWidth: 2
+                        label: 'Liquidity',
+                        data: [45000000, 12000000, 8000000, 35000000, 5000000],
+                        backgroundColor: '#0088cc',
+                        borderRadius: 8,
+                        hoverBackgroundColor: '#00aaff'
                     }]
                 },
                 options: {
@@ -365,8 +341,14 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#00f2ff', font: { family: 'Orbitron' } } },
-                        x: { grid: { display: false }, ticks: { color: '#fff', font: { family: 'Orbitron' } } }
+                        y: { 
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, 
+                            ticks: { color: '#64748b', font: { size: 10 } } 
+                        },
+                        x: { 
+                            grid: { display: false }, 
+                            ticks: { color: '#fff', font: { size: 11, weight: '500' } } 
+                        }
                     }
                 }
             });
