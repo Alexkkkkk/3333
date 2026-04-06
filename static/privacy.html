@@ -3,47 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy | QUANTUM CORE</title>
+    <title>Privacy Protocol | QUANTUM CORE</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Plus+Jakarta+Sans:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --glow: #00f2ff;
+            --bg: #020617;
+        }
+
         body {
-            background-color: #010409;
+            background-color: var(--bg);
             color: #f8fafc;
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: radial-gradient(circle at 50% -20%, #003a5f 0%, #010409 70%);
+            overflow-x: hidden;
         }
-        .glass {
-            background: rgba(6, 11, 20, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 242, 255, 0.1);
+
+        /* Анимированный фон с сеткой */
+        .grid-bg {
+            background-image: 
+                linear-gradient(to right, rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at 50% 50%, black, transparent 80%);
+        }
+
+        .quantum-glow {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 242, 255, 0.15) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 242, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.5);
+        }
+
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--glow), transparent);
+            position: absolute;
+            top: 0;
+            animation: scan 4s linear infinite;
+            opacity: 0.2;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--glow);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--glow);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
         }
     </style>
 </head>
-<body class="min-h-screen p-6">
-    <div class="max-w-3xl mx-auto glass rounded-3xl p-10 my-10">
-        <h1 class="text-3xl font-black text-cyan-400 mb-8 uppercase tracking-tighter">Политика конфиденциальности</h1>
+<body class="min-h-screen selection:bg-cyan-500/30 selection:text-cyan-200">
+    
+    <div class="fixed inset-0 grid-bg z-[-1]"></div>
+    <div class="quantum-glow" id="glow"></div>
+
+    <div class="max-w-4xl mx-auto px-6 py-20 relative z-10">
         
-        <div class="space-y-6 text-slate-300 leading-relaxed text-sm">
-            <section>
-                <h2 class="text-white font-bold text-lg mb-2">1. Сбор данных</h2>
-                <p>Quantum Core — это децентрализованное приложение. Мы не собираем личную информацию, такую как имена, адреса электронной почты или номера телефонов. Мы видим только публичный адрес вашего кошелька при его подключении.</p>
-            </section>
+        <header class="mb-16 text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-4">
+                <span class="status-dot"></span> System Protocol Active
+            </div>
+            <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter italic">
+                PRIVACY <span class="text-cyan-400 neon-text underline decoration-cyan-500/30">ENCRYPTION</span>
+            </h1>
+            <p class="text-slate-400 font-medium tracking-tight">Version 4.0.2 • Last Update: 06.04.2026</p>
+        </header>
 
-            <section>
-                <h2 class="text-white font-bold text-lg mb-2">2. Использование данных</h2>
-                <p>Адрес кошелька используется исключительно для отображения баланса и взаимодействия со смарт-контрактами сети TON. Никакие данные не передаются третьим лицам.</p>
-            </section>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="glass-panel rounded-3xl p-8 relative overflow-hidden group">
+                <div class="scanline"></div>
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+                        <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04c0 4.833 1.158 9.15 3.193 12.174A11.946 11.946 0 0012 21.235c3.35 0 6.34-1.374 8.482-3.575 2.035-3.023 3.193-7.341 3.193-12.174z"></path></svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-white uppercase tracking-tight">Zero-Knowledge</h2>
+                </div>
+                <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                    Мы придерживаемся политики <strong class="text-cyan-200">Zero-Data</strong>. 
+                    Ваша личность остается анонимной. Смарт-контракты оперируют только публичными ключами TON.
+                </p>
+                <div class="text-[10px] font-mono text-cyan-500/50 bg-cyan-500/5 p-2 rounded-lg">
+                    ENCRYPTION_LAYER: DISABLED_LOGGING
+                </div>
+            </div>
 
-            <section>
-                <h2 class="text-white font-bold text-lg mb-2">3. Cookies и аналитика</h2>
-                <p>Мы можем использовать локальное хранилище браузера (LocalStorage) для сохранения ваших настроек интерфейса (тема, выбранная скорость транзакции), которые хранятся только на вашем устройстве.</p>
-            </section>
+            <div class="glass-panel rounded-3xl p-8 relative overflow-hidden group">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-white uppercase tracking-tight">TON Interaction</h2>
+                </div>
+                <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                    Все транзакции проходят через децентрализованную сеть TON. Quantum Core не является кастодиальным сервисом.
+                </p>
+                <div class="flex gap-2">
+                    <span class="px-2 py-1 bg-white/5 rounded text-[9px] text-slate-300 border border-white/10 uppercase">HFT Pulse</span>
+                    <span class="px-2 py-1 bg-white/5 rounded text-[9px] text-slate-300 border border-white/10 uppercase">Non-Custodial</span>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-8 md:col-span-2 relative overflow-hidden">
+                <h2 class="text-xl font-bold text-white uppercase tracking-tight mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-400 rounded-full"></span> 
+                    Локальное хранилище данных
+                </h2>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <h4 class="text-cyan-400 text-xs font-bold uppercase">LocalStorage</h4>
+                        <p class="text-slate-500 text-[12px]">Настройки интерфейса и конфигурации стратегий сохраняются исключительно в памяти вашего браузера.</p>
+                    </div>
+                    <div class="space-y-2">
+                        <h4 class="text-cyan-400 text-xs font-bold uppercase">Метрики</h4>
+                        <p class="text-slate-500 text-[12px]">Мы не используем Google Analytics. Только анонимная телеметрия пулов DeDust напрямую из блокчейна.</p>
+                    </div>
+                    <div class="space-y-2">
+                        <h4 class="text-cyan-400 text-xs font-bold uppercase">Безопасность</h4>
+                        <p class="text-slate-500 text-[12px]">Ваши мнемонические фразы (если вводятся) используются только для подписи в текущей сессии и никогда не покидают устройство.</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="mt-10 pt-6 border-t border-white/5 text-[10px] text-slate-500 uppercase tracking-widest">
-            Quantum Core Protocol v4.0 | Private & Secure
-        </div>
+        <footer class="mt-20 flex flex-col items-center gap-6">
+            <button onclick="window.close()" class="px-8 py-4 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-cyan-400 transition-colors shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                Вернуться в терминал
+            </button>
+            <div class="text-[10px] text-slate-600 font-mono tracking-tighter uppercase text-center">
+                Quantum Core Protocol [QCP] • 0x442E5053 • Neural Pulse Engine v4.0
+                <br>Decompiled with success • 200 OK
+            </div>
+        </footer>
     </div>
+
+    <script>
+        // Интерактивное свечение за курсором
+        const glow = document.getElementById('glow');
+        window.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth) * 100;
+            const y = (e.clientY / window.innerHeight) * 100;
+            glow.style.setProperty('--x', `${x}%`);
+            glow.style.setProperty('--y', `${y}%`);
+        });
+    </script>
 </body>
 </html>
