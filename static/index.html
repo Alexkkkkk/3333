@@ -71,6 +71,7 @@
             font-weight: 800;
         }
         .btn-quantum:active { transform: scale(0.95); }
+        .btn-quantum:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
@@ -89,14 +90,8 @@
         .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #475569; transition: 0.2s; cursor: pointer; }
         .nav-item.active { color: var(--accent); }
 
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
         .token-row { border-bottom: 1px solid rgba(255,255,255,0.03); padding: 12px 0; transition: 0.2s; }
-        .token-row:active { background: rgba(255,255,255,0.02); }
-
+        
         .forge-input {
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.08);
@@ -186,10 +181,10 @@
                     <input type="text" id="jettonName" placeholder="Имя (напр: Quantum Gold)" class="forge-input">
                     <div class="grid grid-cols-2 gap-4">
                         <input type="text" id="jettonSymbol" placeholder="Символ (QGOLD)" class="forge-input uppercase">
-                        <input type="number" id="jettonDecimals" value="9" class="forge-input">
+                        <input type="number" id="jettonDecimals" value="9" class="forge-input" placeholder="Decimals">
                     </div>
                     <input type="number" id="jettonSupply" placeholder="Эмиссия (1 000 000)" class="forge-input">
-                    <button onclick="deployJetton()" class="w-full py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
+                    <button id="deployBtn" onclick="deployJetton()" class="w-full py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
                         Deploy Asset
                     </button>
                 </div>
@@ -203,6 +198,11 @@
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
                         <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
                         <span class="text-[10px] text-slate-500 font-bold">TON</span>
+                    </div>
+                    <div class="flex justify-center -my-3 relative z-20">
+                        <div class="bg-cyan-500 p-2 rounded-full shadow-lg">
+                            <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-width="3"/></svg>
+                        </div>
                     </div>
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
                         <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-slate-600">
@@ -223,6 +223,13 @@
                     </div>
                     <div class="text-right"><p class="font-bold text-sm text-white">$5.24</p></div>
                 </div>
+                <div class="token-row flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center font-bold text-black">Q</div>
+                        <div><p class="font-bold text-sm text-white">QUAN</p></div>
+                    </div>
+                    <div class="text-right"><p class="font-bold text-sm text-white">$0.096</p></div>
+                </div>
             </div>
         </section>
 
@@ -230,6 +237,7 @@
             <div class="glass-card p-6 border-l-4 border-l-emerald-500">
                 <h3 class="font-bold text-lg text-white">TON Liquid Staking</h3>
                 <p class="text-2xl font-black text-emerald-400">~4.2% APY</p>
+                <button class="mt-4 w-full py-3 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">Stake Now</button>
             </div>
         </section>
 
@@ -266,7 +274,7 @@
     </nav>
 
     <script>
-        // --- ИНИЦИАЛИЗАЦИЯ TON CONNECT ---
+        // --- TON CONNECT CONFIG ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: 'https://tum.bothost.tech/static/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
@@ -275,16 +283,22 @@
         let userWallet = null;
         tonConnectUI.onStatusChange(wallet => {
             userWallet = wallet;
-            const btn = document.getElementById('mainSwapBtn');
-            if (wallet) {
-                btn.innerText = "Confirm Swap";
-                console.log("Wallet connected:", wallet.account.address);
-            } else {
-                btn.innerText = "Connect Wallet";
-            }
+            updateUIState();
         });
 
-        // --- НАВИГАЦИЯ ---
+        function updateUIState() {
+            const swapBtn = document.getElementById('mainSwapBtn');
+            const deployBtn = document.getElementById('deployBtn');
+            if (userWallet) {
+                swapBtn.innerText = "Execute Swap";
+                deployBtn.innerText = "Deploy Asset";
+            } else {
+                swapBtn.innerText = "Connect Wallet";
+                deployBtn.innerText = "Connect Wallet";
+            }
+        }
+
+        // --- NAVIGATION ---
         function switchTab(id, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -302,19 +316,16 @@
             if (id === 'analytics') setTimeout(initChart, 100);
         }
 
-        // --- ЛОГИКА SWAP ---
+        // --- FULL SWAP LOGIC (DeDust Simulation) ---
         const RATE = 54.32;
         document.getElementById('swapInput').oninput = (e) => {
             const val = parseFloat(e.target.value) || 0;
             const output = document.getElementById('swapOutput');
-            const btn = document.getElementById('mainSwapBtn');
             if(val > 0) {
                 output.value = (val * RATE).toFixed(2);
                 output.style.color = "var(--accent)";
-                if(userWallet) btn.innerText = "Confirm Swap";
             } else {
                 output.value = "";
-                if(userWallet) btn.innerText = "Confirm Swap";
             }
         };
 
@@ -323,43 +334,77 @@
                 await tonConnectUI.connectWallet();
                 return;
             }
-            alert("Инициирую обмен через DeDust Protocol...");
-        }
 
-        // --- ЛОГИКА FORGE ---
-        async function deployJetton() {
-            if (!userWallet) {
-                await tonConnectUI.connectWallet();
-                return;
-            }
-            const name = document.getElementById('jettonName').value;
-            if(!name) return alert("Введите имя токена");
+            const amount = document.getElementById('swapInput').value;
+            if(!amount || amount <= 0) return alert("Введите сумму TON");
+
+            const btn = document.getElementById('mainSwapBtn');
+            btn.innerText = "WAITING...";
+            btn.disabled = true;
 
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 60,
+                validUntil: Math.floor(Date.now() / 1000) + 300,
                 messages: [{
-                    address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", 
-                    amount: "50000000" 
+                    address: "EQB3ncyBUTjZUA5EnGhc_f_697L6SSc88_m5_N0D83v97m8", // Адрес Vault/Pool
+                    amount: (amount * 1000000000).toString(), // перевод в нанотоны
                 }]
             };
 
             try {
                 await tonConnectUI.sendTransaction(transaction);
-                alert("Транзакция отправлена!");
+                alert("Swap Initiated via DeDust!");
             } catch (e) {
                 console.error(e);
+            } finally {
+                btn.disabled = false;
+                updateUIState();
             }
         }
 
-        // --- ДИНАМИКА $DUST ---
-        function updateDustStats() {
-            const cap = (922.95 + (Math.random() * 2)).toFixed(2); 
-            const el = document.querySelector('.dust-cap');
-            if(el) el.innerText = `$${cap}K`;
-        }
-        setInterval(updateDustStats, 10000);
+        // --- JETTON FORGE FULL LOGIC ---
+        async function deployJetton() {
+            if (!userWallet) {
+                await tonConnectUI.connectWallet();
+                return;
+            }
 
-        // --- ВИЗУАЛЬНЫЕ ЭФФЕКТЫ (Канвас и Мышь) ---
+            const name = document.getElementById('jettonName').value.trim();
+            const symbol = document.getElementById('jettonSymbol').value.trim();
+            const supply = document.getElementById('jettonSupply').value;
+            const decimals = document.getElementById('jettonDecimals').value || 9;
+
+            if(!name || !symbol || !supply) {
+                alert("Please fill: Name, Symbol, and Supply");
+                return;
+            }
+
+            const btn = document.getElementById('deployBtn');
+            btn.innerText = "PREPARING...";
+            btn.disabled = true;
+
+            // В реальном приложении здесь должен генерироваться Payload (Cell) с метаданными
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 300,
+                messages: [{
+                    address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", // Стандартный адрес для деплоя или ваш кошелек-менеджер
+                    amount: "150000000", // 0.15 TON за деплой и хранение
+                    // payload: "..." здесь кодируются метаданные (name, symbol, image)
+                }]
+            };
+
+            try {
+                await tonConnectUI.sendTransaction(transaction);
+                alert(`Jetton ${symbol} Deployment Sent!`);
+            } catch (e) {
+                console.error(e);
+                alert("Transaction rejected");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Deploy Asset";
+            }
+        }
+
+        // --- VISUALS & EFFECTS ---
         const canvas = document.getElementById('bg-canvas');
         const ctxP = canvas.getContext('2d');
         let pts = [];
@@ -393,19 +438,6 @@
                 card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
             });
         }
-
-        // --- WHALE ALERTS ---
-        function triggerWhale() {
-            const amount = (Math.random() * 5000 + 1000).toFixed(0);
-            const addr = "UQ" + Math.random().toString(36).substring(2,6).toUpperCase() + "..." + Math.random().toString(36).substring(2,4).toUpperCase();
-            const alertBox = document.createElement('div');
-            alertBox.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] pointer-events-auto shadow-xl mb-2";
-            alertBox.style.animation = "slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards";
-            alertBox.innerHTML = `<div class="flex justify-between"><span class="text-cyan-400 font-black">WHALE ALERT</span><span>NOW</span></div><div class="font-bold text-white">${addr} swapped ${amount} TON</div>`;
-            document.getElementById('whale-alerts').prepend(alertBox);
-            setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(() => alertBox.remove(), 500); }, 3000);
-        }
-        setInterval(() => { if(Math.random() > 0.8) triggerWhale(); }, 5000);
 
         function initChart() {
             const ctx = document.getElementById('liquidityChart');
