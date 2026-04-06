@@ -6,7 +6,7 @@
     <title>QUANTUM CORE | ELITE TERMINAL v4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -67,6 +67,8 @@
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
             transition: 0.3s cubic-bezier(0.2, 1, 0.3, 1);
+            color: black;
+            font-weight: 800;
         }
         .btn-quantum:active { transform: scale(0.95); }
 
@@ -84,7 +86,7 @@
             display: flex; justify-content: space-around; padding: 12px 0 24px 0;
             border-top: 1px solid var(--border); z-index: 1000;
         }
-        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #475569; transition: 0.2s; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #475569; transition: 0.2s; cursor: pointer; }
         .nav-item.active { color: var(--accent); }
 
         @keyframes slideIn {
@@ -95,7 +97,6 @@
         .token-row { border-bottom: 1px solid rgba(255,255,255,0.03); padding: 12px 0; transition: 0.2s; }
         .token-row:active { background: rgba(255,255,255,0.02); }
 
-        /* Forge Specific Styles */
         .forge-input {
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.08);
@@ -118,13 +119,13 @@
     <div id="whale-alerts" class="fixed top-4 right-4 z-[1100] space-y-2 pointer-events-none w-72"></div>
 
     <header class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-50">
-        <div class="flex items-center gap-3" onclick="switchTab('home')">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('home')">
             <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
             <h1 class="text-xl font-black tracking-tighter uppercase italic text-white">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
-        <button id="connectBtn" class="btn-quantum px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-black">Connect</button>
+        <div id="connectBtn"></div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 pb-32 relative z-10">
@@ -132,11 +133,11 @@
         <section id="home" class="tab-content active space-y-6">
             <div class="glass-card p-8 bg-gradient-to-br from-cyan-500/10 to-transparent">
                 <h2 class="text-3xl font-black mb-2 uppercase italic leading-none">Quantum Pulse v4.1</h2>
-                <p class="text-slate-400 text-xs mb-6">Ваш терминал доступа к ликвидности TON</p>
+                <p class="text-slate-400 text-xs mb-6">Терминал ликвидности TON</p>
                 <div class="flex gap-4">
                     <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
-                        <p class="text-[9px] text-slate-500 uppercase font-bold">TVL</p>
-                        <p class="text-lg font-black">$142.4M</p>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">DUST CAP</p>
+                        <p class="text-lg font-black dust-cap">$922.95K</p>
                     </div>
                     <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
                         <p class="text-[9px] text-slate-500 uppercase font-bold">Nodes</p>
@@ -180,47 +181,15 @@
                         <h2 class="font-black italic text-white uppercase text-xl">Jetton Forge</h2>
                         <p class="text-[10px] text-purple-400 font-bold uppercase tracking-widest">Quantum Deployment System</p>
                     </div>
-                    <div class="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center border border-purple-500/30">
-                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 011-1V4z" stroke-width="2"/></svg>
-                    </div>
                 </div>
-
                 <div class="space-y-5">
-                    <div>
-                        <label class="text-[9px] text-slate-500 font-bold uppercase ml-1 mb-2 block">Token Name</label>
-                        <input type="text" placeholder="Напр: Quantum Gold" class="forge-input">
-                    </div>
+                    <input type="text" id="jettonName" placeholder="Имя (напр: Quantum Gold)" class="forge-input">
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-[9px] text-slate-500 font-bold uppercase ml-1 mb-2 block">Symbol</label>
-                            <input type="text" placeholder="QGOLD" class="forge-input uppercase">
-                        </div>
-                        <div>
-                            <label class="text-[9px] text-slate-500 font-bold uppercase ml-1 mb-2 block">Decimals</label>
-                            <input type="number" value="9" class="forge-input">
-                        </div>
+                        <input type="text" id="jettonSymbol" placeholder="Символ (QGOLD)" class="forge-input uppercase">
+                        <input type="number" id="jettonDecimals" value="9" class="forge-input">
                     </div>
-                    <div>
-                        <label class="text-[9px] text-slate-500 font-bold uppercase ml-1 mb-2 block">Total Supply</label>
-                        <input type="number" placeholder="1 000 000 000" class="forge-input">
-                    </div>
-                    <div>
-                        <label class="text-[9px] text-slate-500 font-bold uppercase ml-1 mb-2 block">Image URL (IPFS/Direct)</label>
-                        <input type="text" placeholder="https://..." class="forge-input">
-                    </div>
-
-                    <div class="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-2">
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-slate-400">Gas Fee</span>
-                            <span class="text-white font-mono">~0.05 TON</span>
-                        </div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-slate-400">Storage</span>
-                            <span class="text-white font-mono">0.01 TON</span>
-                        </div>
-                    </div>
-
-                    <button class="w-full py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm transition-all shadow-lg shadow-purple-500/20" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
+                    <input type="number" id="jettonSupply" placeholder="Эмиссия (1 000 000)" class="forge-input">
+                    <button onclick="deployJetton()" class="w-full py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
                         Deploy Asset
                     </button>
                 </div>
@@ -229,71 +198,38 @@
 
         <section id="swap" class="tab-content max-w-lg mx-auto pt-4">
             <div class="glass-card p-6">
-                <div class="flex justify-between mb-6">
-                    <h2 class="font-black italic text-white uppercase">SWAP TERMINAL</h2>
-                    <span class="text-[10px] text-cyan-400 font-mono">Slippage: 0.5%</span>
-                </div>
-                <div class="space-y-1 relative">
+                <h2 class="font-black italic text-white uppercase mb-6">SWAP TERMINAL</h2>
+                <div class="space-y-2">
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
-                        <label class="text-[9px] text-slate-500 font-bold block mb-2 uppercase">Отдаете</label>
-                        <div class="flex justify-between items-center">
-                            <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-white">
-                            <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
-                                <span class="text-xs font-black text-white">TON</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
-                        <div class="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/40">
-                            <svg width="16" height="16" fill="black" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>
-                        </div>
+                        <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
+                        <span class="text-[10px] text-slate-500 font-bold">TON</span>
                     </div>
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
-                        <label class="text-[9px] text-slate-500 font-bold block mb-2 uppercase">Получаете</label>
-                        <div class="flex justify-between items-center">
-                            <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-600">
-                            <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
-                                <span class="text-xs font-black text-white">QUAN</span>
-                            </div>
-                        </div>
+                        <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-slate-600">
+                        <span class="text-[10px] text-slate-500 font-bold">QUAN</span>
                     </div>
                 </div>
-                <button id="mainSwapBtn" class="w-full mt-6 btn-quantum py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm">Connect Wallet</button>
+                <button id="mainSwapBtn" onclick="executeSwap()" class="w-full mt-6 btn-quantum py-4 rounded-2xl uppercase tracking-widest">Connect Wallet</button>
             </div>
         </section>
 
         <section id="coins" class="tab-content pt-4">
-            <div class="glass-card p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="font-black italic text-white uppercase">Market Assets</h2>
-                    <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-400">24H VOL: $2.1M</span>
-                </div>
-                <div class="space-y-1" id="tokenList">
-                    <div class="token-row flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-bold text-white">T</div>
-                            <div>
-                                <p class="font-bold text-sm text-white">TON</p>
-                                <p class="text-[10px] text-slate-500">Toncoin</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold text-sm text-white">$5.24</p>
-                            <p class="text-[10px] text-emerald-400">+2.4%</p>
-                        </div>
+            <div class="glass-card p-6" id="tokenList">
+                <h2 class="font-black italic text-white uppercase mb-4">Market Assets</h2>
+                <div class="token-row flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-bold">T</div>
+                        <div><p class="font-bold text-sm text-white">TON</p></div>
                     </div>
+                    <div class="text-right"><p class="font-bold text-sm text-white">$5.24</p></div>
                 </div>
             </div>
         </section>
 
         <section id="staking" class="tab-content pt-4 space-y-4">
-            <div class="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-transparent">
-                <p class="text-[10px] font-bold text-emerald-400 mb-1 tracking-widest uppercase">Yield Protocol</p>
-                <h2 class="text-2xl font-black italic text-white uppercase">Earn Rewards</h2>
-            </div>
-            <div class="glass-card p-6 flex justify-between items-center border-l-4 border-l-emerald-500">
-                <div><h3 class="font-bold text-lg text-white">TON Liquid</h3><p class="text-xs text-slate-500 italic">Stake TON receive stTON</p></div>
-                <div class="text-right"><p class="text-2xl font-black text-emerald-400">~4.2%</p><p class="text-[9px] text-slate-500 uppercase font-bold">APY</p></div>
+            <div class="glass-card p-6 border-l-4 border-l-emerald-500">
+                <h3 class="font-bold text-lg text-white">TON Liquid Staking</h3>
+                <p class="text-2xl font-black text-emerald-400">~4.2% APY</p>
             </div>
         </section>
 
@@ -302,11 +238,8 @@
                 <h2 class="font-black italic mb-6 uppercase text-white">Market Intelligence</h2>
                 <div class="h-64"><canvas id="liquidityChart"></canvas></div>
             </div>
-            <div class="glass-card p-6">
-                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Live Activity</h3>
-                <div id="whale-list" class="space-y-3 font-mono text-[11px]"></div>
-            </div>
         </section>
+
     </main>
 
     <nav class="nav-bar">
@@ -333,10 +266,31 @@
     </nav>
 
     <script>
+        // --- ИНИЦИАЛИЗАЦИЯ TON CONNECT ---
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://tum.bothost.tech/static/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        let userWallet = null;
+        tonConnectUI.onStatusChange(wallet => {
+            userWallet = wallet;
+            const btn = document.getElementById('mainSwapBtn');
+            if (wallet) {
+                btn.innerText = "Confirm Swap";
+                console.log("Wallet connected:", wallet.account.address);
+            } else {
+                btn.innerText = "Connect Wallet";
+            }
+        });
+
+        // --- НАВИГАЦИЯ ---
         function switchTab(id, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+            
+            const target = document.getElementById(id);
+            if(target) target.classList.add('active');
             
             if (el) {
                 el.classList.add('active');
@@ -348,6 +302,89 @@
             if (id === 'analytics') setTimeout(initChart, 100);
         }
 
+        // --- ЛОГИКА SWAP ---
+        const RATE = 54.32;
+        document.getElementById('swapInput').oninput = (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            const output = document.getElementById('swapOutput');
+            const btn = document.getElementById('mainSwapBtn');
+            if(val > 0) {
+                output.value = (val * RATE).toFixed(2);
+                output.style.color = "var(--accent)";
+                if(userWallet) btn.innerText = "Confirm Swap";
+            } else {
+                output.value = "";
+                if(userWallet) btn.innerText = "Confirm Swap";
+            }
+        };
+
+        async function executeSwap() {
+            if (!userWallet) {
+                await tonConnectUI.connectWallet();
+                return;
+            }
+            alert("Инициирую обмен через DeDust Protocol...");
+        }
+
+        // --- ЛОГИКА FORGE ---
+        async function deployJetton() {
+            if (!userWallet) {
+                await tonConnectUI.connectWallet();
+                return;
+            }
+            const name = document.getElementById('jettonName').value;
+            if(!name) return alert("Введите имя токена");
+
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 60,
+                messages: [{
+                    address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", 
+                    amount: "50000000" 
+                }]
+            };
+
+            try {
+                await tonConnectUI.sendTransaction(transaction);
+                alert("Транзакция отправлена!");
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // --- ДИНАМИКА $DUST ---
+        function updateDustStats() {
+            const cap = (922.95 + (Math.random() * 2)).toFixed(2); 
+            const el = document.querySelector('.dust-cap');
+            if(el) el.innerText = `$${cap}K`;
+        }
+        setInterval(updateDustStats, 10000);
+
+        // --- ВИЗУАЛЬНЫЕ ЭФФЕКТЫ (Канвас и Мышь) ---
+        const canvas = document.getElementById('bg-canvas');
+        const ctxP = canvas.getContext('2d');
+        let pts = [];
+
+        function initCanvas() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            pts = Array.from({length: 40}, () => ({ 
+                x: Math.random()*canvas.width, 
+                y: Math.random()*canvas.height, 
+                s: Math.random()*1, 
+                v: Math.random()*0.5 
+            }));
+        }
+
+        function draw() {
+            ctxP.clearRect(0,0,canvas.width, canvas.height);
+            ctxP.fillStyle = "rgba(0, 242, 255, 0.2)";
+            pts.forEach(p => { 
+                p.y -= p.v; 
+                if(p.y < 0) p.y = canvas.height; 
+                ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); 
+            });
+            requestAnimationFrame(draw);
+        }
+
         function handleMouseMove(e) {
             const cards = document.querySelectorAll('.glass-card, .card-grid-item');
             cards.forEach(card => {
@@ -357,17 +394,18 @@
             });
         }
 
+        // --- WHALE ALERTS ---
         function triggerWhale() {
             const amount = (Math.random() * 5000 + 1000).toFixed(0);
             const addr = "UQ" + Math.random().toString(36).substring(2,6).toUpperCase() + "..." + Math.random().toString(36).substring(2,4).toUpperCase();
-            const alert = document.createElement('div');
-            alert.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] pointer-events-auto shadow-xl mb-2";
-            alert.style.animation = "slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards";
-            alert.innerHTML = `<div class="flex justify-between"><span class="text-cyan-400 font-black">WHALE ALERT</span><span>NOW</span></div><div class="font-bold text-white">${addr} swapped ${amount} TON</div>`;
-            document.getElementById('whale-alerts').prepend(alert);
-            setTimeout(() => { alert.style.opacity = '0'; setTimeout(() => alert.remove(), 500); }, 3000);
+            const alertBox = document.createElement('div');
+            alertBox.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] pointer-events-auto shadow-xl mb-2";
+            alertBox.style.animation = "slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards";
+            alertBox.innerHTML = `<div class="flex justify-between"><span class="text-cyan-400 font-black">WHALE ALERT</span><span>NOW</span></div><div class="font-bold text-white">${addr} swapped ${amount} TON</div>`;
+            document.getElementById('whale-alerts').prepend(alertBox);
+            setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(() => alertBox.remove(), 500); }, 3000);
         }
-        setInterval(() => { if(Math.random() > 0.7) triggerWhale(); }, 4000);
+        setInterval(() => { if(Math.random() > 0.8) triggerWhale(); }, 5000);
 
         function initChart() {
             const ctx = document.getElementById('liquidityChart');
@@ -383,35 +421,11 @@
             });
         }
 
-        const canvas = document.getElementById('bg-canvas');
-        const ctxP = canvas.getContext('2d');
-        let pts = [];
-        function initCanvas() {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            pts = Array.from({length: 40}, () => ({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*1, v: Math.random()*0.5 }));
-        }
-        function draw() {
-            ctxP.clearRect(0,0,canvas.width, canvas.height);
-            ctxP.fillStyle = "rgba(0, 242, 255, 0.2)";
-            pts.forEach(p => { p.y -= p.v; if(p.y < 0) p.y = canvas.height; ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); });
-            requestAnimationFrame(draw);
-        }
-        initCanvas(); draw(); window.onresize = initCanvas;
-
-        const RATE = 54.32;
-        document.getElementById('swapInput').oninput = (e) => {
-            const val = parseFloat(e.target.value) || 0;
-            const output = document.getElementById('swapOutput');
-            const btn = document.getElementById('mainSwapBtn');
-            if(val > 0) {
-                output.value = (val * RATE).toFixed(2);
-                output.classList.replace('text-slate-600', 'text-cyan-400');
-                btn.innerText = "Confirm Swap";
-            } else {
-                output.value = "";
-                btn.innerText = "Connect Wallet";
-            }
-        }
+        window.onload = () => {
+            initCanvas();
+            draw();
+            window.onresize = initCanvas;
+        };
     </script>
 </body>
 </html>
