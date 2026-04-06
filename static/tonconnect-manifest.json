@@ -1,1 +1,12 @@
-
+{
+  "url": "https://quantum.bothost.tech",
+  "name": "Quantum Core",
+  "iconUrl": "https://quantum.bothost.tech/static/images/logo.png",
+  "description": "Quantum Core — Элитный терминал ликвидности и высокоскоростного трейдинга в сети TON. Институциональные инструменты в твоих руках.",
+  "termsOfUseUrl": "https://quantum.bothost.tech/static/terms.html",
+  "privacyPolicyUrl": "https://quantum.bothost.tech/static/privacy.html",
+  "platforms": ["chrome", "android", "ios", "firefox"],
+  "homepageUrl": "https://quantum.bothost.tech",
+  "keywords": ["DEX", "Quantum", "TON", "Trading", "Liquidity", "Web3"],
+  "manifestVersion": 2
+}
