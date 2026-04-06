@@ -61,7 +61,6 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Настройки входа (из .env или дефолт)
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(32).hex() 
@@ -135,15 +134,30 @@ class OmniNeuralOverlord:
     async def handle_index(self, request):
         static_dir = self.get_static_path()
         if not static_dir: return web.Response(text="Static directory not found", status=404)
-        
-        path_info = request.path.lower().strip('/')
-        if path_info in ['admin', 'amin']:
-            target = os.path.join(static_dir, 'admin', 'index.html')
-        else:
-            target = os.path.join(static_dir, 'index.html')
-
+        target = os.path.join(static_dir, 'index.html')
         if os.path.exists(target): return web.FileResponse(target)
-        return web.Response(text=f"File {target} not found", status=404)
+        return web.Response(text="index.html not found", status=404)
+
+    async def handle_admin(self, request):
+        static_dir = self.get_static_path()
+        target = os.path.join(static_dir, 'admin', 'index.html')
+        if os.path.exists(target): return web.FileResponse(target)
+        return web.Response(text="Admin interface not found", status=404)
+
+    async def handle_privacy(self, request):
+        static_dir = self.get_static_path()
+        target = os.path.join(static_dir, 'privacy.html')
+        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
+
+    async def handle_terms(self, request):
+        static_dir = self.get_static_path()
+        target = os.path.join(static_dir, 'terms.html')
+        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
+
+    async def handle_manifest(self, request):
+        static_dir = self.get_static_path()
+        target = os.path.join(static_dir, 'tonconnect-manifest.json')
+        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
 
     async def handle_health(self, request):
         return web.json_response({"status": "ok", "uptime": round(time.time() - self.session_start)})
@@ -230,19 +244,26 @@ class OmniNeuralOverlord:
             )
         })
         
+        # Главные роуты
         self.app.router.add_get('/', self.handle_index)
-        self.app.router.add_get('/admin', self.handle_index)
+        self.app.router.add_get('/admin', self.handle_admin)
+        self.app.router.add_get('/privacy', self.handle_privacy)
+        self.app.router.add_get('/terms', self.handle_terms)
+        self.app.router.add_get('/tonconnect-manifest.json', self.handle_manifest)
+        
+        # API
         self.app.router.add_get('/api/health', self.handle_health)
         self.app.router.add_post('/api/login', self.handle_login)
         self.app.router.add_get('/api/stats', self.handle_get_stats)
         self.app.router.add_post('/api/config', self.handle_update_config)
         
+        # Статика
         static_dir = self.get_static_path()
         if static_dir:
             self.app.router.add_static('/static/', path=static_dir, name='static')
-            admin_subpath = os.path.join(static_dir, 'admin')
-            if os.path.exists(admin_subpath):
-                self.app.router.add_static('/admin/static/', path=admin_subpath, name='admin_assets')
+            admin_static = os.path.join(static_dir, 'admin')
+            if os.path.exists(admin_static):
+                self.app.router.add_static('/admin/static/', path=admin_static, name='admin_static')
 
         for route in list(self.app.router.routes()): cors.add(route)
         
