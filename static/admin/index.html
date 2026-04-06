@@ -11,6 +11,7 @@
             --neon-blue: #00f2ff;
             --bg-dark: #0a0b10;
             --card-bg: rgba(16, 18, 27, 0.95);
+            --neon-red: #ff3333;
         }
 
         body { 
@@ -22,7 +23,7 @@
             overflow-x: hidden; 
         }
 
-        /* Сканер фона */
+        /* Сканирующая полоса */
         body::before {
             content: " ";
             position: fixed;
@@ -32,7 +33,6 @@
             pointer-events: none;
             animation: scanline 8s linear infinite;
         }
-
         @keyframes scanline { 0% { top: 0; } 100% { top: 100%; } }
 
         .grid { 
@@ -86,28 +86,27 @@
             background: #000; 
             border: 1px solid #1a3a40; 
             color: #fff; 
-            padding: 8px; 
+            padding: 10px; 
             width: 180px; 
             border-radius: 2px; 
             font-family: inherit;
             outline: none;
         }
-        
         input:focus { border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
 
         button { 
             background: var(--neon-blue); 
             color: #000; 
             border: none; 
-            padding: 12px; 
+            padding: 14px; 
             cursor: pointer; 
             font-weight: bold; 
             width: 100%; 
             margin-top: 10px; 
             text-transform: uppercase;
+            letter-spacing: 2px;
             transition: all 0.2s;
         }
-
         button:hover { background: #fff; box-shadow: 0 0 20px #fff; }
 
         .status-online { color: #0f0; animation: blink 2s infinite; }
@@ -125,6 +124,7 @@
             border-radius: 4px;
         }
 
+        /* Окно авторизации как на скриншоте */
         #auth-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -133,6 +133,14 @@
             justify-content: center;
             align-items: center;
             z-index: 9999;
+        }
+
+        .auth-card {
+            width: 340px;
+            text-align: center;
+            border: 1px solid var(--neon-blue);
+            background: var(--card-bg);
+            padding: 30px;
         }
 
         .hidden { display: none !important; }
@@ -155,15 +163,15 @@
 <body>
 
     <div id="auth-overlay">
-        <div class="card" style="width: 320px; text-align: center;">
-            <h2 style="color: red; border-color: red;">SECURE_GATEWAY_V4</h2>
-            <p style="font-size: 10px; margin-bottom: 20px;">AUTHORIZATION REQUIRED</p>
-            <div style="margin: 15px 0;" class="space-y-4">
-                <input type="text" id="login_field" placeholder="TERMINAL_ID" style="width: 100%; margin-bottom: 10px;" value="1">
-                <input type="password" id="pass_field" placeholder="ACCESS_KEY" style="width: 100%;">
-            </div>
+        <div class="auth-card">
+            <h2 style="color: var(--neon-red); border-color: var(--neon-red); margin-bottom: 10px;">SECURE_GATEWAY_V4</h2>
+            <p style="font-size: 10px; margin-bottom: 25px; color: var(--neon-blue);">AUTHORIZATION REQUIRED</p>
+            
+            <input type="text" id="login_field" placeholder="TERMINAL_ID" style="width: 100%; margin-bottom: 15px;" value="1">
+            <input type="password" id="pass_field" placeholder="ACCESS_KEY" style="width: 100%; margin-bottom: 20px;">
+            
             <button onclick="attemptLogin()">INIT_CORE_LINK</button>
-            <p id="auth_error" style="color: red; font-size: 10px; margin-top: 10px;" class="hidden">ERROR: INVALID ACCESS KEY</p>
+            <p id="auth_error" style="color: var(--neon-red); font-size: 10px; margin-top: 15px;" class="hidden">ERROR: INVALID ACCESS KEY</p>
         </div>
     </div>
 
@@ -173,17 +181,17 @@
         <div class="grid">
             <div class="card">
                 <h2>SYSTEM_TELEMETRY</h2>
-                <div style="margin: 20px 0; space-y-4">
+                <div style="margin: 20px 0;">
                     <p>CORE_STATUS: <span id="ai_status" class="status-online">SYNCHRONIZING...</span></p>
-                    <div>
+                    <div style="margin-bottom: 15px;">
                         <span style="font-size: 10px; color: #555;">MAIN_RESERVE (TON)</span><br>
                         <span id="total_vol" class="stat-val">0.00</span>
                     </div>
-                    <div style="margin-top: 15px;">
+                    <div>
                         <span style="font-size: 10px; color: #555;">MARKET_PRICE_USD</span><br>
                         <span id="total_profit" class="stat-val">$0.00</span>
                     </div>
-                    <p style="font-size: 10px; margin-top: 20px;">CORE_ID: <span id="core_id" style="color: #f0f;">---</span></p>
+                    <p style="font-size: 10px; margin-top: 25px;">CORE_ID: <span id="core_id" style="color: #f0f;">---</span></p>
                 </div>
             </div>
 
@@ -283,13 +291,11 @@
                 if (res.status === 401) { location.reload(); return; }
                 const data = await res.json();
                 
-                // Основные данные
                 document.getElementById('total_vol').innerText = data.balance || "0.00";
                 document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
                 document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
                 document.getElementById('core_id').innerText = data.engine?.core_id || "SENTINEL-X";
 
-                // Пул данные
                 if (data.pool_info) {
                     const addr = data.pool_info.address;
                     document.getElementById('pool_addr_display').innerText = addr !== "NOT CONFIGURED" ? addr : "NOT_LINKED";
@@ -327,7 +333,6 @@
 
         function updateChart(opsCount) {
             const ctx = document.getElementById('chartOps').getContext('2d');
-            // Симуляция распределения (Buy/Sell/Wait)
             const dataValues = [
                 Math.floor(opsCount * 0.25) + 2, 
                 Math.floor(opsCount * 0.15) + 1, 
@@ -359,7 +364,7 @@
             }
         }
 
-        // Авто-вход
+        // Проверка сессии при загрузке
         if (document.cookie.includes('auth_token')) {
             document.getElementById('auth-overlay').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
