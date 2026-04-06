@@ -130,7 +130,6 @@ class OmniNeuralOverlord:
             
             if user_login == self.admin_login and user_pass == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
-                # Устанавливаем защищенную куку на 24 часа
                 res.set_cookie("auth_token", self.session_token, max_age=86400, httponly=True)
                 log(f"LOGIN_SUCCESS: Terminal accessed from {request.remote}", "SUCCESS")
                 return res
@@ -141,21 +140,31 @@ class OmniNeuralOverlord:
             return web.json_response({"status": "error", "msg": "INTERNAL SERVER ERROR"}, status=500)
 
     async def handle_index(self, request):
-        """Раздает index.html. Поддерживает /, /admin и /amin."""
+        """Раздает index.html. Поддерживает разделение на главный экран и админку."""
         static_dir = self.get_static_path()
         if not static_dir:
             return web.Response(text="Static directory not found", status=404)
 
-        # Приоритет отдаем index.html в подпапке admin, если она есть
-        paths = [
-            os.path.join(static_dir, 'admin', 'index.html'),
-            os.path.join(static_dir, 'index.html')
-        ]
-        for path in paths:
-            if os.path.exists(path):
-                return web.FileResponse(path)
+        # Определяем, какой именно файл отдавать на основе пути
+        path_info = request.path.lower().strip('/')
         
-        return web.Response(text=f"index.html not found in {static_dir}", status=404)
+        if path_info in ['admin', 'amin']:
+            target = os.path.join(static_dir, 'admin', 'index.html')
+        else:
+            target = os.path.join(static_dir, 'index.html')
+
+        if os.path.exists(target):
+            return web.FileResponse(target)
+        
+        return web.Response(text=f"File {target} not found", status=404)
+
+    async def handle_favicon(self, request):
+        """Обработка запроса иконки для чистоты логов."""
+        static_dir = self.get_static_path()
+        fav = os.path.join(static_dir, 'images', 'logo.png')
+        if os.path.exists(fav):
+            return web.FileResponse(fav)
+        return web.Response(status=204)
 
     async def handle_get_stats(self, request):
         """Возвращает статистику только авторизованным пользователям."""
@@ -246,7 +255,9 @@ class OmniNeuralOverlord:
         # Маршруты страниц
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
+        app.router.add_get('/admin/', self.handle_index)
         app.router.add_get('/amin', self.handle_index)
+        app.router.add_get('/favicon.ico', self.handle_favicon)
         
         # API эндпоинты
         app.router.add_post('/api/login', self.handle_login)
@@ -255,12 +266,12 @@ class OmniNeuralOverlord:
         
         static_dir = self.get_static_path()
         if static_dir:
-            # Общая статика
+            # Общая статика (логотипы, стили)
             app.router.add_static('/static/', path=static_dir, name='static')
-            # Если папка admin существует внутри static, даем к ней прямой доступ
+            # Прямой доступ к ресурсам админки
             admin_subpath = os.path.join(static_dir, 'admin')
             if os.path.exists(admin_subpath):
-                app.router.add_static('/admin/', path=admin_subpath, name='admin_static')
+                app.router.add_static('/admin/static/', path=admin_subpath, name='admin_assets')
             
             log(f"Путь статики подтвержден: {static_dir}", "SUCCESS")
         
@@ -270,7 +281,7 @@ class OmniNeuralOverlord:
         await runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(runner, '0.0.0.0', port).start()
-        log(f"WEB_SERVER_ACTIVE: Uplink URL https://quantum.bothost.tech/admin", "SUCCESS")
+        log(f"WEB_SERVER_ACTIVE: Uplink URL https://tum.bothost.tech/admin", "SUCCESS")
 
     async def core_loop(self):
         while True:
