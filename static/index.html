@@ -6,6 +6,7 @@
     <title>QUANTUM CORE | ELITE TERMINAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -24,14 +25,8 @@
             background: radial-gradient(circle at 50% -20%, #003a5f 0%, #020609 60%);
         }
 
-        /* Анимированный фон */
-        #bg-canvas {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-        }
+        #bg-canvas { position: fixed; inset: 0; z-index: -1; }
 
-        /* Glassmorphism 3.0 */
         .glass-card {
             background: var(--glass);
             backdrop-filter: blur(24px) saturate(200%);
@@ -41,13 +36,6 @@
             transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .glass-card:hover {
-            border-color: rgba(0, 242, 255, 0.4);
-            transform: translateY(-8px) scale(1.01);
-            box-shadow: 0 20px 80px -20px rgba(0, 242, 255, 0.15);
-        }
-
-        /* Кнопка Quantum Ultra */
         .btn-quantum {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
             box-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
@@ -56,54 +44,28 @@
             z-index: 1;
         }
 
-        .btn-quantum::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--accent-deep) 0%, var(--accent) 100%);
-            opacity: 0;
-            transition: 0.4s;
-            z-index: -1;
-            border-radius: inherit;
+        .btn-quantum:disabled {
+            filter: grayscale(1);
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
-        .btn-quantum:hover::before { opacity: 1; }
-        .btn-quantum:hover { 
-            box-shadow: 0 0 40px rgba(0, 242, 255, 0.5); 
-            transform: translateY(-2px);
-        }
-
-        /* Инпуты */
         .quantum-input {
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255,255,255,0.05);
             transition: 0.4s;
         }
-        .quantum-input:focus-within {
-            border-color: var(--accent);
-            box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.05);
-        }
+        .quantum-input:focus-within { border-color: var(--accent); }
 
-        /* Анимации вкладок */
         .tab-content { display: none; opacity: 0; transform: translateY(10px); }
-        .tab-content.active { 
-            display: block; 
-            animation: fadeIn 0.6s forwards cubic-bezier(0.23, 1, 0.32, 1); 
-        }
+        .tab-content.active { display: block; animation: fadeIn 0.6s forwards; }
 
-        @keyframes fadeIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
 
-        /* Декоративные элементы */
         .glow-orb {
-            position: absolute;
-            width: 400px;
-            height: 400px;
+            position: absolute; width: 400px; height: 400px;
             background: radial-gradient(circle, rgba(0, 242, 255, 0.1) 0%, transparent 70%);
-            border-radius: 50%;
-            filter: blur(60px);
-            pointer-events: none;
+            border-radius: 50%; filter: blur(60px); pointer-events: none;
         }
     </style>
 </head>
@@ -114,11 +76,9 @@
     <div class="glow-orb bottom-[-100px] right-[-100px]"></div>
 
     <header class="max-w-7xl mx-auto px-6 py-10 flex justify-between items-center">
-        <div class="flex items-center gap-5 group cursor-pointer">
-            <div class="w-14 h-14 bg-gradient-to-br from-[#00f2ff] to-[#0062ff] rounded-[22px] flex items-center justify-center shadow-[0_0_30px_rgba(0,242,255,0.3)] group-hover:rotate-[15deg] transition-all duration-500">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linejoin="round" stroke-linecap="round"/>
-                </svg>
+        <div class="flex items-center gap-5 group cursor-pointer" onclick="switchTab('home')">
+            <div class="w-14 h-14 bg-gradient-to-br from-[#00f2ff] to-[#0062ff] rounded-[22px] flex items-center justify-center shadow-[0_0_30px_rgba(0,242,255,0.3)]">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
             <div>
                 <h1 class="text-3xl font-black tracking-tighter leading-none">QUANTUM<span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00f2ff] to-[#0062ff]">CORE</span></h1>
@@ -127,110 +87,28 @@
         </div>
 
         <nav class="hidden md:flex bg-white/5 border border-white/10 p-1.5 rounded-3xl backdrop-blur-2xl">
-            <button class="nav-item active px-8 py-3 rounded-2xl text-sm font-bold transition-all text-white bg-white/5 shadow-inner" onclick="switchTab('home', this)">Dashboard</button>
+            <button class="nav-item active px-8 py-3 rounded-2xl text-sm font-bold transition-all text-white bg-white/5" onclick="switchTab('home', this)">Dashboard</button>
             <button class="nav-item px-8 py-3 rounded-2xl text-sm font-bold transition-all text-slate-400 hover:text-white" onclick="switchTab('swap', this)">Exchange</button>
             <button class="nav-item px-8 py-3 rounded-2xl text-sm font-bold transition-all text-slate-400 hover:text-white" onclick="switchTab('liquidity', this)">Liquidity</button>
         </nav>
 
         <div class="flex items-center gap-6">
-            <div class="hidden lg:block">
-                <div class="text-[10px] text-slate-500 font-mono text-right uppercase mb-1">Network Status</div>
-                <div class="flex items-center gap-2 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20">
-                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></div>
-                    <span class="text-xs font-bold text-emerald-400">Live: 4ms</span>
-                </div>
-            </div>
-            <button class="btn-quantum px-8 py-4 rounded-[20px] font-extrabold text-sm tracking-wide">Connect Wallet</button>
+            <button id="connectBtn" class="btn-quantum px-8 py-4 rounded-[20px] font-extrabold text-sm tracking-wide">Connect Wallet</button>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-6 pb-20">
-        
         <section id="home" class="tab-content active">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div class="lg:col-span-8 space-y-8">
                     <div class="glass-card p-14 relative overflow-hidden group">
                         <div class="relative z-10">
-                            <div class="flex items-center gap-3 mb-8">
-                                <span class="h-[1px] w-12 bg-blue-500"></span>
-                                <span class="text-[#00f2ff] text-xs font-black uppercase tracking-[0.2em]">Neural Network Engine</span>
-                            </div>
-                            <h2 class="text-6xl font-black mb-8 leading-[1.1] tracking-tight">
-                                Next-Gen <br>
-                                <span class="text-slate-600">Trading Pulse.</span>
-                            </h2>
-                            <p class="text-slate-400 text-xl max-w-lg mb-12 leading-relaxed font-medium">
-                                Агрегатор ликвидности нового поколения. Минимальное проскальзывание через протоколы <span class="text-white">DeDust</span> и <span class="text-white">STON.fi</span>.
-                            </p>
+                            <div class="flex items-center gap-3 mb-8"><span class="h-[1px] w-12 bg-blue-500"></span><span class="text-[#00f2ff] text-xs font-black uppercase tracking-[0.2em]">Neural Network Engine</span></div>
+                            <h2 class="text-6xl font-black mb-8 leading-[1.1]">Next-Gen <br><span class="text-slate-600">Trading Pulse.</span></h2>
+                            <p class="text-slate-400 text-xl max-w-lg mb-12">Агрегатор ликвидности нового поколения. Свопы через протокол <span class="text-white font-bold">DeDust</span>.</p>
                             <div class="flex gap-6">
                                 <button onclick="switchTab('swap')" class="btn-quantum px-12 py-5 rounded-2xl font-black text-lg">Start Swap</button>
-                                <button class="px-12 py-5 border border-white/10 rounded-2xl font-bold hover:bg-white/5 hover:border-white/20 transition-all">Analytics</button>
                             </div>
-                        </div>
-                        <div class="absolute right-[-10%] top-[-10%] w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full group-hover:bg-blue-500/20 transition-colors"></div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="glass-card p-8 border-b-4 border-b-blue-500/50">
-                            <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3">TVL Protocol</p>
-                            <h3 class="text-3xl font-black text-white">$142.8M</h3>
-                            <div class="mt-4 flex items-center gap-2 text-emerald-400 font-mono text-sm">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
-                                +12.5%
-                            </div>
-                        </div>
-                        <div class="glass-card p-8">
-                            <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3">24h Swaps</p>
-                            <h3 class="text-3xl font-black text-white">84,201</h3>
-                            <div class="mt-4 text-blue-400 font-mono text-sm uppercase tracking-tighter">Real-time sync</div>
-                        </div>
-                        <div class="glass-card p-8">
-                            <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3">Nodes Online</p>
-                            <h3 class="text-3xl font-black text-white">1,024</h3>
-                            <div class="mt-4 text-purple-400 font-mono text-sm uppercase">Global coverage</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="glass-card p-8">
-                        <h3 class="text-xl font-black mb-8 flex justify-between items-center">
-                            Hot Markets
-                            <div class="flex gap-1">
-                                <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
-                                <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse delay-75"></span>
-                            </div>
-                        </h3>
-                        <div class="space-y-7">
-                            <div class="flex justify-between items-center group cursor-pointer hover:translate-x-1 transition-transform">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center font-black text-sm shadow-lg">T</div>
-                                    <div>
-                                        <p class="font-extrabold text-white">TON / USDT</p>
-                                        <p class="text-[10px] text-slate-500 font-mono tracking-tighter">VOL 24H: $4.2M</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p class="font-black text-white">$5.24</p>
-                                    <p class="text-xs text-emerald-400">+4.2%</p>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center group cursor-pointer hover:translate-x-1 transition-transform">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-700 rounded-2xl flex items-center justify-center font-black text-sm shadow-lg">Q</div>
-                                    <div>
-                                        <p class="font-extrabold text-white">QUAN / TON</p>
-                                        <p class="text-[10px] text-slate-500 font-mono tracking-tighter">VOL 24H: $1.8M</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p class="font-black text-white">0.42</p>
-                                    <p class="text-xs text-rose-400">-1.2%</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-10 h-32">
-                            <canvas id="sidebarChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -239,224 +117,150 @@
 
         <section id="swap" class="tab-content max-w-xl mx-auto pt-10">
             <div class="glass-card p-10">
-                <div class="flex justify-between items-center mb-10">
-                    <h2 class="text-3xl font-black tracking-tight">Quantum Swap</h2>
-                    <button class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition border border-white/10">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                    </button>
-                </div>
-
+                <h2 class="text-3xl font-black mb-10">Quantum Swap</h2>
+                
                 <div class="space-y-3 relative">
                     <div class="quantum-input p-8 rounded-[30px]">
-                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4">
-                            <span>You Sell</span>
-                            <span>Bal: 420.00</span>
-                        </div>
+                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4"><span>You Sell</span><span id="wallet-balance">Bal: 0.00</span></div>
                         <div class="flex justify-between items-center">
-                            <input type="number" id="swapInput" placeholder="0.00" class="bg-transparent text-5xl font-black outline-none w-2/3 placeholder:text-slate-800" oninput="calculateSwap()">
-                            <button class="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition">
-                                <div class="w-7 h-7 bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
-                                <span class="font-black text-sm uppercase">TON</span>
-                            </button>
+                            <input type="number" id="swapInput" placeholder="0.00" class="bg-transparent text-5xl font-black outline-none w-2/3">
+                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl"><div class="w-6 h-6 bg-blue-500 rounded-full"></div><span class="font-bold">TON</span></div>
                         </div>
                     </div>
 
                     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                        <button class="w-14 h-14 bg-[#0a0e12] border-4 border-var(--bg) rounded-2xl flex items-center justify-center hover:rotate-180 transition-all duration-500 shadow-2xl group">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="3" class="group-hover:scale-125 transition-transform"><path d="M7 10l5 5 5-5"/></svg>
-                        </button>
+                        <div class="w-12 h-12 bg-[#020609] border border-white/10 rounded-xl flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="3"><path d="M7 10l5 5 5-5"/></svg></div>
                     </div>
 
                     <div class="quantum-input p-8 rounded-[30px]">
-                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4">
-                            <span>You Receive</span>
-                            <span class="text-[#00f2ff] flex items-center gap-1">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
-                                Best Route
-                            </span>
-                        </div>
+                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4"><span>You Receive</span><span class="text-[#00f2ff]">DeDust Route</span></div>
                         <div class="flex justify-between items-center">
                             <input type="number" id="swapOutput" readonly placeholder="0.00" class="bg-transparent text-5xl font-black outline-none w-2/3 text-slate-600">
-                            <button class="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition">
-                                <div class="w-7 h-7 bg-purple-600 rounded-full shadow-[0_0_15px_rgba(147,51,234,0.5)]"></div>
-                                <span class="font-black text-sm uppercase">QUAN</span>
-                            </button>
+                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl"><div class="w-6 h-6 bg-purple-600 rounded-full"></div><span class="font-bold">QUAN</span></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-8 bg-white/5 rounded-3xl p-6 space-y-4 border border-white/5">
-                    <div class="flex justify-between text-xs font-bold">
-                        <span class="text-slate-500 uppercase tracking-tighter">Price Impact</span>
-                        <span class="text-emerald-400 font-mono">< 0.001%</span>
-                    </div>
-                    <div class="flex justify-between text-xs font-bold">
-                        <span class="text-slate-500 uppercase tracking-tighter">Slippage Tolerance</span>
-                        <span class="text-white font-mono">0.5%</span>
-                    </div>
+                <div class="mt-8 bg-white/5 rounded-3xl p-6 space-y-3 text-xs font-bold border border-white/5">
+                    <div class="flex justify-between"><span class="text-slate-500">Price Impact</span><span class="text-emerald-400">< 0.01%</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Fee</span><span class="text-white">0.25%</span></div>
                 </div>
 
-                <button class="w-full mt-10 btn-quantum py-6 rounded-[28px] font-black text-xl tracking-tighter uppercase">Confirm Transaction</button>
+                <button id="confirmSwap" class="w-full mt-10 btn-quantum py-6 rounded-[28px] font-black text-xl uppercase" disabled>Connect Wallet first</button>
             </div>
         </section>
 
         <section id="liquidity" class="tab-content pt-10">
             <div class="glass-card p-12">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
-                    <div>
-                        <h2 class="text-4xl font-black mb-3 italic">Telemetry <span class="text-blue-500">Flux</span></h2>
-                        <p class="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em]">Institutional Grade Data Stream</p>
-                    </div>
-                    <div class="flex bg-black/40 p-2 rounded-2xl border border-white/10">
-                        <button class="px-8 py-3 text-xs font-black bg-blue-600 rounded-xl shadow-lg">Total Value Locked</button>
-                        <button class="px-8 py-3 text-xs font-black text-slate-500 hover:text-white transition-all">24h Volume</button>
-                    </div>
-                </div>
-                <div class="h-[500px] w-full">
-                    <canvas id="mainLiquidityChart"></canvas>
-                </div>
+                <h2 class="text-4xl font-black mb-10 italic">Telemetry <span class="text-blue-500">Flux</span></h2>
+                <div class="h-[400px] w-full"><canvas id="mainLiquidityChart"></canvas></div>
             </div>
         </section>
-
     </main>
 
     <script>
-        // --- Canvas Particle Engine ---
-        const canvas = document.getElementById('bg-canvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
+        // 1. Настройка TON Connect
+        const connector = new TonConnectSDK.TonConnect({
+            manifestUrl: 'https://' + window.location.host + '/tonconnect-manifest.json'
+        });
 
-        function initCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            particles = [];
-            for(let i=0; i<80; i++) {
-                particles.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 1.5 + 0.5,
-                    speedX: Math.random() * 0.4 - 0.2,
-                    speedY: Math.random() * 0.4 - 0.2,
-                    opacity: Math.random() * 0.5
-                });
+        const connectBtn = document.getElementById('connectBtn');
+        const swapBtn = document.getElementById('confirmSwap');
+        const inputField = document.getElementById('swapInput');
+        const outputField = document.getElementById('swapOutput');
+
+        // Подключение кошелька
+        connectBtn.onclick = async () => {
+            if (connector.connected) {
+                await connector.disconnect();
+            } else {
+                const walletConnectionSource = { universalLink: 'https://tonkeeper.com/ton-connect', bridgeUrl: 'https://bridge.tonapi.io/bridge' };
+                window.location.href = connector.connect(walletConnectionSource);
             }
-        }
+        };
 
-        function animateCanvas() {
-            ctx.clearRect(0,0, canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.x += p.speedX;
-                p.y += p.speedY;
-                if(p.x < 0 || p.x > canvas.width) p.speedX *= -1;
-                if(p.y < 0 || p.y > canvas.height) p.speedY *= -1;
-                
-                ctx.fillStyle = `rgba(0, 242, 255, ${p.opacity})`;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-                ctx.fill();
-            });
-            requestAnimationFrame(animateCanvas);
-        }
-
-        window.addEventListener('resize', initCanvas);
-        initCanvas();
-        animateCanvas();
-
-        // --- Tab Management ---
-        function switchTab(id, el) {
-            const contents = document.querySelectorAll('.tab-content');
-            const navs = document.querySelectorAll('.nav-item');
-            
-            contents.forEach(t => t.classList.remove('active'));
-            navs.forEach(n => {
-                n.classList.remove('active', 'text-white', 'bg-white/5', 'shadow-inner');
-                n.classList.add('text-slate-400');
-            });
-
-            document.getElementById(id).classList.add('active');
-            
-            const activeBtn = el || document.querySelector(`[onclick*="switchTab('${id}'"]`);
-            if(activeBtn) {
-                activeBtn.classList.add('active', 'text-white', 'bg-white/5', 'shadow-inner');
-                activeBtn.classList.remove('text-slate-400');
-            }
-
-            if(id === 'liquidity') setTimeout(initMainChart, 100);
-        }
-
-        // --- Swap Logic ---
-        const RATE = 42.1235;
-        function calculateSwap() {
-            const input = document.getElementById('swapInput');
-            const output = document.getElementById('swapOutput');
-            const val = parseFloat(input.value) || 0;
-            const result = val * RATE;
-            output.value = result ? result.toFixed(4) : "0.00";
-        }
-
-        // --- Charts Engine ---
-        const sidebarCtx = document.getElementById('sidebarChart').getContext('2d');
-        const sideGrad = sidebarCtx.createLinearGradient(0, 0, 0, 100);
-        sideGrad.addColorStop(0, 'rgba(0, 242, 255, 0.3)');
-        sideGrad.addColorStop(1, 'rgba(0, 242, 255, 0)');
-
-        new Chart(sidebarCtx, {
-            type: 'line',
-            data: {
-                labels: Array(20).fill(''),
-                datasets: [{
-                    data: [30,35,32,45,40,55,50,65,70,68,85,90,88,100,110,105,120,125,130,140],
-                    borderColor: '#00f2ff',
-                    borderWidth: 4,
-                    tension: 0.5,
-                    pointRadius: 0,
-                    fill: true,
-                    backgroundColor: sideGrad
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: { x: { display: false }, y: { display: false } },
-                maintainAspectRatio: false
+        // Отслеживание статуса кошелька
+        connector.onStatusChange(wallet => {
+            if (wallet) {
+                connectBtn.innerText = wallet.account.address.slice(0, 4) + '...' + wallet.account.address.slice(-4);
+                swapBtn.innerText = 'Confirm Transaction';
+                swapBtn.disabled = false;
+            } else {
+                connectBtn.innerText = 'Connect Wallet';
+                swapBtn.innerText = 'Connect Wallet first';
+                swapBtn.disabled = true;
             }
         });
 
+        // 2. Логика Свопа (DeDust style)
+        const RATE = 42.12; 
+        inputField.oninput = (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            outputField.value = (val * RATE).toFixed(4);
+        };
+
+        swapBtn.onclick = async () => {
+            if (!connector.connected) return;
+
+            const amount = (parseFloat(inputField.value) * 10**9).toString(); // В нанотоны
+            
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 60,
+                messages: [{
+                    address: "EQBf8nNc_H6K983W8aY9u37-rG7O6f3S0L8X-Y2X-Y2X-Y2X", // Пример адреса пула DeDust
+                    amount: amount,
+                    payload: "" // Здесь должен быть BOC для реального смарт-контракта
+                }]
+            };
+
+            try {
+                await connector.sendTransaction(transaction);
+                alert("Transaction sent to network!");
+            } catch (e) {
+                alert("Rejected: " + e.message);
+            }
+        };
+
+        // 3. UI: Переключение вкладок
+        function switchTab(id, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active', 'text-white', 'bg-white/5'));
+            
+            document.getElementById(id).classList.add('active');
+            if(el) el.classList.add('active', 'text-white', 'bg-white/5');
+            if(id === 'liquidity') setTimeout(initMainChart, 100);
+        }
+
+        // 4. Графики и фон (как в твоем оригинале)
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function initCanvas() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            particles = [];
+            for(let i=0; i<60; i++) particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, size: 1, speedX: Math.random()*0.2-0.1, speedY: Math.random()*0.2-0.1 });
+        }
+        function animate() {
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.x += p.speedX; p.y += p.speedY;
+                ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        }
+        window.addEventListener('resize', initCanvas);
+        initCanvas(); animate();
+
         function initMainChart() {
-            const ctx = document.getElementById('mainLiquidityChart').getContext('2d');
-            if (window.mainChart) window.mainChart.destroy();
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, '#00f2ff');
-            gradient.addColorStop(1, '#0062ff');
-
-            window.mainChart = new Chart(ctx, {
+            const chartCtx = document.getElementById('mainLiquidityChart').getContext('2d');
+            new Chart(chartCtx, {
                 type: 'bar',
                 data: {
-                    labels: ['TON/USDT', 'TON/QUAN', 'TON/STORM', 'TON/NOT', 'QUAN/USDT', 'TON/DOGE'],
-                    datasets: [{
-                        label: 'TVL ($)',
-                        data: [65000000, 28000000, 15000000, 42000000, 12000000, 8000000],
-                        backgroundColor: gradient,
-                        borderRadius: 20,
-                        hoverBackgroundColor: '#fff',
-                        barThickness: 45
-                    }]
+                    labels: ['TON/USDT', 'TON/QUAN', 'TON/NOT'],
+                    datasets: [{ label: 'TVL', data: [65000000, 28000000, 42000000], backgroundColor: '#00f2ff', borderRadius: 15 }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { 
-                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-                            ticks: { color: '#475569', font: { family: 'JetBrains Mono', size: 11 } }
-                        },
-                        x: { 
-                            grid: { display: false },
-                            ticks: { color: '#fff', font: { weight: '800', size: 13 } }
-                        }
-                    }
-                }
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
     </script>
