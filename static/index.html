@@ -29,9 +29,11 @@
                 linear-gradient(rgba(0, 242, 255, 0.02) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 242, 255, 0.02) 1px, transparent 1px);
             background-size: 100% 100%, 40px 40px, 40px 40px;
+            margin: 0;
+            min-height: 100vh;
         }
 
-        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; }
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; pointer-events: none; }
 
         .glass-card {
             background: var(--glass);
@@ -52,6 +54,7 @@
             overflow: hidden;
             min-height: 140px;
             transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
         }
         .card-grid-item:active { transform: scale(0.96); }
 
@@ -71,7 +74,7 @@
             font-weight: 800;
         }
         .btn-quantum:active { transform: scale(0.95); }
-        .btn-quantum:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-quantum:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
@@ -105,6 +108,18 @@
         .forge-input:focus {
             border-color: var(--forge);
             background: rgba(168, 85, 247, 0.05);
+        }
+
+        .whale-toast {
+            background: rgba(13, 17, 23, 0.9);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            animation: toastIn 0.5s ease-out forwards;
+        }
+        @keyframes toastIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
@@ -276,7 +291,7 @@
     <script>
         // --- TON CONNECT CONFIG ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://tum.bothost.tech/static/tonconnect-manifest.json',
+            manifestUrl: 'https://quantum.bothost.tech/static/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -284,6 +299,7 @@
         tonConnectUI.onStatusChange(wallet => {
             userWallet = wallet;
             updateUIState();
+            if(wallet) showWhaleAlert("Wallet Connected", "Quantum Core Synced");
         });
 
         function updateUIState() {
@@ -339,6 +355,7 @@
             if(!amount || amount <= 0) return alert("Введите сумму TON");
 
             const btn = document.getElementById('mainSwapBtn');
+            const originalText = btn.innerText;
             btn.innerText = "WAITING...";
             btn.disabled = true;
 
@@ -352,11 +369,13 @@
 
             try {
                 await tonConnectUI.sendTransaction(transaction);
-                alert("Swap Initiated via DeDust!");
+                showWhaleAlert("Swap Success!", `${amount} TON converted`);
             } catch (e) {
                 console.error(e);
+                alert("Ошибка или отказ от транзакции");
             } finally {
                 btn.disabled = false;
+                btn.innerText = originalText;
                 updateUIState();
             }
         }
@@ -391,14 +410,26 @@
 
             try {
                 await tonConnectUI.sendTransaction(transaction);
-                alert(`Jetton ${symbol} Deployment Sent!`);
+                showWhaleAlert("Forge Active", `Deploying ${symbol}...`);
             } catch (e) {
                 console.error(e);
-                alert("Transaction rejected");
             } finally {
                 btn.disabled = false;
                 updateUIState();
             }
+        }
+
+        // --- WHALE ALERTS ---
+        function showWhaleAlert(title, text) {
+            const container = document.getElementById('whale-alerts');
+            const alert = document.createElement('div');
+            alert.className = 'whale-toast';
+            alert.innerHTML = `
+                <p class="text-cyan-400 font-bold text-xs uppercase">${title}</p>
+                <p class="text-white text-[10px]">${text}</p>
+            `;
+            container.appendChild(alert);
+            setTimeout(() => alert.remove(), 4000);
         }
 
         // --- VISUALS & EFFECTS ---
@@ -411,14 +442,14 @@
             pts = Array.from({length: 40}, () => ({ 
                 x: Math.random()*canvas.width, 
                 y: Math.random()*canvas.height, 
-                s: Math.random()*1, 
-                v: Math.random()*0.5 
+                s: Math.random()*1.5 + 0.5, 
+                v: Math.random()*0.3 + 0.1 
             }));
         }
 
         function draw() {
             ctxP.clearRect(0,0,canvas.width, canvas.height);
-            ctxP.fillStyle = "rgba(0, 242, 255, 0.2)";
+            ctxP.fillStyle = "rgba(0, 242, 255, 0.3)";
             pts.forEach(p => { 
                 p.y -= p.v; 
                 if(p.y < 0) p.y = canvas.height; 
@@ -455,6 +486,10 @@
             draw();
             updateUIState();
             window.onresize = initCanvas;
+            // Имитация активности китов
+            setInterval(() => {
+                if(Math.random() > 0.8) showWhaleAlert("Whale Movement", "50,000 TON swapped via DeDust");
+            }, 10000);
         };
     </script>
 </body>
