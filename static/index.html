@@ -42,7 +42,6 @@
             transition: all 0.3s ease;
         }
 
-        /* DeDust Style Grid Items */
         .card-grid-item {
             background: var(--card);
             border-radius: 24px;
@@ -51,6 +50,7 @@
             position: relative;
             overflow: hidden;
             min-height: 140px;
+            transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .card-grid-item:active { transform: scale(0.96); }
 
@@ -77,7 +77,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Mobile Nav */
         .nav-bar {
             position: fixed; bottom: 0; left: 0; width: 100%;
             background: rgba(1, 4, 9, 0.9); backdrop-filter: blur(20px);
@@ -91,6 +90,9 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        .token-row { border-bottom: 1px solid rgba(255,255,255,0.03); padding: 12px 0; transition: 0.2s; }
+        .token-row:active { background: rgba(255,255,255,0.02); }
     </style>
 </head>
 <body onmousemove="handleMouseMove(event)">
@@ -103,7 +105,7 @@
             <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
-            <h1 class="text-xl font-black tracking-tighter uppercase italic">QUAN<span class="text-cyan-400">CORE</span></h1>
+            <h1 class="text-xl font-black tracking-tighter uppercase italic text-white">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
         <button id="connectBtn" class="btn-quantum px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-black">Connect</button>
     </header>
@@ -128,29 +130,31 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="card-grid-item" onclick="switchTab('swap')">
-                    <h3 class="font-bold text-lg">Обмен</h3>
+                    <h3 class="font-bold text-lg text-white">Обмен</h3>
                     <p class="text-[10px] text-slate-500">Fast Swap Engine</p>
                     <div class="icon-3d-decor"></div>
                     <svg class="absolute bottom-4 right-4 w-8 h-8 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2"/></svg>
                 </div>
-                <div class="card-grid-item">
-                    <h3 class="font-bold text-lg">Монеты</h3>
+                <div class="card-grid-item" onclick="switchTab('coins')">
+                    <h3 class="font-bold text-lg text-white">Монеты</h3>
                     <p class="text-[10px] text-slate-500">Market Assets</p>
                     <div class="icon-3d-decor" style="background: #ff8800"></div>
                     <svg class="absolute bottom-4 right-4 w-8 h-8 text-orange-400/50" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
                 </div>
                 <div class="card-grid-item" onclick="switchTab('analytics')">
-                    <h3 class="font-bold text-lg">Пулы</h3>
-                    <p class="text-[10px] text-slate-500">Liquidity Pools</p>
+                    <h3 class="font-bold text-lg text-white">Данные</h3>
+                    <p class="text-[10px] text-slate-500">Market Intel</p>
                     <div class="icon-3d-decor" style="background: #a855f7"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-purple-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-width="2"/></svg>
                 </div>
-                <div class="card-grid-item">
-                    <h3 class="font-bold text-lg">Стейкинг</h3>
+                <div class="card-grid-item" onclick="switchTab('staking')">
+                    <h3 class="font-bold text-lg text-white">Стейкинг</h3>
                     <p class="text-[10px] text-slate-500">Earn Rewards</p>
                     <div class="icon-3d-decor" style="background: #10b981"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-emerald-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-width="2"/></svg>
                 </div>
                 <div class="card-grid-item col-span-2 bg-gradient-to-r from-blue-600/20 to-transparent">
-                    <h3 class="font-bold text-lg">Портфель</h3>
+                    <h3 class="font-bold text-lg text-white">Портфель</h3>
                     <p class="text-[10px] text-slate-500">Управление активами OMNI-ID</p>
                     <div class="icon-3d-decor" style="right: 20%; opacity: 0.2"></div>
                 </div>
@@ -160,17 +164,17 @@
         <section id="swap" class="tab-content max-w-lg mx-auto pt-4">
             <div class="glass-card p-6">
                 <div class="flex justify-between mb-6">
-                    <h2 class="font-black italic">SWAP TERMINAL</h2>
+                    <h2 class="font-black italic text-white uppercase">SWAP TERMINAL</h2>
                     <span class="text-[10px] text-cyan-400 font-mono">Slippage: 0.5%</span>
                 </div>
                 
                 <div class="space-y-1 relative">
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
-                        <label class="text-[9px] text-slate-500 font-bold block mb-2">ОТДАЕТЕ</label>
+                        <label class="text-[9px] text-slate-500 font-bold block mb-2 uppercase">Отдаете</label>
                         <div class="flex justify-between items-center">
-                            <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3">
+                            <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-white">
                             <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
-                                <span class="text-xs font-black">TON</span>
+                                <span class="text-xs font-black text-white">TON</span>
                             </div>
                         </div>
                     </div>
@@ -182,11 +186,11 @@
                     </div>
 
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
-                        <label class="text-[9px] text-slate-500 font-bold block mb-2">ПОЛУЧАЕТЕ</label>
+                        <label class="text-[9px] text-slate-500 font-bold block mb-2 uppercase">Получаете</label>
                         <div class="flex justify-between items-center">
                             <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-600">
                             <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
-                                <span class="text-xs font-black">QUAN</span>
+                                <span class="text-xs font-black text-white">QUAN</span>
                             </div>
                         </div>
                     </div>
@@ -196,9 +200,75 @@
             </div>
         </section>
 
+        <section id="coins" class="tab-content pt-4">
+            <div class="glass-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="font-black italic text-white uppercase">Market Assets</h2>
+                    <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-400">24H VOL: $2.1M</span>
+                </div>
+                <div class="space-y-1" id="tokenList">
+                    <div class="token-row flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-bold text-white">T</div>
+                            <div>
+                                <p class="font-bold text-sm text-white">TON</p>
+                                <p class="text-[10px] text-slate-500">Toncoin</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm text-white">$5.24</p>
+                            <p class="text-[10px] text-emerald-400">+2.4%</p>
+                        </div>
+                    </div>
+                    <div class="token-row flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-tr from-purple-500 to-cyan-400 rounded-full flex items-center justify-center font-bold text-black">Q</div>
+                            <div>
+                                <p class="font-bold text-sm text-white">QUAN</p>
+                                <p class="text-[10px] text-slate-500">Quantum</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm text-white">$0.82</p>
+                            <p class="text-[10px] text-cyan-400">+12.8%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="staking" class="tab-content pt-4 space-y-4">
+            <div class="glass-card p-6 bg-gradient-to-br from-emerald-500/10 to-transparent">
+                <p class="text-[10px] font-bold text-emerald-400 mb-1 tracking-widest uppercase">Yield Protocol</p>
+                <h2 class="text-2xl font-black italic text-white uppercase">Earn Rewards</h2>
+            </div>
+
+            <div class="glass-card p-6 flex justify-between items-center border-l-4 border-l-emerald-500">
+                <div>
+                    <h3 class="font-bold text-lg text-white">TON Liquid</h3>
+                    <p class="text-xs text-slate-500 italic">Stake TON receive stTON</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-emerald-400">~4.2%</p>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">APY</p>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 flex justify-between items-center border-l-4 border-l-cyan-500">
+                <div>
+                    <h3 class="font-bold text-lg text-white">QUAN / TON LP</h3>
+                    <p class="text-xs text-slate-500 italic">Auto-compounding pool</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-cyan-400">~82.1%</p>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">APY</p>
+                </div>
+            </div>
+        </section>
+
         <section id="analytics" class="tab-content space-y-6">
             <div class="glass-card p-6">
-                <h2 class="font-black italic mb-6 uppercase">Market Intelligence</h2>
+                <h2 class="font-black italic mb-6 uppercase text-white">Market Intelligence</h2>
                 <div class="h-64">
                     <canvas id="liquidityChart"></canvas>
                 </div>
@@ -221,9 +291,13 @@
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
             <span>Обмен</span>
         </div>
-        <div class="nav-item">
-            <span class="text-xl font-black italic text-cyan-400 mb-1">X</span>
-            <span>x1000</span>
+        <div class="nav-item" onclick="switchTab('coins', this)">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8m-3-3h6"/></svg>
+            <span>Монеты</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('staking', this)">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            <span>Стейк</span>
         </div>
         <div class="nav-item" onclick="switchTab('analytics', this)">
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -237,13 +311,22 @@
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            if (el) el.classList.add('active');
-            if (id === 'analytics') initChart();
+            
+            if (el) {
+                el.classList.add('active');
+            } else {
+                // Синхронизация таб-бара при клике из карточек главной
+                const navItems = document.querySelectorAll('.nav-item');
+                const map = { 'home': 0, 'swap': 1, 'coins': 2, 'staking': 3, 'analytics': 4 };
+                if (map[id] !== undefined) navItems[map[id]].classList.add('active');
+            }
+
+            if (id === 'analytics') setTimeout(initChart, 100);
         }
 
         // --- Mouse Effect ---
         function handleMouseMove(e) {
-            const cards = document.querySelectorAll('.glass-card');
+            const cards = document.querySelectorAll('.glass-card, .card-grid-item');
             cards.forEach(card => {
                 const rect = card.getBoundingClientRect();
                 card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
@@ -257,59 +340,77 @@
             const addr = "UQ" + Math.random().toString(36).substring(2,6).toUpperCase() + "..." + Math.random().toString(36).substring(2,4).toUpperCase();
             
             const alert = document.createElement('div');
-            alert.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] animate-slide-in pointer-events-auto";
+            alert.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] animate-slide-in pointer-events-auto shadow-xl mb-2";
             alert.style.animation = "slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards";
             alert.innerHTML = `<div class="flex justify-between"><span class="text-cyan-400 font-black">WHALE ALERT</span><span>NOW</span></div>
-                               <div class="font-bold">${addr} swapped ${amount} TON</div>`;
+                               <div class="font-bold text-white">${addr} swapped ${amount} TON</div>`;
             
-            document.getElementById('whale-alerts').prepend(alert);
+            const container = document.getElementById('whale-alerts');
+            container.prepend(alert);
             setTimeout(() => { alert.style.opacity = '0'; setTimeout(() => alert.remove(), 500); }, 3000);
 
-            // Add to list
+            // Add to analytics list
             const row = document.createElement('div');
-            row.className = "flex justify-between text-slate-400 p-2 bg-white/5 rounded-lg";
-            row.innerHTML = `<span>${addr}</span><span class="text-cyan-400">+$${(amount*5).toFixed(0)}</span>`;
+            row.className = "flex justify-between text-slate-400 p-2 bg-white/5 rounded-lg border border-white/5";
+            row.innerHTML = `<span class="font-bold">${addr}</span><span class="text-cyan-400 font-black">+$${(amount*5).toFixed(0)}</span>`;
             const list = document.getElementById('whale-list');
-            list.prepend(row);
-            if(list.children.length > 6) list.lastChild.remove();
+            if(list) {
+                list.prepend(row);
+                if(list.children.length > 6) list.lastChild.remove();
+            }
         }
         setInterval(() => { if(Math.random() > 0.7) triggerWhale(); }, 4000);
 
         // --- Chart ---
         function initChart() {
-            const ctx = document.getElementById('liquidityChart').getContext('2d');
+            const ctx = document.getElementById('liquidityChart');
+            if (!ctx) return;
+            const ctxC = ctx.getContext('2d');
             if (window.myChart) window.myChart.destroy();
-            window.myChart = new Chart(ctx, {
+            window.myChart = new Chart(ctxC, {
                 type: 'line',
                 data: {
-                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00'],
+                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00'],
                     datasets: [{
-                        data: [65, 59, 80, 81, 95],
+                        data: [65, 59, 80, 81, 76, 95],
                         borderColor: '#00f2ff',
+                        borderWidth: 3,
                         tension: 0.4,
                         fill: true,
                         backgroundColor: 'rgba(0, 242, 255, 0.05)',
                         pointRadius: 0
                     }]
                 },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        x: { display: false }, 
+                        y: { display: false } 
+                    } 
+                }
             });
         }
 
         // --- Particles ---
         const canvas = document.getElementById('bg-canvas');
-        const ctx = canvas.getContext('2d');
+        const ctxP = canvas.getContext('2d');
         let pts = [];
         function initCanvas() {
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            pts = Array.from({length: 40}, () => ({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*1, v: Math.random()*0.5 }));
+            pts = Array.from({length: 40}, () => ({ 
+                x: Math.random()*canvas.width, 
+                y: Math.random()*canvas.height, 
+                s: Math.random()*1, 
+                v: Math.random()*0.5 
+            }));
         }
         function draw() {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
+            ctxP.clearRect(0,0,canvas.width, canvas.height);
+            ctxP.fillStyle = "rgba(0, 242, 255, 0.2)";
             pts.forEach(p => {
                 p.y -= p.v; if(p.y < 0) p.y = canvas.height;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
+                ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill();
             });
             requestAnimationFrame(draw);
         }
@@ -319,10 +420,19 @@
         const RATE = 54.32;
         document.getElementById('swapInput').oninput = (e) => {
             const val = parseFloat(e.target.value) || 0;
-            document.getElementById('swapOutput').value = val > 0 ? (val * RATE).toFixed(2) : "";
+            const output = document.getElementById('swapOutput');
             const btn = document.getElementById('mainSwapBtn');
-            if(val > 0) { btn.innerText = "Confirm Swap"; btn.classList.remove('opacity-50'); }
-            else { btn.innerText = "Enter Amount"; }
+            
+            if(val > 0) {
+                output.value = (val * RATE).toFixed(2);
+                output.classList.remove('text-slate-600');
+                output.classList.add('text-cyan-400');
+                btn.innerText = "Confirm Swap";
+                btn.classList.remove('opacity-50');
+            } else {
+                output.value = "";
+                btn.innerText = "Enter Amount";
+            }
         }
     </script>
 </body>
