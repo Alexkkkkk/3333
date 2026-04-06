@@ -50,7 +50,7 @@ try:
                           get_stats_for_web, load_remote_config, update_remote_config)
     log("Модули базы данных: OK", "SUCCESS")
 except ImportError:
-    log("Файл database.py не найден! Убедитесь, что он в корне проекта.", "ERROR")
+    log("Файл database.py не найден в корне проекта!", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -79,6 +79,7 @@ class OmniNeuralOverlord:
         
         self.app = None
         self.runner = None
+        self.site = None
         log(f"Overlord initialized. Core ID: {self.core_id}", "CORE")
 
     def _clean_string(self, text):
@@ -244,20 +245,16 @@ class OmniNeuralOverlord:
             )
         })
         
-        # Главные роуты
         self.app.router.add_get('/', self.handle_index)
         self.app.router.add_get('/admin', self.handle_admin)
         self.app.router.add_get('/privacy', self.handle_privacy)
         self.app.router.add_get('/terms', self.handle_terms)
         self.app.router.add_get('/tonconnect-manifest.json', self.handle_manifest)
-        
-        # API
         self.app.router.add_get('/api/health', self.handle_health)
         self.app.router.add_post('/api/login', self.handle_login)
         self.app.router.add_get('/api/stats', self.handle_get_stats)
         self.app.router.add_post('/api/config', self.handle_update_config)
         
-        # Статика
         static_dir = self.get_static_path()
         if static_dir:
             self.app.router.add_static('/static/', path=static_dir, name='static')
@@ -270,11 +267,12 @@ class OmniNeuralOverlord:
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
         port = int(os.getenv("PORT", 3000))
-        await web.TCPSite(self.runner, '0.0.0.0', port).start()
+        self.site = web.TCPSite(self.runner, '0.0.0.0', port)
+        await self.site.start()
         log(f"WEB_SERVER_ACTIVE: Port {port}", "SUCCESS")
 
     async def core_loop(self):
-        while True:
+        while self.is_active:
             try:
                 await init_db()
                 log("Соединение с БД установлено", "SUCCESS")
@@ -324,19 +322,45 @@ class OmniNeuralOverlord:
                             if "Connect call failed" in str(inner_e): break
             
             except Exception as e:
-                log(f"Сбой ядра: {e}", "ERROR")
-                await asyncio.sleep(10)
+                if self.is_active:
+                    log(f"Сбой ядра: {e}", "ERROR")
+                    await asyncio.sleep(10)
+
+    async def shutdown(self):
+        """Плавная остановка всех компонентов."""
+        log("Завершение работы системы...", "WARNING")
+        self.is_active = False
+        
+        if self.site:
+            await self.site.stop()
+        if self.runner:
+            await self.runner.cleanup()
+        
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        [task.cancel() for task in tasks]
+        
+        log("Все задачи отменены. Выход.", "SUCCESS")
+        await asyncio.gather(*tasks, return_exceptions=True)
+        asyncio.get_event_loop().stop()
 
 if __name__ == "__main__":
     overlord = OmniNeuralOverlord()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
+    # Регистрация сигналов завершения
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(overlord.shutdown()))
+        except NotImplementedError:
+            # Для Windows, где add_signal_handler не поддерживается в полной мере
+            pass
+    
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Завершение работы системы...", "WARNING")
+        pass
     except Exception as e:
         log(f"FATAL EXCEPTION:\n{traceback.format_exc()}", "ERROR")
     finally:
-        loop.stop()
+        loop.close()
