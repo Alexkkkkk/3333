@@ -123,7 +123,6 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Forge Specific Styles */
         .forge-label {
             font-size: 9px;
             color: #94a3b8;
@@ -335,7 +334,7 @@
             <span>Стейк</span>
         </div>
         <div class="nav-item" onclick="switchTab('analytics', this)">
-            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             <span>Данные</span>
         </div>
     </nav>
@@ -374,7 +373,6 @@
             if (id === 'analytics') setTimeout(initChart, 100);
         }
 
-        // --- MINT LOGIC ---
         async function deployJetton() {
             if (!userWallet) {
                 await tonConnectUI.connectWallet();
@@ -383,9 +381,7 @@
 
             const name = document.getElementById('jettonName').value;
             const symbol = document.getElementById('jettonSymbol').value;
-            const logo = document.getElementById('jettonLogo').value;
             const supply = document.getElementById('jettonSupply').value;
-            const desc = document.getElementById('jettonDesc').value;
 
             if(!name || !symbol || !supply) return alert("Fill Name, Symbol and Supply!");
 
@@ -397,7 +393,7 @@
                 validUntil: Math.floor(Date.now() / 1000) + 300,
                 messages: [{
                     address: "EQB3ncyBUTjZUA5EnGhc_f_697L6SSc88_m5_N0D83v97m8", 
-                    amount: "270000000", // 0.27 TON
+                    amount: "270000000", 
                 }]
             };
 
@@ -412,13 +408,15 @@
             }
         }
 
-        // --- SWAP LOGIC ---
         const RATE = 54.32;
-        document.getElementById('swapInput').oninput = (e) => {
-            const val = parseFloat(e.target.value) || 0;
-            const output = document.getElementById('swapOutput');
-            output.value = val > 0 ? (val * RATE).toFixed(2) : "";
-        };
+        const swapInput = document.getElementById('swapInput');
+        if(swapInput) {
+            swapInput.oninput = (e) => {
+                const val = parseFloat(e.target.value) || 0;
+                const output = document.getElementById('swapOutput');
+                output.value = val > 0 ? (val * RATE).toFixed(2) : "";
+            };
+        }
 
         async function executeSwap() {
             if (!userWallet) { await tonConnectUI.connectWallet(); return; }
