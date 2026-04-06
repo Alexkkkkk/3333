@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QUANTUM CORE | ELITE TERMINAL v4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,8 +13,9 @@
             --accent: #00f2ff;
             --accent-deep: #0062ff;
             --bg: #010409;
-            --glass: rgba(6, 11, 20, 0.8);
+            --glass: rgba(13, 17, 23, 0.8);
             --border: rgba(0, 242, 255, 0.12);
+            --card: #0d1117;
         }
 
         body {
@@ -29,395 +30,300 @@
             background-size: 100% 100%, 40px 40px, 40px 40px;
         }
 
-        /* Анимированная сканирующая линия */
-        body::after {
-            content: "";
-            position: fixed;
-            top: -100%;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, transparent, rgba(0, 242, 255, 0.03), transparent);
-            animation: scan 8s linear infinite;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        @keyframes scan {
-            0% { top: -100%; }
-            100% { top: 100%; }
-        }
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; }
 
         .glass-card {
             background: var(--glass);
-            backdrop-filter: blur(30px) saturate(210%);
+            backdrop-filter: blur(25px) saturate(200%);
             border: 1px solid var(--border);
             border-radius: 28px;
-            box-shadow: 0 20px 50px -15px rgba(0,0,0,0.7);
             position: relative;
             overflow: hidden;
+            transition: all 0.3s ease;
         }
 
-        .glass-card::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 242, 255, 0.06), transparent 40%);
-            z-index: 0;
-            pointer-events: none;
+        /* DeDust Style Grid Items */
+        .card-grid-item {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            overflow: hidden;
+            min-height: 140px;
+        }
+        .card-grid-item:active { transform: scale(0.96); }
+
+        .icon-3d-decor {
+            position: absolute; bottom: -10px; right: -10px;
+            width: 70px; height: 70px; opacity: 0.4;
+            filter: blur(20px);
+            background: var(--accent);
+            border-radius: 50%;
         }
 
         .btn-quantum {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.3), inset 0 1px 1px rgba(255,255,255,0.4);
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
             transition: 0.3s cubic-bezier(0.2, 1, 0.3, 1);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
+        .btn-quantum:active { transform: scale(0.95); }
 
-        .btn-quantum:hover { 
-            transform: translateY(-2px) scale(1.01);
-            box-shadow: 0 0 45px rgba(0, 242, 255, 0.5);
-        }
-
-        .nav-item.active {
-            background: rgba(0, 242, 255, 0.1);
-            border: 1px solid rgba(0, 242, 255, 0.3);
-            color: var(--accent);
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
-        }
-
-        .tab-content { display: none; opacity: 0; }
-        .tab-content.active { display: block; animation: slideUp 0.5s forwards; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
 
         @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
+        /* Mobile Nav */
+        .nav-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: rgba(1, 4, 9, 0.9); backdrop-filter: blur(20px);
+            display: flex; justify-content: space-around; padding: 12px 0 24px 0;
+            border-top: 1px solid var(--border); z-index: 1000;
         }
+        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #475569; transition: 0.2s; }
+        .nav-item.active { color: var(--accent); }
 
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
 <body onmousemove="handleMouseMove(event)">
     <canvas id="bg-canvas"></canvas>
 
-    <div id="whale-alerts" class="fixed bottom-6 right-6 z-50 space-y-3 pointer-events-none w-80"></div>
+    <div id="whale-alerts" class="fixed top-4 right-4 z-[1100] space-y-2 pointer-events-none w-72"></div>
 
-    <header class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
-        <div class="flex items-center gap-4 group cursor-pointer" onclick="switchTab('home')">
-            <div class="relative">
-                <div class="absolute inset-0 bg-cyan-500 blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                <div class="w-12 h-12 bg-gradient-to-br from-[#00f2ff] to-[#0062ff] rounded-2xl flex items-center justify-center relative shadow-lg">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                </div>
+    <header class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-50">
+        <div class="flex items-center gap-3" onclick="switchTab('home')">
+            <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
-            <div>
-                <h1 class="text-2xl font-extrabold tracking-tight leading-none">QUANTUM<span class="text-cyan-400">CORE</span></h1>
-                <div class="flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                    <p class="text-[9px] font-mono text-slate-500 tracking-[0.2em] uppercase">System: Operational</p>
-                </div>
-            </div>
+            <h1 class="text-xl font-black tracking-tighter uppercase italic">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
-
-        <nav class="hidden lg:flex bg-slate-900/50 border border-white/5 p-1 rounded-2xl backdrop-blur-xl">
-            <button class="nav-item active px-6 py-2.5 rounded-xl text-xs font-bold transition-all" onclick="switchTab('home', this)">HUB</button>
-            <button class="nav-item px-6 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all" onclick="switchTab('swap', this)">TERMINAL</button>
-            <button class="nav-item px-6 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all" onclick="switchTab('liquidity', this)">ANALYTICS</button>
-        </nav>
-
-        <button id="connectBtn" class="btn-quantum px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider">Connect Wallet</button>
+        <button id="connectBtn" class="btn-quantum px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-black">Connect</button>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 pb-20 relative z-10">
-        <section id="home" class="tab-content active">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-8 glass-card p-12 flex flex-col justify-center min-h-[500px]">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-6 w-fit">
-                        <span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest">v4.0 Protocol Active</span>
+    <main class="max-w-7xl mx-auto px-4 pb-32 relative z-10">
+        
+        <section id="home" class="tab-content active space-y-6">
+            <div class="glass-card p-8 bg-gradient-to-br from-cyan-500/10 to-transparent">
+                <h2 class="text-3xl font-black mb-2 uppercase italic leading-none">Quantum Pulse v4.0</h2>
+                <p class="text-slate-400 text-xs mb-6">Ваш терминал доступа к ликвидности TON</p>
+                <div class="flex gap-4">
+                    <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">TVL</p>
+                        <p class="text-lg font-black">$142.4M</p>
                     </div>
-                    <h2 class="text-6xl lg:text-8xl font-black mb-6 tracking-tight">The Future of <br> <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">TON Trading.</span></h2>
-                    <p class="text-slate-400 text-lg max-w-xl mb-10 leading-relaxed">Институциональные инструменты ликвидности теперь доступны каждому. Самые быстрые свопы в сети TON с защитой от проскальзывания.</p>
-                    <div class="flex gap-4">
-                        <button onclick="switchTab('swap')" class="btn-quantum px-10 py-5 rounded-2xl font-black text-lg">Launch Terminal</button>
-                        <button class="px-10 py-5 rounded-2xl font-bold border border-white/10 hover:bg-white/5 transition-all">Documentation</button>
+                    <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Nodes</p>
+                        <p class="text-lg font-black text-emerald-400">Online</p>
                     </div>
                 </div>
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="glass-card p-8 shimmer">
-                        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Total Value Locked</p>
-                        <h3 class="text-4xl font-black">$142,402,192</h3>
-                        <p class="text-emerald-400 text-xs font-bold mt-2">↑ 12.4% past 24h</p>
-                    </div>
-                    <div class="glass-card p-8">
-                        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Network Status</p>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xl font-bold">4.2s BlockTime</span>
-                            <span class="px-2 py-1 bg-emerald-500/10 text-emerald-500 text-[10px] font-black rounded-lg">EXCELLENT</span>
-                        </div>
-                    </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="card-grid-item" onclick="switchTab('swap')">
+                    <h3 class="font-bold text-lg">Обмен</h3>
+                    <p class="text-[10px] text-slate-500">Fast Swap Engine</p>
+                    <div class="icon-3d-decor"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2"/></svg>
+                </div>
+                <div class="card-grid-item">
+                    <h3 class="font-bold text-lg">Монеты</h3>
+                    <p class="text-[10px] text-slate-500">Market Assets</p>
+                    <div class="icon-3d-decor" style="background: #ff8800"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-orange-400/50" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                </div>
+                <div class="card-grid-item" onclick="switchTab('analytics')">
+                    <h3 class="font-bold text-lg">Пулы</h3>
+                    <p class="text-[10px] text-slate-500">Liquidity Pools</p>
+                    <div class="icon-3d-decor" style="background: #a855f7"></div>
+                </div>
+                <div class="card-grid-item">
+                    <h3 class="font-bold text-lg">Стейкинг</h3>
+                    <p class="text-[10px] text-slate-500">Earn Rewards</p>
+                    <div class="icon-3d-decor" style="background: #10b981"></div>
+                </div>
+                <div class="card-grid-item col-span-2 bg-gradient-to-r from-blue-600/20 to-transparent">
+                    <h3 class="font-bold text-lg">Портфель</h3>
+                    <p class="text-[10px] text-slate-500">Управление активами OMNI-ID</p>
+                    <div class="icon-3d-decor" style="right: 20%; opacity: 0.2"></div>
                 </div>
             </div>
         </section>
 
-        <section id="swap" class="tab-content max-w-xl mx-auto pt-10">
-            <div class="glass-card p-8 border-t-cyan-500/40">
-                <div class="flex justify-between items-center mb-8">
-                    <h2 class="text-xl font-black tracking-tight">SWAP CORE</h2>
-                    <button class="p-2 hover:bg-white/5 rounded-lg transition-colors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <section id="swap" class="tab-content max-w-lg mx-auto pt-4">
+            <div class="glass-card p-6">
+                <div class="flex justify-between mb-6">
+                    <h2 class="font-black italic">SWAP TERMINAL</h2>
+                    <span class="text-[10px] text-cyan-400 font-mono">Slippage: 0.5%</span>
                 </div>
-
-                <div class="space-y-2 relative">
-                    <div class="bg-black/40 border border-white/5 p-6 rounded-3xl focus-within:border-cyan-500/50 transition-all">
-                        <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-3">
-                            <span>YOU SEND</span>
-                            <span>MAX: 420.69 TON</span>
-                        </div>
+                
+                <div class="space-y-1 relative">
+                    <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
+                        <label class="text-[9px] text-slate-500 font-bold block mb-2">ОТДАЕТЕ</label>
                         <div class="flex justify-between items-center">
-                            <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-4xl font-bold outline-none w-1/2 placeholder:text-slate-800">
-                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 pr-4 rounded-2xl border border-white/5 cursor-pointer hover:bg-slate-700/50 transition-colors">
-                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-xs">T</div>
-                                <span class="font-black text-sm">TON</span>
+                            <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3">
+                            <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
+                                <span class="text-xs font-black">TON</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <div class="w-10 h-10 bg-[#010409] border border-white/10 rounded-xl flex items-center justify-center hover:scale-110 transition-transform cursor-pointer group">
-                            <svg class="group-hover:text-cyan-400 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M7 10l5 5 5-5"/></svg>
+                    <div class="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
+                        <div class="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/40">
+                            <svg width="16" height="16" fill="black" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>
                         </div>
                     </div>
 
-                    <div class="bg-black/40 border border-white/5 p-6 rounded-3xl">
-                        <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-3">
-                            <span>YOU RECEIVE</span>
-                            <span class="text-cyan-500">PROBABLE RATE</span>
-                        </div>
+                    <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
+                        <label class="text-[9px] text-slate-500 font-bold block mb-2">ПОЛУЧАЕТЕ</label>
                         <div class="flex justify-between items-center">
-                            <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-4xl font-bold outline-none w-1/2 text-slate-500">
-                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 pr-4 rounded-2xl border border-white/5">
-                                <div class="w-8 h-8 bg-gradient-to-tr from-purple-500 to-cyan-500 rounded-full flex items-center justify-center font-bold text-xs">Q</div>
-                                <span class="font-black text-sm">QUAN</span>
+                            <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-600">
+                            <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
+                                <span class="text-xs font-black">QUAN</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-6 p-4 bg-cyan-500/5 border border-cyan-500/10 rounded-2xl">
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-slate-500 uppercase tracking-widest">Transaction Fee</span>
-                        <span class="text-cyan-400">0.001 TON</span>
-                    </div>
-                </div>
-
-                <button id="confirmSwap" class="w-full mt-6 btn-quantum py-5 rounded-2xl font-black text-sm uppercase tracking-widest" disabled>
-                    Connect Wallet
-                </button>
+                <button id="mainSwapBtn" class="w-full mt-6 btn-quantum py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm">Connect Wallet</button>
             </div>
         </section>
 
-        <section id="liquidity" class="tab-content pt-10">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="glass-card p-10">
-                        <div class="flex justify-between items-end mb-10">
-                            <div>
-                                <h2 class="text-2xl font-black tracking-tight">Market Intelligence</h2>
-                                <p class="text-slate-500 text-xs mt-1">Real-time aggregate data from DeDust & STON.fi</p>
-                            </div>
-                            <div class="flex gap-2">
-                                <button class="px-4 py-1.5 bg-cyan-500/10 text-cyan-400 text-[10px] font-bold rounded-lg border border-cyan-500/20">1H</button>
-                                <button class="px-4 py-1.5 hover:bg-white/5 text-slate-400 text-[10px] font-bold rounded-lg transition-colors">1D</button>
-                            </div>
-                        </div>
-                        <div class="h-[400px]"><canvas id="mainLiquidityChart"></canvas></div>
-                    </div>
+        <section id="analytics" class="tab-content space-y-6">
+            <div class="glass-card p-6">
+                <h2 class="font-black italic mb-6 uppercase">Market Intelligence</h2>
+                <div class="h-64">
+                    <canvas id="liquidityChart"></canvas>
                 </div>
-                <div class="space-y-6">
-                    <div class="glass-card p-6">
-                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Live Feed</h3>
-                        <div id="whale-list" class="space-y-3">
-                            </div>
+            </div>
+            
+            <div class="glass-card p-6">
+                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Live Activity</h3>
+                <div id="whale-list" class="space-y-3 font-mono text-[11px]">
                     </div>
-                    <div class="glass-card p-6 bg-gradient-to-br from-cyan-500/10 to-transparent">
-                        <h3 class="font-bold text-sm mb-2">Alpha Signal</h3>
-                        <p class="text-xs text-slate-400 leading-relaxed">Large buy pressure detected on QUAN/TON pair. Whale wallet starting with <span class="text-white font-mono">UQB7...</span> just added $50k.</p>
-                    </div>
-                </div>
             </div>
         </section>
     </main>
 
+    <nav class="nav-bar">
+        <div class="nav-item active" onclick="switchTab('home', this)">
+            <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>Главная</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('swap', this)">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            <span>Обмен</span>
+        </div>
+        <div class="nav-item">
+            <span class="text-xl font-black italic text-cyan-400 mb-1">X</span>
+            <span>x1000</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('analytics', this)">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Данные</span>
+        </div>
+    </nav>
+
     <script>
-        // --- UI & TILT EFFECT ---
-        function handleMouseMove(e) {
-            const cards = document.querySelectorAll('.glass-card');
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                card.style.setProperty('--mouse-x', `${x}px`);
-                card.style.setProperty('--mouse-y', `${y}px`);
-            });
-        }
-
-        // --- TON CONNECT CONFIG ---
-        const connector = new TonConnectSDK.TonConnect({
-            manifestUrl: 'https://' + window.location.host + '/tonconnect-manifest.json'
-        });
-
-        const connectBtn = document.getElementById('connectBtn');
-        const swapBtn = document.getElementById('confirmSwap');
-        const inputField = document.getElementById('swapInput');
-        const outputField = document.getElementById('swapOutput');
-        const RATE = 54.32;
-
-        function updateUIState() {
-            if (!connector.connected) {
-                swapBtn.innerText = 'Connect Wallet';
-                swapBtn.disabled = true;
-            } else if (!inputField.value || parseFloat(inputField.value) <= 0) {
-                swapBtn.innerText = 'Enter Amount';
-                swapBtn.disabled = true;
-            } else {
-                swapBtn.innerText = 'Confirm Transaction';
-                swapBtn.disabled = false;
-            }
-        }
-
-        connectBtn.onclick = async () => {
-            if (connector.connected) {
-                await connector.disconnect();
-            } else {
-                const walletSource = { universalLink: 'https://tonkeeper.com/ton-connect', bridgeUrl: 'https://bridge.tonapi.io/bridge' };
-                window.location.href = connector.connect(walletSource);
-            }
-        };
-
-        connector.onStatusChange(wallet => {
-            if (wallet) {
-                const addr = wallet.account.address;
-                connectBtn.innerText = addr.slice(0, 4) + '...' + addr.slice(-4);
-                connectBtn.classList.add('bg-emerald-500/10', 'text-emerald-500', 'border', 'border-emerald-500/20');
-            } else {
-                connectBtn.innerText = 'Connect Wallet';
-                connectBtn.className = 'btn-quantum px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider';
-            }
-            updateUIState();
-        });
-
-        inputField.oninput = (e) => {
-            const val = parseFloat(e.target.value) || 0;
-            outputField.value = val > 0 ? (val * RATE).toFixed(2) : "";
-            updateUIState();
-        };
-
-        // --- WHALE ALERTS ---
-        function createWhaleEvent() {
-            const amount = (Math.random() * 2000 + 500).toFixed(0);
-            const addr = "UQ" + Math.random().toString(36).substring(2, 6).toUpperCase() + "..." + Math.random().toString(36).substring(2, 4).toUpperCase();
-            
-            const alert = document.createElement('div');
-            alert.className = "glass-card p-4 border-l-4 border-l-cyan-500 animate-slide-in pointer-events-auto";
-            alert.style.animation = "slideIn 0.5s ease-out forwards";
-            alert.innerHTML = `
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-[9px] font-black text-cyan-400 tracking-widest">WHALE ALERT</span>
-                    <span class="text-[9px] text-slate-600">JUST NOW</span>
-                </div>
-                <p class="text-xs font-bold">${addr} swapped <span class="text-white">${amount} TON</span></p>
-            `;
-            document.getElementById('whale-alerts').prepend(alert);
-            setTimeout(() => {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            }, 4000);
-
-            const row = document.createElement('div');
-            row.className = "flex justify-between items-center p-3 bg-white/5 rounded-xl text-[10px] font-mono";
-            row.innerHTML = `<span class="text-slate-500">${addr}</span><span class="text-emerald-400">+$${(amount*5.2).toFixed(0)}</span>`;
-            const list = document.getElementById('whale-list');
-            list.prepend(row);
-            if(list.children.length > 5) list.lastChild.remove();
-        }
-
-        setInterval(() => { if(Math.random() > 0.6) createWhaleEvent(); }, 5000);
-
-        // --- TAB NAVIGATION ---
+        // --- Navigation ---
         function switchTab(id, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            if(el) el.classList.add('active');
-            if(id === 'liquidity') setTimeout(initMainChart, 100);
+            if (el) el.classList.add('active');
+            if (id === 'analytics') initChart();
         }
 
-        // --- CHART CONFIG ---
-        function initMainChart() {
-            const chartCtx = document.getElementById('mainLiquidityChart').getContext('2d');
-            const gradient = chartCtx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, 'rgba(0, 242, 255, 0.2)');
-            gradient.addColorStop(1, 'rgba(0, 242, 255, 0)');
+        // --- Mouse Effect ---
+        function handleMouseMove(e) {
+            const cards = document.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+            });
+        }
 
-            new Chart(chartCtx, {
+        // --- Whale Alerts ---
+        function triggerWhale() {
+            const amount = (Math.random() * 5000 + 1000).toFixed(0);
+            const addr = "UQ" + Math.random().toString(36).substring(2,6).toUpperCase() + "..." + Math.random().toString(36).substring(2,4).toUpperCase();
+            
+            const alert = document.createElement('div');
+            alert.className = "glass-card p-3 border-l-4 border-l-cyan-500 text-[11px] animate-slide-in pointer-events-auto";
+            alert.style.animation = "slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards";
+            alert.innerHTML = `<div class="flex justify-between"><span class="text-cyan-400 font-black">WHALE ALERT</span><span>NOW</span></div>
+                               <div class="font-bold">${addr} swapped ${amount} TON</div>`;
+            
+            document.getElementById('whale-alerts').prepend(alert);
+            setTimeout(() => { alert.style.opacity = '0'; setTimeout(() => alert.remove(), 500); }, 3000);
+
+            // Add to list
+            const row = document.createElement('div');
+            row.className = "flex justify-between text-slate-400 p-2 bg-white/5 rounded-lg";
+            row.innerHTML = `<span>${addr}</span><span class="text-cyan-400">+$${(amount*5).toFixed(0)}</span>`;
+            const list = document.getElementById('whale-list');
+            list.prepend(row);
+            if(list.children.length > 6) list.lastChild.remove();
+        }
+        setInterval(() => { if(Math.random() > 0.7) triggerWhale(); }, 4000);
+
+        // --- Chart ---
+        function initChart() {
+            const ctx = document.getElementById('liquidityChart').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
-                    datasets: [{ 
-                        data: [42, 58, 45, 82, 74, 95, 88], 
-                        borderColor: '#00f2ff', 
-                        borderWidth: 3,
-                        fill: true,
-                        backgroundColor: gradient,
+                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00'],
+                    datasets: [{
+                        data: [65, 59, 80, 81, 95],
+                        borderColor: '#00f2ff',
                         tension: 0.4,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#00f2ff',
-                        pointBorderColor: 'rgba(255,255,255,0.2)',
-                        pointBorderWidth: 4
+                        fill: true,
+                        backgroundColor: 'rgba(0, 242, 255, 0.05)',
+                        pointRadius: 0
                     }]
                 },
-                options: { 
-                    maintainAspectRatio: false, 
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, border: { display: false }, ticks: { color: '#475569', font: { size: 10 } } },
-                        x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 10 } } }
-                    }
-                }
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
             });
         }
 
-        // --- BACKGROUND PARTICLES ---
+        // --- Particles ---
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
-        let particles = [];
+        let pts = [];
         function initCanvas() {
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            particles = Array.from({length: 50}, () => ({
-                x: Math.random()*canvas.width, y: Math.random()*canvas.height, 
-                size: Math.random()*1.5, speed: Math.random()*0.5 + 0.2
-            }));
+            pts = Array.from({length: 40}, () => ({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*1, v: Math.random()*0.5 }));
         }
-        function animate() {
+        function draw() {
             ctx.clearRect(0,0,canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.y -= p.speed;
-                if(p.y < 0) p.y = canvas.height;
-                ctx.fillStyle = "rgba(0, 242, 255, 0.15)";
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
+            pts.forEach(p => {
+                p.y -= p.v; if(p.y < 0) p.y = canvas.height;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
             });
-            requestAnimationFrame(animate);
+            requestAnimationFrame(draw);
         }
-        initCanvas(); animate();
-        window.onresize = initCanvas;
+        initCanvas(); draw(); window.onresize = initCanvas;
+
+        // --- Swap Logic ---
+        const RATE = 54.32;
+        document.getElementById('swapInput').oninput = (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            document.getElementById('swapOutput').value = val > 0 ? (val * RATE).toFixed(2) : "";
+            const btn = document.getElementById('mainSwapBtn');
+            if(val > 0) { btn.innerText = "Confirm Swap"; btn.classList.remove('opacity-50'); }
+            else { btn.innerText = "Enter Amount"; }
+        }
     </script>
 </body>
 </html>
