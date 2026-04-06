@@ -48,6 +48,7 @@
             filter: grayscale(1);
             opacity: 0.5;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .quantum-input {
@@ -67,6 +68,9 @@
             background: radial-gradient(circle, rgba(0, 242, 255, 0.1) 0%, transparent 70%);
             border-radius: 50%; filter: blur(60px); pointer-events: none;
         }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body>
@@ -117,36 +121,58 @@
 
         <section id="swap" class="tab-content max-w-xl mx-auto pt-10">
             <div class="glass-card p-10">
-                <h2 class="text-3xl font-black mb-10">Quantum Swap</h2>
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-3xl font-black">Quantum Swap</h2>
+                    <div class="bg-white/5 p-2 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"></path></svg>
+                    </div>
+                </div>
                 
                 <div class="space-y-3 relative">
                     <div class="quantum-input p-8 rounded-[30px]">
-                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4"><span>You Sell</span><span id="wallet-balance">Bal: 0.00</span></div>
+                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4">
+                            <span>You Sell</span>
+                            <span id="wallet-balance">Balance: 0.00 TON</span>
+                        </div>
                         <div class="flex justify-between items-center">
                             <input type="number" id="swapInput" placeholder="0.00" class="bg-transparent text-5xl font-black outline-none w-2/3">
-                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl"><div class="w-6 h-6 bg-blue-500 rounded-full"></div><span class="font-bold">TON</span></div>
+                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl">
+                                <div class="w-6 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                                <span class="font-bold">TON</span>
+                            </div>
                         </div>
                     </div>
 
                     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                        <div class="w-12 h-12 bg-[#020609] border border-white/10 rounded-xl flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="3"><path d="M7 10l5 5 5-5"/></svg></div>
+                        <div class="w-12 h-12 bg-[#020609] border border-white/10 rounded-xl flex items-center justify-center group cursor-pointer hover:border-cyan-500 transition-all">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="3" class="group-hover:rotate-180 transition-transform duration-500"><path d="M7 10l5 5 5-5"/></svg>
+                        </div>
                     </div>
 
                     <div class="quantum-input p-8 rounded-[30px]">
-                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4"><span>You Receive</span><span class="text-[#00f2ff]">DeDust Route</span></div>
+                        <div class="flex justify-between text-[11px] font-black text-slate-500 uppercase mb-4">
+                            <span>You Receive</span>
+                            <span class="text-[#00f2ff]">DeDust Protocol</span>
+                        </div>
                         <div class="flex justify-between items-center">
                             <input type="number" id="swapOutput" readonly placeholder="0.00" class="bg-transparent text-5xl font-black outline-none w-2/3 text-slate-600">
-                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl"><div class="w-6 h-6 bg-purple-600 rounded-full"></div><span class="font-bold">QUAN</span></div>
+                            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl">
+                                <div class="w-6 h-6 bg-purple-600 rounded-full shadow-[0_0_10px_rgba(147,51,234,0.5)]"></div>
+                                <span class="font-bold">QUAN</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="mt-8 bg-white/5 rounded-3xl p-6 space-y-3 text-xs font-bold border border-white/5">
-                    <div class="flex justify-between"><span class="text-slate-500">Price Impact</span><span class="text-emerald-400">< 0.01%</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Fee</span><span class="text-white">0.25%</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Price Impact</span><span class="text-emerald-400">&lt; 0.01%</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Minimum Received</span><span id="min-received" class="text-white">0.00 QUAN</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Network Fee</span><span class="text-white">~0.15 TON</span></div>
                 </div>
 
-                <button id="confirmSwap" class="w-full mt-10 btn-quantum py-6 rounded-[28px] font-black text-xl uppercase" disabled>Connect Wallet first</button>
+                <button id="confirmSwap" class="w-full mt-10 btn-quantum py-6 rounded-[28px] font-black text-xl uppercase tracking-widest" disabled>
+                    Connect Wallet first
+                </button>
             </div>
         </section>
 
@@ -159,7 +185,7 @@
     </main>
 
     <script>
-        // 1. Настройка TON Connect
+        // 1. Инициализация TON Connect
         const connector = new TonConnectSDK.TonConnect({
             manifestUrl: 'https://' + window.location.host + '/tonconnect-manifest.json'
         });
@@ -168,13 +194,33 @@
         const swapBtn = document.getElementById('confirmSwap');
         const inputField = document.getElementById('swapInput');
         const outputField = document.getElementById('swapOutput');
+        const minRecSpan = document.getElementById('min-received');
+
+        const RATE = 42.1284; // Условный курс DeDust
+
+        // Функция обновления состояния кнопки
+        function updateUIState() {
+            if (!connector.connected) {
+                swapBtn.innerText = 'Connect Wallet first';
+                swapBtn.disabled = true;
+            } else if (!inputField.value || parseFloat(inputField.value) <= 0) {
+                swapBtn.innerText = 'Enter Amount';
+                swapBtn.disabled = true;
+            } else {
+                swapBtn.innerText = 'Confirm Transaction';
+                swapBtn.disabled = false;
+            }
+        }
 
         // Подключение кошелька
         connectBtn.onclick = async () => {
             if (connector.connected) {
                 await connector.disconnect();
             } else {
-                const walletConnectionSource = { universalLink: 'https://tonkeeper.com/ton-connect', bridgeUrl: 'https://bridge.tonapi.io/bridge' };
+                const walletConnectionSource = { 
+                    universalLink: 'https://tonkeeper.com/ton-connect', 
+                    bridgeUrl: 'https://bridge.tonapi.io/bridge' 
+                };
                 window.location.href = connector.connect(walletConnectionSource);
             }
         };
@@ -182,69 +228,91 @@
         // Отслеживание статуса кошелька
         connector.onStatusChange(wallet => {
             if (wallet) {
-                connectBtn.innerText = wallet.account.address.slice(0, 4) + '...' + wallet.account.address.slice(-4);
-                swapBtn.innerText = 'Confirm Transaction';
-                swapBtn.disabled = false;
+                const addr = wallet.account.address;
+                connectBtn.innerText = addr.slice(0, 4) + '...' + addr.slice(-4);
+                updateUIState();
             } else {
                 connectBtn.innerText = 'Connect Wallet';
-                swapBtn.innerText = 'Connect Wallet first';
-                swapBtn.disabled = true;
+                updateUIState();
             }
         });
 
-        // 2. Логика Свопа (DeDust style)
-        const RATE = 42.12; 
+        // 2. Логика Свопа
         inputField.oninput = (e) => {
             const val = parseFloat(e.target.value) || 0;
-            outputField.value = (val * RATE).toFixed(4);
+            const result = val * RATE;
+            outputField.value = val > 0 ? result.toFixed(4) : "";
+            minRecSpan.innerText = val > 0 ? (result * 0.99).toFixed(2) + " QUAN" : "0.00 QUAN";
+            updateUIState();
         };
 
         swapBtn.onclick = async () => {
             if (!connector.connected) return;
 
-            const amount = (parseFloat(inputField.value) * 10**9).toString(); // В нанотоны
+            // Перевод в нанотоны (1 TON = 10^9)
+            const nanoAmount = (BigInt(Math.floor(parseFloat(inputField.value) * 1e9))).toString();
             
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 60,
+                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
                 messages: [{
-                    address: "EQBf8nNc_H6K983W8aY9u37-rG7O6f3S0L8X-Y2X-Y2X-Y2X", // Пример адреса пула DeDust
-                    amount: amount,
-                    payload: "" // Здесь должен быть BOC для реального смарт-контракта
+                    address: "EQDa4V_qS-TPJm_C9S_X_X_X_X_X_X_X_X_X_X_X_X_X", // Пример адреса DeDust Vault
+                    amount: nanoAmount,
+                    payload: "" // В реальном DeDust здесь формируется BOC свопа
                 }]
             };
 
             try {
+                swapBtn.innerText = "Waiting for sign...";
+                swapBtn.disabled = true;
                 await connector.sendTransaction(transaction);
-                alert("Transaction sent to network!");
+                alert("Quantum Pulse Dispatch Success!");
             } catch (e) {
                 alert("Rejected: " + e.message);
+            } finally {
+                updateUIState();
             }
         };
 
-        // 3. UI: Переключение вкладок
+        // 3. UI: Вкладки
         function switchTab(id, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active', 'text-white', 'bg-white/5'));
+            document.querySelectorAll('.nav-item').forEach(n => {
+                n.classList.remove('active', 'text-white', 'bg-white/5');
+                n.classList.add('text-slate-400');
+            });
             
             document.getElementById(id).classList.add('active');
-            if(el) el.classList.add('active', 'text-white', 'bg-white/5');
+            if(el) {
+                el.classList.add('active', 'text-white', 'bg-white/5');
+                el.classList.remove('text-slate-400');
+            }
             if(id === 'liquidity') setTimeout(initMainChart, 100);
         }
 
-        // 4. Графики и фон (как в твоем оригинале)
+        // 4. Визуал (Particles & Chart)
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
         function initCanvas() {
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             particles = [];
-            for(let i=0; i<60; i++) particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, size: 1, speedX: Math.random()*0.2-0.1, speedY: Math.random()*0.2-0.1 });
+            for(let i=0; i<60; i++) {
+                particles.push({ 
+                    x: Math.random()*canvas.width, 
+                    y: Math.random()*canvas.height, 
+                    size: Math.random()*1.5, 
+                    speedX: Math.random()*0.2-0.1, 
+                    speedY: Math.random()*0.2-0.1 
+                });
+            }
         }
         function animate() {
             ctx.clearRect(0,0,canvas.width, canvas.height);
             particles.forEach(p => {
                 p.x += p.speedX; p.y += p.speedY;
-                ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
+                if(p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+                if(p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+                ctx.fillStyle = "rgba(0, 242, 255, 0.3)";
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
             });
             requestAnimationFrame(animate);
@@ -258,9 +326,25 @@
                 type: 'bar',
                 data: {
                     labels: ['TON/USDT', 'TON/QUAN', 'TON/NOT'],
-                    datasets: [{ label: 'TVL', data: [65000000, 28000000, 42000000], backgroundColor: '#00f2ff', borderRadius: 15 }]
+                    datasets: [{ 
+                        label: 'TVL ($)', 
+                        data: [65000000, 28000000, 42000000], 
+                        backgroundColor: '#00f2ff', 
+                        borderRadius: 12,
+                        borderSkipped: false
+                    }]
                 },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#64748b' }
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                    }
+                }
             });
         }
     </script>
