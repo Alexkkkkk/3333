@@ -123,6 +123,24 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
+        .forge-label {
+            font-size: 9px;
+            color: #94a3b8;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-left: 4px;
+            margin-bottom: 4px;
+            display: block;
+        }
+        .warning-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 11px;
+            color: #f87171;
+        }
+        
         .profile-badge {
             background: rgba(0, 242, 255, 0.1);
             border: 1px solid rgba(0, 242, 255, 0.2);
@@ -154,7 +172,7 @@
             <div class="glass-card p-8 bg-gradient-to-br from-cyan-500/10 to-transparent">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h2 class="text-3xl font-black mb-2 uppercase italic leading-none text-white">Quantum Pulse v4.1</h2>
+                        <h2 class="text-3xl font-black mb-2 uppercase italic leading-none">Quantum Pulse v4.1</h2>
                         <p class="text-slate-400 text-xs">Терминал ликвидности TON</p>
                     </div>
                     <div id="user-profile-mini" class="hidden text-right">
@@ -187,27 +205,75 @@
                     <div class="icon-3d-decor" style="background: #a855f7"></div>
                     <svg class="absolute bottom-4 right-4 w-8 h-8 text-purple-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round"/></svg>
                 </div>
+                <div class="card-grid-item" onclick="switchTab('coins')">
+                    <h3 class="font-bold text-lg text-white">Монеты</h3>
+                    <p class="text-[10px] text-slate-500">Market Assets</p>
+                    <div class="icon-3d-decor" style="background: #ff8800"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-orange-400/50" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                </div>
+                <div class="card-grid-item" onclick="switchTab('staking')">
+                    <h3 class="font-bold text-lg text-white">Стейкинг</h3>
+                    <p class="text-[10px] text-slate-500">Earn Rewards</p>
+                    <div class="icon-3d-decor" style="background: #10b981"></div>
+                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-emerald-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-width="2"/></svg>
+                </div>
             </div>
         </section>
 
         <section id="create" class="tab-content pt-4">
             <div class="glass-card p-6">
-                <h2 class="font-black italic text-white uppercase text-xl mb-6 uppercase">Mint your token</h2>
-                <div class="space-y-4">
+                <div class="flex justify-between items-center mb-6">
                     <div>
-                        <label class="block text-[9px] text-slate-500 font-bold mb-1 ml-1">Jetton Name*</label>
+                        <h2 class="font-black italic text-white uppercase text-xl">Mint your token</h2>
+                        <p class="text-[10px] text-purple-400 font-bold uppercase tracking-widest">Jetton name (Symbol)</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="warning-box flex items-center gap-2">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-width="2"/></svg>
+                        <span>At least 0.27 TON required for deployment.</span>
+                    </div>
+
+                    <div>
+                        <label class="forge-label">Jetton Name*</label>
                         <input type="text" id="jettonName" placeholder="Quantum Project" class="forge-input">
                     </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-[9px] text-slate-500 font-bold mb-1 ml-1">Symbol*</label>
+                            <label class="forge-label">Jetton Symbol*</label>
                             <input type="text" id="jettonSymbol" placeholder="QUAN" class="forge-input uppercase">
                         </div>
                         <div>
-                            <label class="block text-[9px] text-slate-500 font-bold mb-1 ml-1">Supply*</label>
-                            <input type="number" id="jettonSupply" placeholder="1000000" class="forge-input">
+                            <label class="forge-label">Decimal*</label>
+                            <input type="number" id="jettonDecimals" value="9" class="forge-input">
                         </div>
                     </div>
+
+                    <div>
+                        <label class="forge-label">Jetton Logo URL</label>
+                        <input type="text" id="jettonLogo" placeholder="https://example.com/logo.png" class="forge-input">
+                    </div>
+
+                    <div>
+                        <label class="forge-label">Tokens to mint*</label>
+                        <input type="number" id="jettonSupply" placeholder="1000000" class="forge-input">
+                    </div>
+
+                    <div>
+                        <label class="forge-label">Description</label>
+                        <textarea id="jettonDesc" rows="2" placeholder="Describe your project functions..." class="forge-input resize-none"></textarea>
+                    </div>
+
+                    <div class="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Creation Price</span>
+                            <span class="text-sm font-black text-purple-400">40.42 RAFF</span>
+                        </div>
+                        <p class="text-[9px] text-slate-500 italic">Locked TON can be withdrawn via modern jetton contract.</p>
+                    </div>
+
                     <button id="deployBtn" onclick="deployJetton()" class="w-full py-4 rounded-2xl font-black text-black uppercase tracking-widest text-sm btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
                         Connect Wallet
                     </button>
@@ -223,12 +289,49 @@
                         <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
                         <span class="text-[10px] text-slate-500 font-bold">TON</span>
                     </div>
+                    <div class="flex justify-center -my-3 relative z-20">
+                        <div class="bg-cyan-500 p-2 rounded-full shadow-lg">
+                            <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-width="3"/></svg>
+                        </div>
+                    </div>
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
                         <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-slate-600">
                         <span class="text-[10px] text-slate-500 font-bold">QUAN</span>
                     </div>
                 </div>
                 <button id="mainSwapBtn" onclick="executeSwap()" class="w-full mt-6 btn-quantum py-4 rounded-2xl uppercase tracking-widest">Connect Wallet</button>
+            </div>
+        </section>
+
+        <section id="coins" class="tab-content pt-4">
+            <div class="glass-card p-6">
+                <h2 class="font-black italic text-white uppercase mb-4">My Assets</h2>
+                <div id="tokenList" class="space-y-1">
+                    <p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек для загрузки активов</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="staking" class="tab-content pt-4 space-y-4">
+            <div class="glass-card p-6 border-l-4 border-l-emerald-500">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-white">TON Liquid Staking</h3>
+                        <p class="text-[10px] text-slate-500">Зарабатывайте, сохраняя ликвидность</p>
+                    </div>
+                    <span class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">Live</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p class="text-[8px] text-slate-500 uppercase font-bold">Current APY</p>
+                        <p class="text-xl font-black text-emerald-400">~4.2%</p>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p class="text-[8px] text-slate-500 uppercase font-bold">Total Staked</p>
+                        <p class="text-xl font-black text-white">0.00</p>
+                    </div>
+                </div>
+                <button onclick="executeStaking()" class="w-full py-4 rounded-2xl bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 hover:bg-emerald-500/30 transition-all uppercase text-xs tracking-widest">Stake TON Now</button>
             </div>
         </section>
 
@@ -242,18 +345,44 @@
         <section id="profile" class="tab-content pt-4">
             <div class="glass-card p-6">
                 <h2 class="font-black italic text-white uppercase mb-6 leading-none">User Profile</h2>
-                <div id="profile-wallet-info" class="hidden space-y-3">
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Status</p>
-                        <p class="font-black text-cyan-400 italic">VERIFIED OPERATOR</p>
+                
+                <div class="space-y-4">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-tr from-cyan-400 to-purple-500 rounded-full flex items-center justify-center font-black text-2xl text-black">
+                            Q
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Access Level</p>
+                            <p class="font-black text-white italic" id="profile-status">GUEST OPERATOR</p>
+                        </div>
                     </div>
-                    <button onclick="tonConnectUI.disconnect()" class="w-full py-3 rounded-xl bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase tracking-widest">
-                        Terminate Connection
-                    </button>
-                </div>
-                <div id="profile-connect-prompt" class="p-6 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                    <p class="text-xs text-slate-500 mb-4">Sync wallet to access advanced features</p>
-                    <button onclick="tonConnectUI.connectWallet()" class="px-6 py-2 rounded-full bg-cyan-400 text-black text-[10px] font-black uppercase italic">Sync Now</button>
+
+                    <div id="profile-wallet-info" class="hidden space-y-3">
+                        <div class="bg-black/40 p-4 rounded-2xl border border-white/5">
+                            <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Verified Address</p>
+                            <p class="text-[11px] font-mono text-cyan-400 break-all leading-relaxed" id="profile-full-address"></p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                                <p class="text-[8px] text-slate-500 uppercase font-bold">Network</p>
+                                <p class="text-[10px] font-bold text-white">TON MAINNET</p>
+                            </div>
+                            <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                                <p class="text-[8px] text-slate-500 uppercase font-bold">Tier</p>
+                                <p class="text-[10px] font-bold text-purple-400">ELITE v4.1</p>
+                            </div>
+                        </div>
+
+                        <button onclick="tonConnectUI.disconnect()" class="w-full py-3 mt-2 rounded-xl bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase tracking-widest">
+                            Terminate Connection
+                        </button>
+                    </div>
+
+                    <div id="profile-connect-prompt" class="p-6 text-center border-2 border-dashed border-white/5 rounded-3xl">
+                        <p class="text-xs text-slate-500 mb-4">Sync wallet to access advanced terminal features</p>
+                        <button onclick="tonConnectUI.connectWallet()" class="px-6 py-2 rounded-full bg-cyan-400 text-black text-[10px] font-black uppercase italic">Sync Now</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -277,138 +406,11 @@
             <span>Данные</span>
         </div>
         <div class="nav-item" onclick="switchTab('profile', this)">
-            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>Профиль</span>
         </div>
     </nav>
 
-    <script>
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://quantum.bothost.tech/static/tonconnect-manifest.json',
-            buttonRootId: 'connectBtn'
-        });
-
-        let userWallet = null;
-        tonConnectUI.onStatusChange(async wallet => {
-            userWallet = wallet;
-            updateUIState();
-            if(wallet) {
-                showWhaleAlert("Wallet Synced", "Quantum Terminal Ready");
-                await fetchWalletData(wallet.account.address);
-            } else {
-                resetWalletData();
-            }
-        });
-
-        async function fetchWalletData(address) {
-            try {
-                const shortAddr = `${address.slice(0, 4)}...${address.slice(-4)}`;
-                document.getElementById('wallet-short-addr').innerText = shortAddr;
-                document.getElementById('user-profile-mini').classList.remove('hidden');
-                document.getElementById('profile-wallet-info').classList.remove('hidden');
-                document.getElementById('profile-connect-prompt').classList.add('hidden');
-
-                const accRes = await fetch(`https://tonapi.io/v2/accounts/${address}`);
-                const accData = await accRes.json();
-                const tonBalance = (accData.balance / 1e9).toFixed(2);
-                document.getElementById('main-balance-ton').innerText = `${tonBalance} TON`;
-            } catch (e) {
-                console.error("Fetch error:", e);
-            }
-        }
-
-        function resetWalletData() {
-            document.getElementById('user-profile-mini').classList.add('hidden');
-            document.getElementById('main-balance-ton').innerText = "0.00 TON";
-            document.getElementById('profile-wallet-info').classList.add('hidden');
-            document.getElementById('profile-connect-prompt').classList.remove('hidden');
-        }
-
-        function updateUIState() {
-            const btns = ['mainSwapBtn', 'deployBtn'];
-            btns.forEach(id => {
-                const b = document.getElementById(id);
-                if(b) b.innerText = userWallet ? (id === 'deployBtn' ? "Mint Jetton" : "Execute Swap") : "Connect Wallet";
-            });
-        }
-
-        function switchTab(id, el) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            const target = document.getElementById(id);
-            if(target) target.classList.add('active');
-            if (el) el.classList.add('active');
-            if (id === 'analytics') setTimeout(initChart, 100);
-        }
-
-        async function deployJetton() {
-            if (!userWallet) { await tonConnectUI.connectWallet(); return; }
-            const name = document.getElementById('jettonName').value;
-            if(!name) return alert("Enter Jetton Name");
-            
-            showWhaleAlert("Minting...", "Transaction sent to wallet");
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300,
-                messages: [{ address: "EQB3ncyBUTjZUA5EnGhc_f_697L6SSc88_m5_N0D83v97m8", amount: "270000000" }]
-            };
-            try { await tonConnectUI.sendTransaction(transaction); } catch (e) { console.error(e); }
-        }
-
-        function showWhaleAlert(title, text) {
-            const container = document.getElementById('whale-alerts');
-            const alert = document.createElement('div');
-            alert.className = 'whale-toast';
-            alert.innerHTML = `<p class="text-cyan-400 font-bold text-xs uppercase">${title}</p><p class="text-white text-[10px]">${text}</p>`;
-            container.appendChild(alert);
-            setTimeout(() => alert.remove(), 4000);
-        }
-
-        const canvas = document.getElementById('bg-canvas');
-        const ctxP = canvas.getContext('2d');
-        let pts = [];
-
-        function initCanvas() {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            pts = Array.from({length: 40}, () => ({ 
-                x: Math.random()*canvas.width, y: Math.random()*canvas.height, 
-                s: Math.random()*1.5 + 0.5, v: Math.random()*0.3 + 0.1 
-            }));
-        }
-
-        function draw() {
-            ctxP.clearRect(0,0,canvas.width, canvas.height);
-            ctxP.fillStyle = "rgba(0, 242, 255, 0.3)";
-            pts.forEach(p => { 
-                p.y -= p.v; if(p.y < 0) p.y = canvas.height; 
-                ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); 
-            });
-            requestAnimationFrame(draw);
-        }
-
-        function handleMouseMove(e) {
-            const cards = document.querySelectorAll('.glass-card, .card-grid-item');
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
-                card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-            });
-        }
-
-        function initChart() {
-            const ctx = document.getElementById('liquidityChart');
-            if (!ctx) return;
-            if (window.myChart) window.myChart.destroy();
-            window.myChart = new Chart(ctx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00'],
-                    datasets: [{ data: [65, 59, 80, 81, 95], borderColor: '#00f2ff', borderWidth: 3, tension: 0.4, fill: true, backgroundColor: 'rgba(0, 242, 255, 0.05)', pointRadius: 0 }]
-                },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-            });
-        }
-
-        window.onload = () => { initCanvas(); draw(); updateUIState(); window.onresize = initCanvas; };
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
