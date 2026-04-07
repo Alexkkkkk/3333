@@ -83,25 +83,31 @@ class OmniNeuralOverlord:
         static_dir = self.get_static_path()
         if not static_dir: return web.Response(text="Static folder missing", status=404)
         
-        # Маршрутизация согласно структуре
-        if path in ['admin', 'admin/index.html']:
-            target = os.path.join(static_dir, 'admin', 'index.html')
+        # Маршрутизация согласно вашей структуре
+        # 1. Админка (теперь файл admin.html внутри папки admin)
+        if path in ['admin', 'admin/admin.html']:
+            target = os.path.join(static_dir, 'admin', 'admin.html')
+        
+        # 2. Главная страница
         elif path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
+        
+        # 3. Служебные страницы
         elif path == 'privacy.html':
             target = os.path.join(static_dir, 'privacy.html')
         elif path == 'terms.html':
             target = os.path.join(static_dir, 'terms.html')
         elif path == 'tonconnect-manifest.json':
             target = os.path.join(static_dir, 'tonconnect-manifest.json')
+        
+        # 4. Прочие файлы (включая script.py)
         else:
-            # Поиск в корне static (для script.py и прочих)
             target = os.path.join(static_dir, path)
 
         if os.path.exists(target) and not os.path.isdir(target):
             return web.FileResponse(target)
         
-        log(f"WEB: Файл {path} не найден, возврат на главную", "TRACE")
+        log(f"WEB: Файл {path} не найден, возврат на index.html (fallback)", "TRACE")
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
     async def handle_login(self, request):
@@ -133,9 +139,10 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
         
-        # Роутинг страниц
+        # Основной роутинг
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
+        app.router.add_get('/admin/admin.html', self.handle_index)
         app.router.add_get('/privacy.html', self.handle_index)
         app.router.add_get('/terms.html', self.handle_index)
         app.router.add_get('/tonconnect-manifest.json', self.handle_index)
@@ -146,14 +153,14 @@ class OmniNeuralOverlord:
         
         static_dir = self.get_static_path()
         if static_dir:
-            # Раздача изображений
+            # Картинки: /images/logo.png
             app.router.add_static('/images/', path=os.path.join(static_dir, 'images'))
-            # Раздача скриптов и файлов в корне static
+            # Корень статики: /static/script.py
             app.router.add_static('/static/', path=static_dir)
-            # Статика для админ-панели
+            # Папка админа: /admin/
             admin_path = os.path.join(static_dir, 'admin')
             if os.path.exists(admin_path):
-                app.router.add_static('/admin/static/', path=admin_path)
+                app.router.add_static('/admin/assets/', path=admin_path)
 
         for route in list(app.router.routes()): cors.add(route)
         
@@ -161,7 +168,7 @@ class OmniNeuralOverlord:
         await self.runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(self.runner, '0.0.0.0', port).start()
-        log(f"СЕРВЕР: Запущен на http://0.0.0.0:{port}", "SUCCESS")
+        log(f"СЕРВЕР: Доступен на http://0.0.0.0:{port}", "SUCCESS")
 
     async def core_loop(self):
         log("БАЗА: Подключение...", "INFO")
@@ -181,7 +188,7 @@ class OmniNeuralOverlord:
                 log("КОНФИГ: Чтение настроек...", "TRACE")
                 cfg = await load_remote_config()
                 if not cfg or not cfg.get('mnemonic'):
-                    log("КОНФИГ: Данные отсутствуют. Жду ввода в админке...", "WARNING")
+                    log("КОНФИГ: Ожидание настройки через админку...", "WARNING")
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10); continue
 
@@ -235,7 +242,6 @@ class OmniNeuralOverlord:
 
     async def dispatch_hft_pulse(self, wallet, plan):
         log("TON: Инициация транзакции...", "TRACE")
-        # Логика отправки...
         self.total_ops += 1
         return True
 
@@ -245,4 +251,4 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
-        log("СИСТЕМА: Остановка...", "WARNING")
+        log("СИСТЕМА: Остановка вручную", "WARNING")
