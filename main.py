@@ -9,6 +9,7 @@ import numpy as np
 import traceback
 import signal
 from datetime import datetime
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI для стабильной работы веб-интерфейса на Bothost
@@ -52,8 +53,20 @@ except ImportError:
 
 load_dotenv()
 
+# --- FASTAPI LIFE-CYCLE (LIFESPAN) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Действия при запуске (заменяет @app.on_event("startup"))
+    log("CORE: Инициализация фоновых процессов...", "CORE")
+    worker_task = asyncio.create_task(core_worker())
+    yield
+    # Действия при выключении
+    log("CORE: Завершение работы...", "WARNING")
+    overlord.is_active = False
+    worker_task.cancel()
+
 # --- FASTAPI APP SETUP ---
-app = FastAPI(title="Quantum Omni Overlord")
+app = FastAPI(title="Quantum Omni Overlord", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -93,7 +106,8 @@ class OmniNeuralOverlord:
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
-                raw_mnemonic = cfg.get('mnemonic', '')
+                raw_mnemonic = str(cfg.get('mnemonic', ''))
+                # Глубокая очистка мнемоники
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
                 pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
@@ -107,7 +121,6 @@ class OmniNeuralOverlord:
             log(f"Ошибка конфига: {e}", "ERROR")
             return False
 
-# Инициализируем синглтон оверлорда
 overlord = OmniNeuralOverlord()
 
 # --- WEB ROUTES (FASTAPI) ---
@@ -115,14 +128,23 @@ overlord = OmniNeuralOverlord()
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
-    # index.html всегда берем из папки static, не меняя дизайн
     return FileResponse("static/index.html")
+
+# Фикс для TON Connect
+@app.get("/tonconnect-manifest.json")
+async def serve_manifest():
+    manifest_path = "static/tonconnect-manifest.json"
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path)
+    return JSONResponse({"status": "error", "msg": "Manifest not found"}, status_code=404)
 
 @app.get("/admin")
 @app.get("/admin/index.html")
 async def serve_admin(request: Request):
     if request.cookies.get("auth_token") == overlord.session_token:
-        return FileResponse("static/admin/index.html")
+        admin_path = "static/admin/index.html"
+        if os.path.exists(admin_path):
+            return FileResponse(admin_path)
     return FileResponse("static/index.html")
 
 @app.post("/api/login")
@@ -178,7 +200,6 @@ async def handle_update_config(request: Request):
 # Подключение статики (Картинки и CSS не менять!)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    # Маппинг для изображений, чтобы пути в HTML /static/images/logo.png работали
     if os.path.exists("static/images"):
         app.mount("/images", StaticFiles(directory="static/images"), name="images")
 
@@ -187,7 +208,6 @@ if os.path.exists("static"):
 async def fetch_neural_strategy(market_snapshot):
     if not overlord.ai_key: return {"cmd": "WAIT", "reason": "No AI Key"}
     try:
-        # Используем современный асинхронный клиент OpenAI
         client = openai.AsyncOpenAI(api_key=overlord.ai_key)
         res = await client.chat.completions.create(
             model="gpt-4o",
@@ -204,9 +224,8 @@ async def fetch_neural_strategy(market_snapshot):
         return {"cmd": "WAIT", "reason": "AI Error"}
 
 async def core_worker():
-    log("CORE: Запуск фонового процесса воркера...", "CORE")
+    log("CORE: Запуск воркера TON...", "CORE")
     
-    # Ожидание базы данных
     while True:
         try:
             await init_db()
@@ -230,7 +249,7 @@ async def core_worker():
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"TON: Узел синхронизирован. Кошелек: {wallet.address}", "SUCCESS")
+                log(f"TON: Кошелек готов: {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
@@ -253,28 +272,21 @@ async def core_worker():
                             await wallet.transfer(destination=overlord.vault_ton, amount=nano_amt + int(0.2e9), body=payload)
                             overlord.total_ops += 1
                             await log_ai_action(plan, market_state.get('current_metrics', {}))
-                            log(f"ИМПУЛЬС: Отправлено {amt} TON в пул", "SUCCESS")
+                            log(f"ИМПУЛЬС: Отправлено {amt} TON", "SUCCESS")
 
                         await asyncio.sleep(20)
                     except Exception as inner_e:
                         log(f"ITERATION ERROR: {inner_e}", "TRACE")
-                        await asyncio.sleep(10)
-                        break 
+                        await asyncio.sleep(10); break 
 
         except Exception as e:
             log(f"FATAL CORE: {e}", "ERROR")
             await asyncio.sleep(10)
 
-@app.on_event("startup")
-async def on_startup():
-    # Запуск логики бота в фоновой задаче, чтобы не блокировать FastAPI
-    asyncio.create_task(core_worker())
-
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Запуск сервера на порту {port}", "CORE")
     try:
-        # Запуск через uvicorn для Bothost
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
         log(f"CRITICAL EXIT: {e}", "ERROR")
