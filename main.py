@@ -52,7 +52,7 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"SENTINEL-{os.urandom(2).hex().upper()}"
         
-        # Настройки доступа
+        # Настройки доступа (из .env или по умолчанию)
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(16).hex() 
@@ -80,7 +80,7 @@ class OmniNeuralOverlord:
         static_dir = self.get_static_path()
         if not static_dir: return web.Response(text="Static folder not found", status=404)
 
-        # Логика поиска admin.html внутри static/admin/
+        # Роутинг статики (Дизайн не меняем!)
         if path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
         elif path == 'admin' or path == 'admin/admin.html':
@@ -97,7 +97,6 @@ class OmniNeuralOverlord:
             data = await request.json()
             if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
-                # Устанавливаем куку (httponly=False чтобы JS мог проверить её наличие)
                 res.set_cookie("auth_token", self.session_token, httponly=False)
                 log(f"AUTH: Вход в терминал [{request.remote}]", "SUCCESS")
                 return res
@@ -105,35 +104,34 @@ class OmniNeuralOverlord:
         except: return web.json_response({"status": "error"}, status=400)
 
     async def handle_save_config(self, request):
-        """Сохранение конфига из CORE_PROTOCOL_SETTINGS твоего HTML"""
+        """Сохранение конфигурации из админки"""
         if request.cookies.get("auth_token") != self.session_token:
             return web.json_response({"status": "unauthorized"}, status=401)
         
         try:
             data = await request.json()
-            # Обновляем в БД
+            # Обновляем в БД через database.py
             await update_remote_config(data)
             
-            # Обновляем в памяти объекта
+            # Синхронизируем состояние в памяти
             self.mnemonic = data.get('mnemonic', self.mnemonic)
             self.ai_key = data.get('ai_api_key', self.ai_key)
             self.target_pool = data.get('dedust_pool', self.target_pool)
             self.strategy_level = data.get('ai_strategy_level', self.strategy_level)
             
-            log(f"CONFIG: База данных и ядро обновлены. Стратегия: {self.strategy_level}", "SUCCESS")
+            log(f"CONFIG: Данные обновлены. Уровень стратегии: {self.strategy_level}", "SUCCESS")
             return web.json_response({"status": "success"})
         except Exception as e:
             log(f"CONFIG: Ошибка: {e}", "ERROR")
             return web.json_response({"status": "error"}, status=500)
 
     async def handle_get_stats(self, request):
-        """Отдает данные для всех виджетов admin.html"""
+        """Статистика для виджетов админки"""
         if request.cookies.get("auth_token") != self.session_token:
             return web.json_response({"status": "unauthorized"}, status=401)
         
         db_stats = await get_stats_for_web()
         
-        # Формируем JSON точно под твой JavaScript в admin.html
         response_data = {
             "balance": f"{self.current_balance:.2f}",
             "engine": {
@@ -154,16 +152,18 @@ class OmniNeuralOverlord:
     async def handle_connect_wallet(self, request):
         try:
             data = await request.json()
-            log(f"WEB: Подключен клиентский кошелек: {data.get('address')}", "INFO")
+            log(f"WEB: Сигнал от кошелька: {data.get('address')}", "INFO")
             return web.json_response({"status": "ok", "synced": True})
         except: return web.json_response({"status": "error"}, status=400)
 
     async def start_web_server(self):
+        """Запуск сервера aiohttp"""
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={
             "*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")
         })
         
+        # Регистрация маршрутов
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
@@ -171,6 +171,7 @@ class OmniNeuralOverlord:
         app.router.add_post('/api/config', self.handle_save_config)
         app.router.add_post('/api/connect', self.handle_connect_wallet)
         
+        # Обслуживание статики (Дизайн и картинки)
         static_dir = self.get_static_path()
         if static_dir:
             app.router.add_static('/static/', path=static_dir)
@@ -186,6 +187,7 @@ class OmniNeuralOverlord:
         log(f"СЕРВЕР: Терминал запущен на порту {port}", "SUCCESS")
 
     async def fetch_neural_strategy(self, market_snapshot):
+        """Запрос к OpenAI GPT-4o для принятия решения"""
         if not self.ai_key:
             return {"cmd": "WAIT", "reason": "No API Key"}
         try:
@@ -198,10 +200,11 @@ class OmniNeuralOverlord:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            log(f"AI: Ошибка инференса: {e}", "ERROR")
+            log(f"AI: Ошибка: {e}", "ERROR")
             return {"cmd": "WAIT", "reason": "AI_OFFLINE"}
 
     async def core_loop(self):
+        """Основной цикл работы системы"""
         log("БАЗА: Инициализация протоколов...", "INFO")
         while True:
             try:
@@ -216,7 +219,7 @@ class OmniNeuralOverlord:
 
         while self.is_active:
             try:
-                # Загружаем актуальный конфиг из БД
+                # Загружаем конфиг из БД
                 cfg = await load_remote_config()
                 if cfg:
                     self.mnemonic = cfg.get('mnemonic', self.mnemonic)
@@ -228,6 +231,7 @@ class OmniNeuralOverlord:
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10); continue
 
+                # Работа с TON сетью
                 async with LiteClient.from_mainnet_config() as client:
                     wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
                     self.last_status = "ACTIVE"
@@ -235,29 +239,32 @@ class OmniNeuralOverlord:
                     
                     while self.is_active:
                         try:
+                            # Проверка баланса
                             balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
                             self.current_balance = balance_nano / 1e9
                             
+                            # Получение состояния рынка и решения ИИ
                             market = await get_market_state()
                             plan = await self.fetch_neural_strategy(market)
                             
                             if plan.get('cmd') == "BUY":
-                                log(f"AI_OPS: Исполнение команды КУПИТЬ", "SUCCESS")
+                                log(f"AI_OPS: Исполнение КУПИТЬ ({plan.get('amt')} TON)", "SUCCESS")
                                 await self.dispatch_hft_pulse(wallet, plan)
                             
                             await asyncio.sleep(20)
                         except Exception as e:
-                            log(f"LOOP: Перезапуск цикла: {e}", "ERROR")
+                            log(f"LOOP: Ошибка итерации: {e}", "ERROR")
                             await asyncio.sleep(5); break
 
             except Exception as e:
-                log(f"CRITICAL: Сбой в ядре: {e}", "ERROR")
+                log(f"CRITICAL: Сбой: {e}", "ERROR")
                 self.last_status = "RECOVERY"
                 await asyncio.sleep(10)
 
     async def dispatch_hft_pulse(self, wallet, plan):
-        """Здесь будет логика транзакции в блокчейн"""
+        """Логика транзакций в TON"""
         self.total_ops += 1
+        # Здесь будет вызов WalletV4R2.transfer(...)
         return True
 
 if __name__ == "__main__":
