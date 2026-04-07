@@ -93,8 +93,6 @@
         .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 9px; color: #475569; transition: 0.2s; cursor: pointer; flex: 1; }
         .nav-item.active { color: var(--accent); }
 
-        .token-row { border-bottom: 1px solid rgba(255,255,255,0.03); padding: 12px 0; transition: 0.2s; }
-        
         .forge-input {
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.08);
@@ -154,7 +152,6 @@
 </head>
 <body onmousemove="handleMouseMove(event)">
     <canvas id="bg-canvas"></canvas>
-
     <div id="whale-alerts" class="fixed top-4 right-4 z-[1100] space-y-2 pointer-events-none w-72"></div>
 
     <header class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-50">
@@ -287,7 +284,7 @@
                 <h2 class="font-black italic text-white uppercase mb-6">SWAP TERMINAL</h2>
                 <div class="space-y-2">
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
-                        <input type="number" id="swapInput" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
+                        <input type="number" id="swapInput" oninput="calculateSwap()" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
                         <span class="text-[10px] text-slate-500 font-bold">TON</span>
                     </div>
                     <div class="flex justify-center -my-3 relative z-20">
@@ -346,12 +343,9 @@
         <section id="profile" class="tab-content pt-4">
             <div class="glass-card p-6">
                 <h2 class="font-black italic text-white uppercase mb-6 leading-none">User Profile</h2>
-                
                 <div class="space-y-4">
                     <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                        <div class="w-14 h-14 bg-gradient-to-tr from-cyan-400 to-purple-500 rounded-full flex items-center justify-center font-black text-2xl text-black">
-                            Q
-                        </div>
+                        <div class="w-14 h-14 bg-gradient-to-tr from-cyan-400 to-purple-500 rounded-full flex items-center justify-center font-black text-2xl text-black">Q</div>
                         <div>
                             <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Access Level</p>
                             <p class="font-black text-white italic" id="profile-status">GUEST OPERATOR</p>
@@ -363,7 +357,6 @@
                             <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Verified Address</p>
                             <p class="text-[11px] font-mono text-cyan-400 break-all leading-relaxed" id="profile-full-address"></p>
                         </div>
-                        
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white/5 p-3 rounded-xl border border-white/5">
                                 <p class="text-[8px] text-slate-500 uppercase font-bold">Network</p>
@@ -374,10 +367,7 @@
                                 <p class="text-[10px] font-bold text-purple-400">ELITE v4.1</p>
                             </div>
                         </div>
-
-                        <button onclick="tonConnectUI.disconnect()" class="w-full py-3 mt-2 rounded-xl bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase tracking-widest">
-                            Terminate Connection
-                        </button>
+                        <button onclick="tonConnectUI.disconnect()" class="w-full py-3 mt-2 rounded-xl bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase tracking-widest">Terminate Connection</button>
                     </div>
 
                     <div id="profile-connect-prompt" class="p-6 text-center border-2 border-dashed border-white/5 rounded-3xl">
@@ -387,7 +377,6 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <nav class="nav-bar">
@@ -413,6 +402,209 @@
         </div>
     </nav>
 
-    <script src="script.js"></script>
+    <script>
+        // 1. Инициализация TON Connect
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://' + window.location.host + '/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        // 2. Управление вкладками
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            if (el) {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                el.classList.add('active');
+            }
+
+            if (tabId === 'analytics') initChart();
+        }
+
+        // 3. Отслеживание состояния кошелька
+        tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+                const addr = wallet.account.address;
+                const shortAddr = addr.slice(0, 6) + '...' + addr.slice(-4);
+                
+                document.getElementById('user-profile-mini').classList.remove('hidden');
+                document.getElementById('wallet-short-addr').innerText = shortAddr;
+                document.getElementById('profile-status').innerText = 'ELITE OPERATOR';
+                document.getElementById('profile-full-address').innerText = addr;
+                document.getElementById('profile-wallet-info').classList.remove('hidden');
+                document.getElementById('profile-connect-prompt').classList.add('hidden');
+                
+                document.getElementById('mainSwapBtn').innerText = 'Execute Swap';
+                document.getElementById('deployBtn').innerText = 'Mint Jetton';
+                
+                loadFakeBalances();
+            } else {
+                document.getElementById('user-profile-mini').classList.add('hidden');
+                document.getElementById('profile-status').innerText = 'GUEST OPERATOR';
+                document.getElementById('profile-wallet-info').classList.add('hidden');
+                document.getElementById('profile-connect-prompt').classList.remove('hidden');
+                document.getElementById('mainSwapBtn').innerText = 'Connect Wallet';
+                document.getElementById('deployBtn').innerText = 'Connect Wallet';
+                document.getElementById('tokenList').innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек</p>';
+            }
+        });
+
+        // 4. Логика Свопа
+        function calculateSwap() {
+            const val = document.getElementById('swapInput').value;
+            const rate = 450.25; // Условный курс
+            document.getElementById('swapOutput').value = val ? (val * rate).toFixed(2) : '0.0';
+        }
+
+        async function executeSwap() {
+            if (!tonConnectUI.connected) {
+                tonConnectUI.connectWallet();
+                return;
+            }
+            alert('Swap initiated! Waiting for confirmation in wallet...');
+        }
+
+        // 5. Логика создания токена
+        async function deployJetton() {
+            if (!tonConnectUI.connected) {
+                tonConnectUI.connectWallet();
+                return;
+            }
+            const name = document.getElementById('jettonName').value;
+            if (!name) return alert('Enter Jetton Name');
+            
+            alert(`Deploying ${name} to TON Mainnet...`);
+        }
+
+        // 6. Аналитика (Chart.js)
+        let chartInstance = null;
+        function initChart() {
+            const ctx = document.getElementById('liquidityChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00'],
+                    datasets: [{
+                        label: 'TVL ($)',
+                        data: [45000, 48000, 47500, 52000, 51000, 59000],
+                        borderColor: '#00f2ff',
+                        backgroundColor: 'rgba(0, 242, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                    }
+                }
+            });
+        }
+
+        // 7. Декоративный фон (Canvas)
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 1.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.opacity = Math.random() * 0.5;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+            }
+            draw() {
+                ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 60; i++) particles.push(new Particle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        initParticles();
+        animate();
+
+        // 8. Уведомления Whale Alerts
+        function spawnAlert() {
+            const container = document.getElementById('whale-alerts');
+            const alert = document.createElement('div');
+            alert.className = 'whale-toast';
+            const amount = (Math.random() * 10000 + 500).toFixed(0);
+            alert.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="text-cyan-400">🐋</span>
+                    <div>
+                        <p class="text-[10px] font-black text-white uppercase">Whale Movement</p>
+                        <p class="text-[9px] text-slate-400">${amount} TON swapped for QUAN</p>
+                    </div>
+                </div>
+            `;
+            container.appendChild(alert);
+            setTimeout(() => alert.remove(), 4000);
+        }
+        setInterval(spawnAlert, 8000);
+
+        function handleMouseMove(e) {
+            const x = (e.clientX / window.innerWidth) * 100;
+            const y = (e.clientY / window.innerHeight) * 100;
+            document.body.style.backgroundPosition = `${x}% ${y}%`;
+        }
+
+        function loadFakeBalances() {
+            const list = document.getElementById('tokenList');
+            list.innerHTML = `
+                <div class="flex justify-between items-center p-3 hover:bg-white/5 rounded-xl transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-xs text-white">T</div>
+                        <div><p class="text-sm font-bold text-white">Toncoin</p><p class="text-[9px] text-slate-500">Native</p></div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black text-white">14.42</p>
+                        <p class="text-[9px] text-emerald-400">+$2.12</p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
 </body>
 </html>
