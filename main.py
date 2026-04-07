@@ -70,39 +70,58 @@ class OmniNeuralOverlord:
         paths = [os.path.join(base, 'static'), '/app/static', './static']
         for p in paths:
             if os.path.exists(p):
-                log(f"Найдена папка статики: {p}", "TRACE")
                 return p
         log("ВНИМАНИЕ: Папка static не найдена!", "WARNING")
         return None
 
-    # --- WEB HANDLERS С ЛОГИРОВАНИЕМ ЗАПРОСОВ ---
+    # --- WEB HANDLERS С ПОДДЕРЖКОЙ НОВОЙ СТРУКТУРЫ ---
     async def handle_index(self, request):
         peer = request.remote
         path = request.path.lower().strip('/')
         log(f"WEB: [{peer}] запрос {request.method} -> {request.path}", "WEB")
         
         static_dir = self.get_static_path()
-        if not static_dir: return web.Response(text="Static missing", status=404)
+        if not static_dir: return web.Response(text="Static folder missing", status=404)
         
-        if path in ['admin', 'amin']:
+        # Маршрутизация согласно структуре
+        if path in ['admin', 'admin/index.html']:
             target = os.path.join(static_dir, 'admin', 'index.html')
         elif path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
+        elif path == 'privacy.html':
+            target = os.path.join(static_dir, 'privacy.html')
+        elif path == 'terms.html':
+            target = os.path.join(static_dir, 'terms.html')
+        elif path == 'tonconnect-manifest.json':
+            target = os.path.join(static_dir, 'tonconnect-manifest.json')
         else:
+            # Поиск в корне static (для script.py и прочих)
             target = os.path.join(static_dir, path)
 
         if os.path.exists(target) and not os.path.isdir(target):
             return web.FileResponse(target)
         
-        log(f"WEB: Файл {path} не найден, отдаю index.html (fallback)", "TRACE")
+        log(f"WEB: Файл {path} не найден, возврат на главную", "TRACE")
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
+
+    async def handle_login(self, request):
+        try:
+            data = await request.json()
+            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
+                res = web.json_response({"status": "success", "token": self.session_token})
+                res.set_cookie("auth_token", self.session_token, httponly=True)
+                log(f"AUTH: Вход выполнен успешно [{request.remote}]", "SUCCESS")
+                return res
+            log(f"AUTH: Ошибка входа [{request.remote}]", "WARNING")
+            return web.json_response({"status": "error", "message": "Invalid credentials"}, status=401)
+        except: return web.json_response({"status": "error"}, status=400)
 
     async def handle_get_stats(self, request):
         if request.cookies.get("auth_token") != self.session_token:
             log(f"WEB: Отказ в доступе к API для {request.remote}", "WARNING")
             return web.json_response({"status": "unauthorized"}, status=401)
         
-        log("WEB: Синхронизация статистики для админ-панели", "TRACE")
+        log("WEB: Синхронизация статистики", "TRACE")
         db_stats = await get_stats_for_web()
         db_stats.update({
             'balance': f"{self.current_balance:.2f}",
@@ -114,16 +133,27 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
         
+        # Роутинг страниц
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
+        app.router.add_get('/privacy.html', self.handle_index)
+        app.router.add_get('/terms.html', self.handle_index)
+        app.router.add_get('/tonconnect-manifest.json', self.handle_index)
+        
+        # API
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         
         static_dir = self.get_static_path()
         if static_dir:
+            # Раздача изображений
+            app.router.add_static('/images/', path=os.path.join(static_dir, 'images'))
+            # Раздача скриптов и файлов в корне static
             app.router.add_static('/static/', path=static_dir)
-            admin_s = os.path.join(static_dir, 'admin')
-            if os.path.exists(admin_s): app.router.add_static('/admin/static/', path=admin_s)
+            # Статика для админ-панели
+            admin_path = os.path.join(static_dir, 'admin')
+            if os.path.exists(admin_path):
+                app.router.add_static('/admin/static/', path=admin_path)
 
         for route in list(app.router.routes()): cors.add(route)
         
@@ -131,9 +161,8 @@ class OmniNeuralOverlord:
         await self.runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(self.runner, '0.0.0.0', port).start()
-        log(f"СЕРВЕР: Запущен на порту {port}", "SUCCESS")
+        log(f"СЕРВЕР: Запущен на http://0.0.0.0:{port}", "SUCCESS")
 
-    # --- ОСНОВНОЙ ЦИКЛ С ПОШАГОВЫМ ЛОГОМ ---
     async def core_loop(self):
         log("БАЗА: Подключение...", "INFO")
         while True:
@@ -149,85 +178,64 @@ class OmniNeuralOverlord:
 
         while self.is_active:
             try:
-                log("КОНФИГ: Чтение настроек из БД...", "TRACE")
+                log("КОНФИГ: Чтение настроек...", "TRACE")
                 cfg = await load_remote_config()
                 if not cfg or not cfg.get('mnemonic'):
-                    log("КОНФИГ: Данные не найдены. Ожидаю настройки через админку...", "WARNING")
+                    log("КОНФИГ: Данные отсутствуют. Жду ввода в админке...", "WARNING")
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10); continue
 
                 self.mnemonic = cfg.get('mnemonic')
                 self.ai_key = cfg.get('ai_api_key')
                 
-                log("TON: Подключение к Mainnet LiteServer...", "INFO")
                 async with LiteClient.from_mainnet_config() as client:
                     wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
-                    log(f"TON: Кошелек активен [{wallet.address}]", "SUCCESS")
+                    log(f"TON: Кошелек {wallet.address} активен", "SUCCESS")
                     self.last_status = "ACTIVE"
                     
                     while self.is_active:
-                        log("--- ИТЕРАЦИЯ ЦИКЛА ---", "TRACE")
                         try:
-                            # Проверка баланса
-                            log("TON: Запрос баланса...", "TRACE")
                             balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
                             self.current_balance = balance_nano / 1e9
-                            log(f"TON: Текущий баланс: {self.current_balance:.2f} TON", "INFO")
+                            log(f"TON: Баланс: {self.current_balance:.2f} TON", "INFO")
 
-                            # Работа с AI
-                            log("AI: Анализ рынка через GPT-4o...", "TRACE")
                             market = await get_market_state()
                             plan = await self.fetch_neural_strategy(market)
                             
                             if plan.get('cmd') == "BUY":
-                                log(f"AI: Решение КУПИТЬ на {plan.get('amt')} TON. Причина: {plan.get('reason')}", "SUCCESS")
+                                log(f"AI: КУПИТЬ на {plan.get('amt')} TON", "SUCCESS")
                                 await self.dispatch_hft_pulse(wallet, plan)
                             else:
-                                log(f"AI: Решение ПОДОЖДАТЬ. Причина: {plan.get('reason')}", "INFO")
+                                log(f"AI: Ожидание. Причина: {plan.get('reason')}", "INFO")
 
-                            log("ЦИКЛ: Сон 20 секунд...", "TRACE")
                             await asyncio.sleep(20)
-                            
                         except asyncio.TimeoutError:
-                            log("TON: Нода не ответила вовремя, переподключение...", "WARNING")
+                            log("TON: Тайм-аут ноды, переподключение...", "WARNING")
                             break
                         except Exception as e:
-                            log(f"ОШИБКА ВНУТРИ ЦИКЛА: {e}", "ERROR")
-                            await asyncio.sleep(5)
-                            break
+                            log(f"ЦИКЛ: Ошибка: {e}", "ERROR")
+                            await asyncio.sleep(5); break
 
             except Exception as e:
-                log(f"КРИТИЧЕСКАЯ ОШИБКА ЯДРА: {e}", "ERROR")
-                log(traceback.format_exc(), "TRACE")
+                log(f"ЯДРО: Критический сбой: {e}", "ERROR")
                 await asyncio.sleep(10)
-
-    # (Остальные методы handle_login, fetch_neural_strategy, dispatch_hft_pulse остаются такими же)
-    async def handle_login(self, request):
-        try:
-            data = await request.json()
-            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
-                res = web.json_response({"status": "success", "token": self.session_token})
-                res.set_cookie("auth_token", self.session_token, httponly=True)
-                log(f"AUTH: Вход выполнен успешно [{request.remote}]", "SUCCESS")
-                return res
-            log(f"AUTH: Неверный пароль от {request.remote}", "WARNING")
-            return web.json_response({"status": "error"}, status=401)
-        except: return web.json_response({"status": "error"}, status=400)
 
     async def fetch_neural_strategy(self, market_snapshot):
         if not self.ai_key: return {"cmd": "WAIT", "reason": "No API Key"}
-        client = openai.AsyncOpenAI(api_key=self.ai_key)
-        res = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": "JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
-                      {"role": "user", "content": json.dumps(market_snapshot)}],
-            response_format={"type": "json_object"}, timeout=15
-        )
-        return json.loads(res.choices[0].message.content)
+        try:
+            client = openai.AsyncOpenAI(api_key=self.ai_key)
+            res = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "system", "content": "JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
+                          {"role": "user", "content": json.dumps(market_snapshot)}],
+                response_format={"type": "json_object"}, timeout=15
+            )
+            return json.loads(res.choices[0].message.content)
+        except: return {"cmd": "WAIT", "reason": "AI Error"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
-        log("TON: Подготовка транзакции...", "TRACE")
-        # Твой код отправки...
+        log("TON: Инициация транзакции...", "TRACE")
+        # Логика отправки...
         self.total_ops += 1
         return True
 
@@ -237,4 +245,4 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Система остановлена вручную", "WARNING")
+        log("СИСТЕМА: Остановка...", "WARNING")
