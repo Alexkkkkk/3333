@@ -15,7 +15,6 @@ import aiohttp_cors
 
 # --- СИСТЕМА ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
-    # Обычные пробелы вместо неразрывных (U+00A0)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     colors = {
         "INFO": "\033[94m",    # Blue
@@ -51,7 +50,7 @@ try:
                           get_stats_for_web, load_remote_config, update_remote_config)
     log("Модули базы данных: OK", "SUCCESS")
 except ImportError:
-    log("Файл database.py не найден! Убедитесь, что он в корне проекта.", "ERROR")
+    log("Файл database.py не найден!", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -62,7 +61,6 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Настройки входа (из .env или дефолт)
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(32).hex() 
@@ -95,7 +93,7 @@ class OmniNeuralOverlord:
             '/app/static'
         ]
         for p in check_paths:
-            if os.path.exists(p): return p
+            if os.path.exists(p) and os.path.isdir(p): return p
         return None
 
     async def update_config_from_db(self):
@@ -127,13 +125,14 @@ class OmniNeuralOverlord:
             if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
                 res.set_cookie("auth_token", self.session_token, max_age=86400, httponly=True, samesite='Lax')
-                log(f"LOGIN_SUCCESS: Terminal accessed from {request.remote}", "SUCCESS")
+                log(f"LOGIN_SUCCESS: {request.remote}", "SUCCESS")
                 return res
             return web.json_response({"status": "error", "msg": "INVALID ACCESS KEY"}, status=401)
         except:
             return web.json_response({"status": "error", "msg": "BAD REQUEST"}, status=400)
 
     async def handle_index(self, request):
+        log(f"WEB_REQUEST: {request.method} {request.path} from {request.remote}", "TRACE")
         static_dir = self.get_static_path()
         if not static_dir: return web.Response(text="Static directory not found", status=404)
         
@@ -241,9 +240,7 @@ class OmniNeuralOverlord:
         static_dir = self.get_static_path()
         if static_dir:
             self.app.router.add_static('/static/', path=static_dir, name='static')
-            admin_subpath = os.path.join(static_dir, 'admin')
-            if os.path.exists(admin_subpath):
-                self.app.router.add_static('/admin/static/', path=admin_subpath, name='admin_assets')
+            log(f"Static serving from: {static_dir}", "INFO")
 
         for route in list(self.app.router.routes()): cors.add(route)
         
@@ -286,7 +283,7 @@ class OmniNeuralOverlord:
                             market_state = await get_market_state()
                             
                             try:
-                                balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=15.0)
+                                balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
                                 self.current_balance = balance_nano / 1e9
                             except:
                                 log("TON Node Timeout. Переподключение...", "WARNING")
@@ -312,6 +309,11 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
+    # Реакция на сигналы остановки (Docker/Bothost)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try: loop.add_signal_handler(sig, lambda: asyncio.create_task(loop.stop()))
+        except NotImplementedError: pass # Для Windows
+
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
@@ -319,4 +321,4 @@ if __name__ == "__main__":
     except Exception as e:
         log(f"FATAL EXCEPTION:\n{traceback.format_exc()}", "ERROR")
     finally:
-        loop.stop()
+        loop.close()
