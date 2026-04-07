@@ -11,7 +11,7 @@ import signal
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Используем FastAPI для стабильной работы на Bothost
+# FastAPI для стабильной работы веб-интерфейса на Bothost
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -115,7 +115,7 @@ overlord = OmniNeuralOverlord()
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
-    # index.html всегда в папке static
+    # index.html всегда берем из папки static, не меняя дизайн
     return FileResponse("static/index.html")
 
 @app.get("/admin")
@@ -178,7 +178,7 @@ async def handle_update_config(request: Request):
 # Подключение статики (Картинки и CSS не менять!)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    # Дополнительный маппинг для папки images, если она используется напрямую
+    # Маппинг для изображений, чтобы пути в HTML /static/images/logo.png работали
     if os.path.exists("static/images"):
         app.mount("/images", StaticFiles(directory="static/images"), name="images")
 
@@ -187,6 +187,7 @@ if os.path.exists("static"):
 async def fetch_neural_strategy(market_snapshot):
     if not overlord.ai_key: return {"cmd": "WAIT", "reason": "No AI Key"}
     try:
+        # Используем современный асинхронный клиент OpenAI
         client = openai.AsyncOpenAI(api_key=overlord.ai_key)
         res = await client.chat.completions.create(
             model="gpt-4o",
@@ -266,13 +267,14 @@ async def core_worker():
 
 @app.on_event("startup")
 async def on_startup():
-    # Запуск логики бота в отдельном потоке asyncio
+    # Запуск логики бота в фоновой задаче, чтобы не блокировать FastAPI
     asyncio.create_task(core_worker())
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Запуск сервера на порту {port}", "CORE")
     try:
+        # Запуск через uvicorn для Bothost
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
         log(f"CRITICAL EXIT: {e}", "ERROR")
