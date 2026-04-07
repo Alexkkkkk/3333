@@ -26,22 +26,20 @@ def log(message, level="INFO"):
     print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
 # --- ПРОВЕРКА ОКРУЖЕНИЯ ---
-log(">>> ЗАПУСК СИСТЕМЫ NEURAL SENTINEL V3 <<<", "CORE")
+log(">>> ИНИЦИАЛИЗАЦИЯ NEURAL SENTINEL V3 <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
-    from pytoniq import begin_cell as BeginCell
-    log("Библиотеки TON загружены успешно", "SUCCESS")
+    log("L1: Библиотеки TON загружены", "SUCCESS")
 except ImportError as e:
-    log(f"Ошибка импорта pytoniq: {e}", "ERROR")
+    log(f"L1 ERROR: Ошибка pytoniq: {e}", "ERROR")
     sys.exit(1)
 
 try:
-    # Загружаем функции из твоего файла database.py
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
-    log("Модули базы данных подключены", "SUCCESS")
+    log("L2: Модули базы данных подключены", "SUCCESS")
 except ImportError as e:
-    log(f"Ошибка импорта database.py: {e}", "ERROR")
+    log(f"L2 ERROR: Ошибка database.py: {e}", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -51,13 +49,10 @@ class OmniNeuralOverlord:
         self.is_active = True
         self.session_start = time.time()
         self.core_id = f"SENTINEL-{os.urandom(2).hex().upper()}"
-        
-        # Настройки доступа (из .env или по умолчанию)
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(16).hex() 
         
-        # Переменные состояния
         self.mnemonic = None
         self.ai_key = None
         self.target_pool = None
@@ -67,20 +62,23 @@ class OmniNeuralOverlord:
         self.last_status = "BOOTING"
         self.runner = None
         
-        log(f"Ядро {self.core_id} готово к работе", "CORE")
+        log(f"Ядро {self.core_id} сконфигурировано", "CORE")
 
     def get_static_path(self):
         base = os.path.dirname(os.path.abspath(__file__))
         static_path = os.path.join(base, 'static')
+        log(f"FS: Поиск статики в {static_path}", "TRACE")
         return static_path if os.path.exists(static_path) else None
 
     # --- WEB HANDLERS ---
     async def handle_index(self, request):
+        log(f"WEB: Запрос {request.method} {request.path} от {request.remote}", "WEB")
         path = request.path.lower().strip('/')
         static_dir = self.get_static_path()
-        if not static_dir: return web.Response(text="Static folder not found", status=404)
+        if not static_dir: 
+            log("WEB ERROR: Папка static не найдена", "ERROR")
+            return web.Response(text="Static folder not found", status=404)
 
-        # Роутинг статики (Дизайн не меняем!)
         if path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
         elif path == 'admin' or path == 'admin/admin.html':
@@ -90,6 +88,8 @@ class OmniNeuralOverlord:
 
         if os.path.exists(target) and not os.path.isdir(target):
             return web.FileResponse(target)
+        
+        log(f"WEB: Файл {path} не найден, отдаю index.html", "WARNING")
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
     async def handle_login(self, request):
@@ -98,80 +98,38 @@ class OmniNeuralOverlord:
             if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
                 res = web.json_response({"status": "success", "token": self.session_token})
                 res.set_cookie("auth_token", self.session_token, httponly=False)
-                log(f"AUTH: Вход в терминал [{request.remote}]", "SUCCESS")
+                log(f"AUTH: Успешный вход [{request.remote}]", "SUCCESS")
                 return res
+            log(f"AUTH: Отказ в доступе [{request.remote}]", "WARNING")
             return web.json_response({"status": "error"}, status=401)
         except: return web.json_response({"status": "error"}, status=400)
 
-    async def handle_save_config(self, request):
-        """Сохранение конфигурации из админки"""
-        if request.cookies.get("auth_token") != self.session_token:
-            return web.json_response({"status": "unauthorized"}, status=401)
-        
-        try:
-            data = await request.json()
-            # Обновляем в БД через database.py
-            await update_remote_config(data)
-            
-            # Синхронизируем состояние в памяти
-            self.mnemonic = data.get('mnemonic', self.mnemonic)
-            self.ai_key = data.get('ai_api_key', self.ai_key)
-            self.target_pool = data.get('dedust_pool', self.target_pool)
-            self.strategy_level = data.get('ai_strategy_level', self.strategy_level)
-            
-            log(f"CONFIG: Данные обновлены. Уровень стратегии: {self.strategy_level}", "SUCCESS")
-            return web.json_response({"status": "success"})
-        except Exception as e:
-            log(f"CONFIG: Ошибка: {e}", "ERROR")
-            return web.json_response({"status": "error"}, status=500)
-
     async def handle_get_stats(self, request):
-        """Статистика для виджетов админки"""
         if request.cookies.get("auth_token") != self.session_token:
             return web.json_response({"status": "unauthorized"}, status=401)
-        
         db_stats = await get_stats_for_web()
-        
-        response_data = {
+        return web.json_response({
             "balance": f"{self.current_balance:.2f}",
-            "engine": {
-                "core_id": self.core_id,
-                "last_status": self.last_status,
-                "ops_total": self.total_ops
-            },
+            "engine": {"core_id": self.core_id, "last_status": self.last_status, "ops_total": self.total_ops},
             "pool_info": {
-                "address": self.target_pool if self.target_pool else "NOT CONFIGURED",
+                "address": self.target_pool or "NOT CONFIGURED",
                 "reserve_ton": db_stats.get("reserve_ton", "0.00"),
-                "reserve_token": db_stats.get("reserve_token", "0.00"),
                 "status": "STABLE" if self.is_active else "HALTED"
-            },
-            "current_metrics": db_stats.get("current_metrics", {"price_ton": "0.00"})
-        }
-        return web.json_response(response_data)
-
-    async def handle_connect_wallet(self, request):
-        try:
-            data = await request.json()
-            log(f"WEB: Сигнал от кошелька: {data.get('address')}", "INFO")
-            return web.json_response({"status": "ok", "synced": True})
-        except: return web.json_response({"status": "error"}, status=400)
+            }
+        })
 
     async def start_web_server(self):
-        """Запуск сервера aiohttp"""
+        log("SERVER: Инициализация сервера...", "INFO")
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={
             "*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")
         })
         
-        # Регистрация маршрутов
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
-        app.router.add_post('/api/config', self.handle_save_config)
-        app.router.add_post('/api/connect', self.handle_connect_wallet)
         
-        # Обслуживание статики (Дизайн и картинки)
         static_dir = self.get_static_path()
         if static_dir:
             app.router.add_static('/static/', path=static_dir)
@@ -182,104 +140,84 @@ class OmniNeuralOverlord:
         
         self.runner = web.AppRunner(app)
         await self.runner.setup()
+        
         port = int(os.getenv("PORT", 3000))
-        await web.TCPSite(self.runner, '0.0.0.0', port).start()
-        log(f"СЕРВЕР: Терминал запущен на порту {port}", "SUCCESS")
-
-    async def fetch_neural_strategy(self, market_snapshot):
-        """Запрос к OpenAI GPT-4o для принятия решения"""
-        if not self.ai_key:
-            return {"cmd": "WAIT", "reason": "No API Key"}
+        host = '0.0.0.0'
+        
+        log(f"SERVER: Попытка запуска на {host}:{port}", "INFO")
         try:
-            client = openai.AsyncOpenAI(api_key=self.ai_key)
-            res = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": f"Strategy Intensity: {self.strategy_level}. Output JSON ONLY."},
-                          {"role": "user", "content": json.dumps(market_snapshot)}],
-                response_format={"type": "json_object"}, timeout=12
-            )
-            return json.loads(res.choices[0].message.content)
+            site = web.TCPSite(self.runner, host, port)
+            await site.start()
+            log(f"SERVER: Терминал активен на порту {port}", "SUCCESS")
         except Exception as e:
-            log(f"AI: Ошибка: {e}", "ERROR")
-            return {"cmd": "WAIT", "reason": "AI_OFFLINE"}
+            log(f"SERVER ERROR: Не удалось запустить сервер: {e}", "ERROR")
 
     async def core_loop(self):
-        """Основной цикл работы системы"""
-        log("БАЗА: Инициализация протоколов...", "INFO")
+        log("CORE: Запуск системных процессов...", "INFO")
+        
+        # ЗАПУСКАЕМ СЕРВЕР ПЕРВЫМ (чтобы Bothost не выдал 504)
+        asyncio.create_task(self.start_web_server())
+
+        log("DB: Ожидание подключения к базе данных...", "INFO")
         while True:
             try:
                 await init_db()
-                log("БАЗА: Соединение установлено", "SUCCESS")
+                log("DB: Связь с PostgreSQL установлена", "SUCCESS")
                 break
-            except:
-                log("БАЗА: Ожидание PostgreSQL...", "WARNING")
+            except Exception as e:
+                log(f"DB: Ошибка: {e}. Повтор через 5с...", "WARNING")
                 await asyncio.sleep(5)
-
-        asyncio.create_task(self.start_web_server())
 
         while self.is_active:
             try:
-                # Загружаем конфиг из БД
                 cfg = await load_remote_config()
                 if cfg:
                     self.mnemonic = cfg.get('mnemonic', self.mnemonic)
                     self.ai_key = cfg.get('ai_api_key', self.ai_key)
-                    self.target_pool = cfg.get('dedust_pool', self.target_pool)
-                    self.strategy_level = cfg.get('ai_strategy_level', self.strategy_level)
                 
                 if not self.mnemonic:
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10); continue
 
-                # Работа с TON сетью
+                log("TON: Попытка синхронизации с сетью...", "INFO")
                 async with LiteClient.from_mainnet_config() as client:
                     wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
                     self.last_status = "ACTIVE"
-                    log(f"TON: Узел {wallet.address} синхронизирован", "SUCCESS")
+                    log(f"TON: Кошелек {wallet.address} готов", "SUCCESS")
                     
                     while self.is_active:
-                        try:
-                            # Проверка баланса
-                            balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
-                            self.current_balance = balance_nano / 1e9
-                            
-                            # Получение состояния рынка и решения ИИ
-                            market = await get_market_state()
-                            plan = await self.fetch_neural_strategy(market)
-                            
-                            if plan.get('cmd') == "BUY":
-                                log(f"AI_OPS: Исполнение КУПИТЬ ({plan.get('amt')} TON)", "SUCCESS")
-                                await self.dispatch_hft_pulse(wallet, plan)
-                            
-                            await asyncio.sleep(20)
-                        except Exception as e:
-                            log(f"LOOP: Ошибка итерации: {e}", "ERROR")
-                            await asyncio.sleep(5); break
-
+                        balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
+                        self.current_balance = balance_nano / 1e9
+                        log(f"MONITOR: Баланс {self.current_balance:.2f} TON", "TRACE")
+                        await asyncio.sleep(30)
             except Exception as e:
-                log(f"CRITICAL: Сбой: {e}", "ERROR")
-                self.last_status = "RECOVERY"
+                log(f"CRITICAL: Сбой в цикле: {e}", "ERROR")
                 await asyncio.sleep(10)
-
-    async def dispatch_hft_pulse(self, wallet, plan):
-        """Логика транзакций в TON"""
-        self.total_ops += 1
-        # Здесь будет вызов WalletV4R2.transfer(...)
-        return True
 
 if __name__ == "__main__":
     overlord = OmniNeuralOverlord()
     loop = asyncio.get_event_loop()
     
     async def shutdown(ol):
-        log("СИСТЕМА: Деактивация...", "WARNING")
+        log("SHUTDOWN: Деактивация Sentinel...", "WARNING")
         ol.is_active = False
-        if ol.runner: await ol.runner.cleanup()
+        if ol.runner: 
+            log("SHUTDOWN: Остановка сервера...", "TRACE")
+            await ol.runner.cleanup()
+        
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        [task.cancel() for task in tasks]
+        log(f"SHUTDOWN: Отмена {len(tasks)} активных задач", "TRACE")
+        await asyncio.gather(*tasks, return_exceptions=True)
         loop.stop()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(overlord)))
 
     try:
+        log("SYSTEM: Запуск завершен успешно", "SUCCESS")
         loop.run_until_complete(overlord.core_loop())
-    except KeyboardInterrupt: pass
+    except (KeyboardInterrupt, SystemExit):
+        log("SYSTEM: Работа завершена пользователем.", "INFO")
+    except Exception as e:
+        log(f"SYSTEM FATAL: {e}\n{traceback.format_exc()}", "ERROR")
