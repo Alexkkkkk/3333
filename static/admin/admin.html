@@ -1,1 +1,423 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL SENTINEL | Secure Command Center</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-blue: #00f2ff;
+            --bg-dark: #0a0b10;
+            --card-bg: rgba(16, 18, 27, 0.95);
+            --neon-red: #ff3333;
+            --neon-purple: #f0f;
+        }
 
+        body { 
+            background: var(--bg-dark); 
+            color: var(--neon-blue); 
+            font-family: 'Share Tech Mono', monospace; 
+            margin: 0; 
+            padding: 20px; 
+            overflow-x: hidden; 
+        }
+
+        /* Сканирующая полоса */
+        body::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(0, 242, 255, 0.1);
+            z-index: 1000;
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+        @keyframes scanline { 0% { top: 0; } 100% { top: 100%; } }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            border: 1px solid var(--neon-blue); 
+            padding: 20px; 
+            border-radius: 4px; 
+            box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.05); 
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Эффект шума на карточках */
+        .card::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.03;
+            pointer-events: none;
+        }
+
+        h1 { 
+            text-align: center; 
+            text-shadow: 0 0 15px var(--neon-blue); 
+            letter-spacing: 6px; 
+            text-transform: uppercase;
+            font-size: 24px;
+            margin-bottom: 30px;
+            animation: glitch 5s infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: skew(0deg); }
+            1% { transform: skew(10deg); opacity: 0.5; }
+            2% { transform: skew(-10deg); opacity: 1; }
+            3% { transform: skew(0deg); }
+            100% { transform: skew(0deg); }
+        }
+
+        h2 { 
+            border-bottom: 1px solid rgba(0, 242, 255, 0.3); 
+            padding-bottom: 8px; 
+            text-transform: uppercase; 
+            font-size: 14px; 
+            margin-top: 0;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-val { 
+            font-size: 32px; 
+            color: #fff; 
+            text-shadow: 0 0 10px var(--neon-blue); 
+        }
+
+        .input-group { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 12px; 
+        }
+
+        input { 
+            background: #000; 
+            border: 1px solid #1a3a40; 
+            color: #fff; 
+            padding: 10px; 
+            width: 180px; 
+            border-radius: 2px; 
+            font-family: inherit;
+            outline: none;
+        }
+        input:focus { border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+
+        button { 
+            background: var(--neon-blue); 
+            color: #000; 
+            border: none; 
+            padding: 14px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%; 
+            margin-top: 10px; 
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+
+        .status-online { color: #0f0; }
+        .pulse-dot {
+            height: 8px; width: 8px;
+            background-color: #0f0;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #0f0;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+        }
+
+        #log-container {
+            background: rgba(0,0,0,0.8);
+            padding: 12px;
+            border: 1px solid #1a1d2e;
+            height: 140px;
+            overflow-y: auto;
+            font-size: 11px;
+            color: #0f0;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        #log-container::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-thumb { background: var(--neon-blue); }
+
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .auth-card {
+            width: 340px;
+            text-align: center;
+            border: 1px solid var(--neon-blue);
+            background: var(--card-bg);
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
+        }
+
+        .hidden { display: none !important; }
+
+        .pool-data {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            background: rgba(0, 242, 255, 0.03);
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 2px solid var(--neon-blue);
+        }
+        .pool-box { text-align: center; }
+        .pool-label { font-size: 10px; color: #555; display: block; margin-bottom: 5px; }
+        .pool-val { font-size: 18px; font-weight: bold; color: #fff; }
+
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 style="color: var(--neon-red); border-color: var(--neon-red); margin-bottom: 10px; justify-content: center;">SECURE_GATEWAY_V4</h2>
+            <p style="font-size: 10px; margin-bottom: 25px; color: var(--neon-blue); letter-spacing: 2px;">AUTHORIZATION REQUIRED</p>
+            
+            <input type="text" id="login_field" placeholder="TERMINAL_ID" style="width: 100%; margin-bottom: 15px;" value="1">
+            <input type="password" id="pass_field" placeholder="ACCESS_KEY" style="width: 100%; margin-bottom: 20px;">
+            
+            <button onclick="attemptLogin()">INIT_CORE_LINK</button>
+            <p id="auth_error" style="color: var(--neon-red); font-size: 10px; margin-top: 15px;" class="hidden">ERROR: INVALID ACCESS KEY</p>
+        </div>
+    </div>
+
+    <div id="main-content" class="hidden">
+        <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>SYSTEM_TELEMETRY <span style="font-size: 9px; opacity: 0.5;">LIVE_FEED</span></h2>
+                <div style="margin: 20px 0;">
+                    <p><span class="pulse-dot"></span>CORE_STATUS: <span id="ai_status" class="status-online">SYNCHRONIZING...</span></p>
+                    <div style="margin-bottom: 15px;">
+                        <span style="font-size: 10px; color: #555;">MAIN_RESERVE (TON)</span><br>
+                        <span id="total_vol" class="stat-val">0.00</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 10px; color: #555;">MARKET_PRICE_USD</span><br>
+                        <span id="total_profit" class="stat-val">$0.00</span>
+                    </div>
+                    <p style="font-size: 10px; margin-top: 25px; border-top: 1px solid #111; padding-top: 10px;">
+                        CORE_ID: <span id="core_id" style="color: var(--neon-purple);">---</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>DEDUST_LIQUIDITY_POOL <span style="font-size: 9px; opacity: 0.5;">V3_AMM</span></h2>
+                <p style="font-size: 10px; opacity: 0.5;">ADDR: <span id="pool_addr_display">NOT_LINKED</span></p>
+                <div class="pool-data">
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE_TON</span>
+                        <span id="pool_ton" class="pool-val">0.00</span>
+                    </div>
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE_TOKEN</span>
+                        <span id="pool_token" class="pool-val">0.00</span>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px;">POOL_HEALTH:</span>
+                    <span id="pool_status" style="color: #0f0; font-size: 12px;">STABLE</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>CORE_PROTOCOL_SETTINGS <span style="font-size: 9px; opacity: 0.5;">ENCRYPTED_DB</span></h2>
+                <div class="input-group">
+                    <span style="font-size: 11px;">MNEMONIC_VAULT:</span> 
+                    <input type="password" id="cfg_mnemonic" placeholder="Secret words">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">OPENAI_NEURAL_LINK:</span> 
+                    <input type="password" id="cfg_ai_key" placeholder="sk-...">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">DEX_POOL_TARGET:</span> 
+                    <input type="text" id="cfg_pool" placeholder="EQ...">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">STRATEGY_INTENSITY:</span> 
+                    <input type="number" id="cfg_strategy" value="10" min="1" max="100">
+                </div>
+                <button onclick="saveConfig()">UPDATE_DATABASE_CONFIG</button>
+            </div>
+
+            <div class="card">
+                <h2>AI_DECISION_ENGINE <span style="font-size: 9px; opacity: 0.5;">REALTIME_OPS</span></h2>
+                <div style="height: 120px; margin-bottom: 10px;">
+                    <canvas id="chartOps"></canvas>
+                </div>
+                <div id="log-container">
+                    [SYSTEM] Terminal initialized... awaiting uplink...
+                </div>
+            </div>
+        </div>
+
+        <p style="text-align: center; font-size: 10px; color: #333; margin-top: 40px; letter-spacing: 1px;">
+            NODE_LOCATION: <span style="color: #555;">NETHERLANDS (NL_4)</span> | ENCRYPTION: <span style="color: #555;">AES-256-GCM</span>
+        </p>
+    </div>
+
+    <script>
+        let myChart;
+        const logBox = document.getElementById('log-container');
+
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.style.borderBottom = "1px solid #111";
+            div.style.padding = "4px 0";
+            div.innerHTML = `<span style="color: #333;">[${new Date().toLocaleTimeString()}]</span> <span style="color: #0f0;">></span> ${msg}`;
+            logBox.prepend(div);
+            if (logBox.children.length > 30) logBox.lastElementChild.remove();
+        }
+
+        async function attemptLogin() {
+            const login = document.getElementById('login_field').value;
+            const password = document.getElementById('pass_field').value;
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ login, password })
+                });
+                if (res.ok) {
+                    document.getElementById('auth-overlay').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    addLog("UPLINK ESTABLISHED. ACCESS GRANTED.");
+                    refreshStats();
+                    setInterval(refreshStats, 5000);
+                } else {
+                    document.getElementById('auth_error').classList.remove('hidden');
+                    addLog("🚨 ACCESS_DENIED: INVALID_KEY");
+                }
+            } catch (e) { alert("CONNECTION_FAILED"); }
+        }
+
+        async function refreshStats() {
+            try {
+                const res = await fetch('/api/stats');
+                if (res.status === 401) { location.reload(); return; }
+                const data = await res.json();
+                
+                document.getElementById('total_vol').innerText = data.balance || "0.00";
+                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
+                document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
+                document.getElementById('core_id').innerText = data.engine?.core_id || "SENTINEL-X";
+
+                if (data.pool_info) {
+                    const addr = data.pool_info.address;
+                    document.getElementById('pool_addr_display').innerText = (addr && addr !== "NOT CONFIGURED") ? addr : "NOT_LINKED";
+                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
+                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
+                    document.getElementById('pool_status').innerText = data.pool_info.status || "STABLE";
+                }
+
+                updateChart(data.engine?.ops_total || 0);
+            } catch (e) { 
+                document.getElementById('ai_status').innerText = "OFFLINE";
+                document.getElementById('ai_status').style.color = "var(--neon-red)";
+                document.querySelector('.pulse-dot').style.backgroundColor = "var(--neon-red)";
+                document.querySelector('.pulse-dot').style.boxShadow = "0 0 8px var(--neon-red)";
+            }
+        }
+
+        async function saveConfig() {
+            const settings = {
+                mnemonic: document.getElementById('cfg_mnemonic').value,
+                ai_api_key: document.getElementById('cfg_ai_key').value,
+                dedust_pool: document.getElementById('cfg_pool').value,
+                ai_strategy_level: parseInt(document.getElementById('cfg_strategy').value)
+            };
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(settings)
+                });
+                if (res.ok) {
+                    addLog("✅ CONFIG_SYNC_SUCCESS: DB_UPDATED");
+                    alert("Протокол настроек обновлен!");
+                }
+            } catch (e) { addLog("🚨 CRITICAL_DB_WRITE_ERROR"); }
+        }
+
+        function updateChart(opsCount) {
+            const ctx = document.getElementById('chartOps').getContext('2d');
+            const dataValues = [
+                Math.floor(opsCount * 0.25) + 1, 
+                Math.floor(opsCount * 0.15) + 1, 
+                Math.max(Math.floor(opsCount * 0.6), 1)
+            ];
+            
+            if (myChart) {
+                myChart.data.datasets[0].data = dataValues;
+                myChart.update();
+            } else {
+                myChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['BUY', 'SELL', 'ANALYSIS'],
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: ['#00f2ff', '#f0f', '#1a1d2e'],
+                            borderColor: '#0a0b10',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: { legend: { position: 'right', labels: { color: '#00f2ff', font: { size: 10, family: 'Share Tech Mono' } } } }
+                    }
+                });
+            }
+        }
+
+        // Авто-логин при наличии куки
+        if (document.cookie.includes('auth_token')) {
+            document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            refreshStats();
+            setInterval(refreshStats, 5000);
+        }
+    </script>
+</body>
+</html>
