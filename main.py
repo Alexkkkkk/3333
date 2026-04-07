@@ -2,16 +2,18 @@ import asyncio
 import os
 import json
 import time
-import openai
 import sys
-import random
-import numpy as np
-import traceback
 import signal
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
-from aiohttp import web
-import aiohttp_cors
+
+# Используем FastAPI, так как Bothost настроен под него (судя по логам uvicorn)
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 # --- СИСТЕМА УЛЬТРА-ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
@@ -25,199 +27,162 @@ def log(message, level="INFO"):
     color = colors.get(level, reset)
     print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
-# --- ПРОВЕРКА ОКРУЖЕНИЯ ---
-log(">>> ИНИЦИАЛИЗАЦИЯ NEURAL SENTINEL V3 <<<", "CORE")
-try:
-    from pytoniq import LiteClient, WalletV4R2, Address
-    log("L1: Библиотеки TON загружены", "SUCCESS")
-except ImportError as e:
-    log(f"L1 ERROR: Ошибка pytoniq: {e}", "ERROR")
-    sys.exit(1)
+log(">>> ЗАПУСК СИСТЕМЫ NEURAL SENTINEL V3 <<<", "CORE")
 
+# --- ПРОВЕРКА ОКРУЖЕНИЯ ---
 try:
-    from database import (init_db, log_ai_action, get_market_state, 
-                          get_stats_for_web, load_remote_config, update_remote_config)
-    log("L2: Модули базы данных подключены", "SUCCESS")
+    from pytoniq import LiteClient, WalletV4R2
+    from database import (init_db, get_stats_for_web, load_remote_config)
+    log("L1: Библиотеки TON и модули БД загружены", "SUCCESS")
 except ImportError as e:
-    log(f"L2 ERROR: Ошибка database.py: {e}", "ERROR")
-    sys.exit(1)
+    log(f"L1 ERROR: Ошибка импорта: {e}", "ERROR")
+    # Не выходим сразу, чтобы uvicorn успел поднять сервер и показать логи
 
 load_dotenv()
 
-class OmniNeuralOverlord:
+# --- ИНИЦИАЛИЗАЦИЯ FASTAPI ---
+app = FastAPI(title="Neural Sentinel Terminal")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class SentinelState:
     def __init__(self):
         self.is_active = True
-        self.session_start = time.time()
-        self.core_id = f"SENTINEL-{os.urandom(2).hex().upper()}"
-        self.admin_login = os.getenv("ADMIN_LOGIN", "1")
-        self.admin_pass = os.getenv("ADMIN_PASS", "1")
-        self.session_token = os.urandom(16).hex() 
-        
-        self.mnemonic = None
-        self.ai_key = None
-        self.target_pool = None
-        self.strategy_level = 10
         self.current_balance = 0.0
         self.total_ops = 0
         self.last_status = "BOOTING"
-        self.runner = None
-        
-        log(f"Ядро {self.core_id} сконфигурировано", "CORE")
+        self.core_id = f"SENTINEL-{os.urandom(2).hex().upper()}"
+        self.mnemonic = None
+        self.target_pool = None
+        self.ai_key = None
 
-    def get_static_path(self):
-        base = os.path.dirname(os.path.abspath(__file__))
-        static_path = os.path.join(base, 'static')
-        log(f"FS: Поиск статики в {static_path}", "TRACE")
-        return static_path if os.path.exists(static_path) else None
+state = SentinelState()
 
-    # --- WEB HANDLERS ---
-    async def handle_index(self, request):
-        log(f"WEB: Запрос {request.method} {request.path} от {request.remote}", "WEB")
-        path = request.path.lower().strip('/')
-        static_dir = self.get_static_path()
-        if not static_dir: 
-            log("WEB ERROR: Папка static не найдена", "ERROR")
-            return web.Response(text="Static folder not found", status=404)
+# --- WEB HANDLERS (FASTAPI) ---
 
-        if path == '' or path == 'index.html':
-            target = os.path.join(static_dir, 'index.html')
-        elif path == 'admin' or path == 'admin/admin.html':
-            target = os.path.join(static_dir, 'admin', 'admin.html')
-        else:
-            target = os.path.join(static_dir, path)
+@app.get("/")
+@app.get("/index.html")
+async def serve_index():
+    path = os.path.join("static", "index.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse({"status": "error", "message": "index.html not found"}, status_code=404)
 
-        if os.path.exists(target) and not os.path.isdir(target):
-            return web.FileResponse(target)
-        
-        log(f"WEB: Файл {path} не найден, отдаю index.html", "WARNING")
-        return web.FileResponse(os.path.join(static_dir, 'index.html'))
+@app.get("/admin")
+async def serve_admin():
+    path = os.path.join("static", "admin", "admin.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return FileResponse(os.path.join("static", "index.html"))
 
-    async def handle_login(self, request):
-        try:
-            data = await request.json()
-            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
-                res = web.json_response({"status": "success", "token": self.session_token})
-                res.set_cookie("auth_token", self.session_token, httponly=False)
-                log(f"AUTH: Успешный вход [{request.remote}]", "SUCCESS")
-                return res
-            log(f"AUTH: Отказ в доступе [{request.remote}]", "WARNING")
-            return web.json_response({"status": "error"}, status=401)
-        except: return web.json_response({"status": "error"}, status=400)
-
-    async def handle_get_stats(self, request):
-        if request.cookies.get("auth_token") != self.session_token:
-            return web.json_response({"status": "unauthorized"}, status=401)
+@app.get("/api/stats")
+async def get_stats():
+    try:
         db_stats = await get_stats_for_web()
-        return web.json_response({
-            "balance": f"{self.current_balance:.2f}",
-            "engine": {"core_id": self.core_id, "last_status": self.last_status, "ops_total": self.total_ops},
-            "pool_info": {
-                "address": self.target_pool or "NOT CONFIGURED",
-                "reserve_ton": db_stats.get("reserve_ton", "0.00"),
-                "status": "STABLE" if self.is_active else "HALTED"
-            }
-        })
+    except:
+        db_stats = {}
+    
+    return {
+        "balance": f"{state.current_balance:.2f}",
+        "engine": {
+            "core_id": state.core_id,
+            "last_status": state.last_status,
+            "ops_total": state.total_ops
+        },
+        "pool_info": {
+            "address": state.target_pool or "NOT CONFIGURED",
+            "reserve_ton": db_stats.get("reserve_ton", "0.00"),
+            "status": "STABLE" if state.is_active else "HALTED"
+        }
+    }
 
-    async def start_web_server(self):
-        log("SERVER: Инициализация сервера...", "INFO")
-        app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={
-            "*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")
-        })
-        
-        app.router.add_get('/', self.handle_index)
-        app.router.add_get('/admin', self.handle_index)
-        app.router.add_post('/api/login', self.handle_login)
-        app.router.add_get('/api/stats', self.handle_get_stats)
-        
-        static_dir = self.get_static_path()
-        if static_dir:
-            app.router.add_static('/static/', path=static_dir)
-            if os.path.exists(os.path.join(static_dir, 'images')):
-                app.router.add_static('/images/', path=os.path.join(static_dir, 'images'))
+# Подключаем статику для дизайна и картинок
+static_path = os.path.join(os.getcwd(), "static")
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+    log(f"FS: Статика подключена из {static_path}", "TRACE")
+    
+    # Прямой маппинг для папки images (твои логотипы и картинки)
+    img_path = os.path.join(static_path, "images")
+    if os.path.exists(img_path):
+        app.mount("/images", StaticFiles(directory=img_path), name="images")
 
-        for route in list(app.router.routes()): cors.add(route)
-        
-        self.runner = web.AppRunner(app)
-        await self.runner.setup()
-        
-        port = int(os.getenv("PORT", 3000))
-        host = '0.0.0.0'
-        
-        log(f"SERVER: Попытка запуска на {host}:{port}", "INFO")
+# --- CORE LOGIC (RUNNING IN BACKGROUND) ---
+
+async def core_loop():
+    log("CORE: Запуск системных процессов в фоне...", "INFO")
+    
+    # Ожидание базы
+    while True:
         try:
-            site = web.TCPSite(self.runner, host, port)
-            await site.start()
-            log(f"SERVER: Терминал активен на порту {port}", "SUCCESS")
+            await init_db()
+            log("DB: Связь с PostgreSQL установлена", "SUCCESS")
+            break
         except Exception as e:
-            log(f"SERVER ERROR: Не удалось запустить сервер: {e}", "ERROR")
+            log(f"DB: Ошибка подключения: {e}. Повтор через 5с...", "WARNING")
+            await asyncio.sleep(5)
 
-    async def core_loop(self):
-        log("CORE: Запуск системных процессов...", "INFO")
-        
-        # ЗАПУСКАЕМ СЕРВЕР ПЕРВЫМ (чтобы Bothost не выдал 504)
-        asyncio.create_task(self.start_web_server())
+    while state.is_active:
+        try:
+            # Загрузка конфигурации
+            cfg = await load_remote_config()
+            if cfg:
+                state.mnemonic = cfg.get('mnemonic', state.mnemonic)
+                state.ai_key = cfg.get('ai_api_key', state.ai_key)
+                state.target_pool = cfg.get('dedust_pool', state.target_pool)
 
-        log("DB: Ожидание подключения к базе данных...", "INFO")
-        while True:
-            try:
-                await init_db()
-                log("DB: Связь с PostgreSQL установлена", "SUCCESS")
-                break
-            except Exception as e:
-                log(f"DB: Ошибка: {e}. Повтор через 5с...", "WARNING")
-                await asyncio.sleep(5)
-
-        while self.is_active:
-            try:
-                cfg = await load_remote_config()
-                if cfg:
-                    self.mnemonic = cfg.get('mnemonic', self.mnemonic)
-                    self.ai_key = cfg.get('ai_api_key', self.ai_key)
-                
-                if not self.mnemonic:
-                    self.last_status = "WAITING_CONFIG"
-                    await asyncio.sleep(10); continue
-
-                log("TON: Попытка синхронизации с сетью...", "INFO")
-                async with LiteClient.from_mainnet_config() as client:
-                    wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
-                    self.last_status = "ACTIVE"
-                    log(f"TON: Кошелек {wallet.address} готов", "SUCCESS")
-                    
-                    while self.is_active:
-                        balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
-                        self.current_balance = balance_nano / 1e9
-                        log(f"MONITOR: Баланс {self.current_balance:.2f} TON", "TRACE")
-                        await asyncio.sleep(30)
-            except Exception as e:
-                log(f"CRITICAL: Сбой в цикле: {e}", "ERROR")
+            if not state.mnemonic:
+                state.last_status = "WAITING_CONFIG"
                 await asyncio.sleep(10)
+                continue
+
+            # Работа с TON
+            async with LiteClient.from_mainnet_config() as client:
+                wallet = await WalletV4R2.from_mnemonic(client, state.mnemonic.split())
+                state.last_status = "ACTIVE"
+                log(f"TON: Узел {wallet.address} синхронизирован", "SUCCESS")
+                
+                while state.is_active:
+                    try:
+                        balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
+                        state.current_balance = balance_nano / 1e9
+                        log(f"MONITOR: Баланс {state.current_balance:.2f} TON", "TRACE")
+                        await asyncio.sleep(30)
+                    except Exception as e:
+                        log(f"LOOP: Ошибка мониторинга: {e}", "WARNING")
+                        await asyncio.sleep(5)
+                        break # Переподключение LiteClient
+
+        except Exception as e:
+            log(f"CRITICAL: Сбой в ядре: {e}", "ERROR")
+            state.last_status = "RECOVERY"
+            await asyncio.sleep(10)
+
+@app.on_event("startup")
+async def startup_event():
+    # Запускаем основной цикл бота как фоновую задачу FastAPI
+    asyncio.create_task(core_loop())
+
+# --- RUNNER ---
 
 if __name__ == "__main__":
-    overlord = OmniNeuralOverlord()
-    loop = asyncio.get_event_loop()
+    # Получаем порт от Bothost (важно для работы внешнего адреса)
+    port = int(os.getenv("PORT", 3000))
+    host = "0.0.0.0"
     
-    async def shutdown(ol):
-        log("SHUTDOWN: Деактивация Sentinel...", "WARNING")
-        ol.is_active = False
-        if ol.runner: 
-            log("SHUTDOWN: Остановка сервера...", "TRACE")
-            await ol.runner.cleanup()
-        
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        [task.cancel() for task in tasks]
-        log(f"SHUTDOWN: Отмена {len(tasks)} активных задач", "TRACE")
-        await asyncio.gather(*tasks, return_exceptions=True)
-        loop.stop()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(overlord)))
-
+    log(f"SERVER: Попытка запуска терминала на {host}:{port}", "CORE")
+    
     try:
-        log("SYSTEM: Запуск завершен успешно", "SUCCESS")
-        loop.run_until_complete(overlord.core_loop())
+        # Запуск сервера uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="info", access_log=True)
     except (KeyboardInterrupt, SystemExit):
         log("SYSTEM: Работа завершена пользователем.", "INFO")
+        state.is_active = False
     except Exception as e:
         log(f"SYSTEM FATAL: {e}\n{traceback.format_exc()}", "ERROR")
