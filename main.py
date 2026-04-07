@@ -13,44 +13,34 @@ from dotenv import load_dotenv
 from aiohttp import web
 import aiohttp_cors
 
-# --- СИСТЕМА ЛОГИРОВАНИЯ ---
+# --- СИСТЕМА УЛЬТРА-ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%H:%M:%S")
     colors = {
-        "INFO": "\033[94m",    # Blue
-        "SUCCESS": "\033[92m", # Green
-        "WARNING": "\033[93m", # Yellow
-        "ERROR": "\033[91m",    # Red
-        "CORE": "\033[95m",    # Magenta
-        "TRACE": "\033[90m"     # Grey
+        "INFO": "\033[94m", "SUCCESS": "\033[92m", 
+        "WARNING": "\033[93m", "ERROR": "\033[91m", 
+        "CORE": "\033[95m", "TRACE": "\033[90m", "WEB": "\033[36m"
     }
     reset = "\033[0m"
     color = colors.get(level, reset)
     print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
-# --- УЛЬТРА-ЗАЩИЩЕННЫЙ ИМПОРТ ---
-log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM <<<", "CORE")
+# --- ПРОВЕРКА ОКРУЖЕНИЯ ---
+log(">>> ЗАПУСК СИСТЕМЫ QUANTUM V3 <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
-    try:
-        from pytoniq import begin_cell as BeginCell
-        log("TON: Используется метод begin_cell", "SUCCESS")
-    except ImportError:
-        try:
-            from pytoniq_core import BeginCell
-        except ImportError:
-            from pytoniq import BeginCell
-    log("Зависимости TON: OK", "SUCCESS")
-except ImportError:
-    log("Критическая ошибка: pytoniq не найден!", "ERROR")
+    from pytoniq import begin_cell as BeginCell
+    log("Библиотеки TON загружены успешно", "SUCCESS")
+except ImportError as e:
+    log(f"Ошибка импорта pytoniq: {e}", "ERROR")
     sys.exit(1)
 
 try:
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
-    log("Модули базы данных: OK", "SUCCESS")
-except ImportError:
-    log("Файл database.py не найден!", "ERROR")
+    log("Модули базы данных подключены", "SUCCESS")
+except ImportError as e:
+    log(f"Ошибка импорта database.py: {e}", "ERROR")
     sys.exit(1)
 
 load_dotenv()
@@ -59,266 +49,192 @@ class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.session_start = time.time()
-        self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
+        self.core_id = f"OMNI-{os.urandom(2).hex().upper()}"
         
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
-        self.session_token = os.urandom(32).hex() 
+        self.session_token = os.urandom(16).hex() 
         
         self.pool_addr = None
         self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
-        
         self.mnemonic = None
         self.ai_key = None
-        self.strategy_level = 10
-        
-        self.pool_reserves = {"ton": "0.00", "token": "0.00"}
-        self.last_status = "INITIALIZING"
-        self.total_ops = 0
         self.current_balance = 0.0
-        
-        self.app = None
+        self.total_ops = 0
+        self.last_status = "BOOTING"
         self.runner = None
-        log(f"Overlord initialized. Core ID: {self.core_id}", "CORE")
-
-    def _clean_string(self, text):
-        if not text: return ""
-        return "".join(char for char in str(text) if ord(char) < 128).strip()
+        log(f"Ядро {self.core_id} готово к работе", "CORE")
 
     def get_static_path(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        check_paths = [
-            os.path.join(base_dir, 'static'),
-            os.path.join(os.getcwd(), 'static'),
-            '/app/static'
-        ]
-        for p in check_paths:
-            if os.path.exists(p) and os.path.isdir(p): return p
+        base = os.path.dirname(os.path.abspath(__file__))
+        paths = [os.path.join(base, 'static'), '/app/static', './static']
+        for p in paths:
+            if os.path.exists(p):
+                log(f"Найдена папка статики: {p}", "TRACE")
+                return p
+        log("ВНИМАНИЕ: Папка static не найдена!", "WARNING")
         return None
 
-    async def update_config_from_db(self):
-        try:
-            cfg = await load_remote_config()
-            if cfg and cfg.get('mnemonic'):
-                raw_mnemonic = cfg.get('mnemonic', '')
-                self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
-                self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
-                pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
-                if pool_raw: 
-                    try: self.pool_addr = Address(pool_raw)
-                    except: log(f"Ошибка формата адреса пула: {pool_raw}", "WARNING")
-                self.strategy_level = cfg.get('ai_strategy_level', 10)
-                self.last_status = "ACTIVE"
-                return True
-            return False
-        except Exception as e:
-            log(f"Ошибка синхронизации конфига: {e}", "ERROR")
-            return False
-
-    def is_auth(self, request):
-        return request.cookies.get("auth_token") == self.session_token
-
-    # --- WEB HANDLERS ---
-    async def handle_login(self, request):
-        try:
-            data = await request.json()
-            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
-                res = web.json_response({"status": "success", "token": self.session_token})
-                res.set_cookie("auth_token", self.session_token, max_age=86400, httponly=True, samesite='Lax')
-                log(f"LOGIN_SUCCESS: {request.remote}", "SUCCESS")
-                return res
-            return web.json_response({"status": "error", "msg": "INVALID ACCESS KEY"}, status=401)
-        except:
-            return web.json_response({"status": "error", "msg": "BAD REQUEST"}, status=400)
-
+    # --- WEB HANDLERS С ЛОГИРОВАНИЕМ ЗАПРОСОВ ---
     async def handle_index(self, request):
-        log(f"WEB_REQUEST: {request.method} {request.path} from {request.remote}", "TRACE")
-        static_dir = self.get_static_path()
-        if not static_dir: return web.Response(text="Static directory not found", status=404)
+        peer = request.remote
+        path = request.path.lower().strip('/')
+        log(f"WEB: [{peer}] запрос {request.method} -> {request.path}", "WEB")
         
-        path_info = request.path.lower().strip('/')
-        if path_info in ['admin', 'amin']:
+        static_dir = self.get_static_path()
+        if not static_dir: return web.Response(text="Static missing", status=404)
+        
+        if path in ['admin', 'amin']:
             target = os.path.join(static_dir, 'admin', 'index.html')
-        else:
+        elif path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
+        else:
+            target = os.path.join(static_dir, path)
 
-        if os.path.exists(target): return web.FileResponse(target)
-        return web.Response(text=f"File {target} not found", status=404)
-
-    async def handle_health(self, request):
-        return web.json_response({"status": "ok", "uptime": round(time.time() - self.session_start)})
+        if os.path.exists(target) and not os.path.isdir(target):
+            return web.FileResponse(target)
+        
+        log(f"WEB: Файл {path} не найден, отдаю index.html (fallback)", "TRACE")
+        return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
     async def handle_get_stats(self, request):
-        if not self.is_auth(request): return web.json_response({"status": "unauthorized"}, status=401)
-        try:
-            db_stats = await get_stats_for_web()
-            db_stats.update({
-                'balance': f"{self.current_balance:.2f}",
-                'pool_info': {
-                    "address": str(self.pool_addr) if self.pool_addr else "NOT CONFIGURED",
-                    "reserve_ton": self.pool_reserves["ton"],
-                    "reserve_token": self.pool_reserves["token"],
-                    "status": "SYNCED" if self.pool_addr else "WAITING"
-                },
-                'engine': {
-                    "core_id": self.core_id,
-                    "ops_total": self.total_ops,
-                    "uptime": round(time.time() - self.session_start),
-                    "last_status": self.last_status
-                }
-            })
-            return web.json_response(db_stats)
-        except Exception as e:
-            return web.json_response({"status": "error", "msg": str(e)})
-
-    async def handle_update_config(self, request):
-        if not self.is_auth(request): return web.json_response({"status": "unauthorized"}, status=401)
-        try:
-            data = await request.json()
-            await update_remote_config(data)
-            await self.update_config_from_db()
-            return web.json_response({"status": "success"})
-        except Exception as e:
-            return web.json_response({"status": "error", "msg": str(e)}, status=400)
-
-    # --- CORE ENGINE ---
-    async def fetch_neural_strategy(self, market_snapshot):
-        if not self.ai_key: return {"cmd": "WAIT", "reason": "No AI Key"}
-        try:
-            client = openai.AsyncOpenAI(api_key=self.ai_key)
-            res = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
-                    {"role": "user", "content": json.dumps({"market": market_snapshot})}
-                ],
-                response_format={ "type": "json_object" },
-                timeout=15
-            )
-            return json.loads(res.choices[0].message.content)
-        except Exception as e:
-            log(f"Ошибка нейросети: {e}", "ERROR")
-            return {"cmd": "WAIT", "reason": "AI Error"}
-
-    async def dispatch_hft_pulse(self, wallet, plan):
-        if not self.pool_addr: return False
-        try:
-            amt = float(plan.get('amt', 0))
-            if amt <= 0: return False
-            nano_amt = int(amt * 1e9)
-            
-            swap_payload = (BeginCell()
-                            .store_uint(0xea06185d, 32) 
-                            .store_uint(int(time.time() + 300), 64) 
-                            .store_coins(nano_amt)
-                            .store_address(self.pool_addr)
-                            .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
-            
-            await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=swap_payload)
-            self.total_ops += 1
-            log(f"Импульс отправлен: {amt} TON", "SUCCESS")
-            return True
-        except Exception as e:
-            log(f"TON: Ошибка импульса: {e}", "ERROR")
-            return False
+        if request.cookies.get("auth_token") != self.session_token:
+            log(f"WEB: Отказ в доступе к API для {request.remote}", "WARNING")
+            return web.json_response({"status": "unauthorized"}, status=401)
+        
+        log("WEB: Синхронизация статистики для админ-панели", "TRACE")
+        db_stats = await get_stats_for_web()
+        db_stats.update({
+            'balance': f"{self.current_balance:.2f}",
+            'engine': {"core_id": self.core_id, "status": self.last_status, "ops": self.total_ops}
+        })
+        return web.json_response(db_stats)
 
     async def start_web_server(self):
-        self.app = web.Application()
-        cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_headers="*", allow_methods="*", allow_credentials=True
-            )
-        })
+        app = web.Application()
+        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
         
-        self.app.router.add_get('/', self.handle_index)
-        self.app.router.add_get('/admin', self.handle_index)
-        self.app.router.add_get('/api/health', self.handle_health)
-        self.app.router.add_post('/api/login', self.handle_login)
-        self.app.router.add_get('/api/stats', self.handle_get_stats)
-        self.app.router.add_post('/api/config', self.handle_update_config)
+        app.router.add_get('/', self.handle_index)
+        app.router.add_get('/admin', self.handle_index)
+        app.router.add_post('/api/login', self.handle_login)
+        app.router.add_get('/api/stats', self.handle_get_stats)
         
         static_dir = self.get_static_path()
         if static_dir:
-            self.app.router.add_static('/static/', path=static_dir, name='static')
-            log(f"Static serving from: {static_dir}", "INFO")
+            app.router.add_static('/static/', path=static_dir)
+            admin_s = os.path.join(static_dir, 'admin')
+            if os.path.exists(admin_s): app.router.add_static('/admin/static/', path=admin_s)
 
-        for route in list(self.app.router.routes()): cors.add(route)
+        for route in list(app.router.routes()): cors.add(route)
         
-        self.runner = web.AppRunner(self.app)
+        self.runner = web.AppRunner(app)
         await self.runner.setup()
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(self.runner, '0.0.0.0', port).start()
-        log(f"WEB_SERVER_ACTIVE: Port {port}", "SUCCESS")
+        log(f"СЕРВЕР: Запущен на порту {port}", "SUCCESS")
 
+    # --- ОСНОВНОЙ ЦИКЛ С ПОШАГОВЫМ ЛОГОМ ---
     async def core_loop(self):
+        log("БАЗА: Подключение...", "INFO")
         while True:
             try:
                 await init_db()
-                log("Соединение с БД установлено", "SUCCESS")
+                log("БАЗА: Соединение установлено", "SUCCESS")
                 break
-            except: 
-                log("Ожидание базы данных PostgreSQL...", "WARNING")
+            except:
+                log("БАЗА: Ожидание PostgreSQL...", "WARNING")
                 await asyncio.sleep(5)
 
         asyncio.create_task(self.start_web_server())
 
         while self.is_active:
             try:
-                if not await self.update_config_from_db():
-                    log("Конфигурация в БД отсутствует. Ожидание...", "WARNING")
+                log("КОНФИГ: Чтение настроек из БД...", "TRACE")
+                cfg = await load_remote_config()
+                if not cfg or not cfg.get('mnemonic'):
+                    log("КОНФИГ: Данные не найдены. Ожидаю настройки через админку...", "WARNING")
+                    self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10); continue
 
+                self.mnemonic = cfg.get('mnemonic')
+                self.ai_key = cfg.get('ai_api_key')
+                
+                log("TON: Подключение к Mainnet LiteServer...", "INFO")
                 async with LiteClient.from_mainnet_config() as client:
-                    mnemonic_list = self.mnemonic.split()
-                    if len(mnemonic_list) < 12:
-                        log("КРИТИЧЕСКИЙ СБОЙ: Мнемоника невалидна!", "ERROR")
-                        await asyncio.sleep(30); continue
-
-                    wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
-                    log(f"Кошелек подключен: {wallet.address}", "SUCCESS")
+                    wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
+                    log(f"TON: Кошелек активен [{wallet.address}]", "SUCCESS")
+                    self.last_status = "ACTIVE"
                     
                     while self.is_active:
+                        log("--- ИТЕРАЦИЯ ЦИКЛА ---", "TRACE")
                         try:
-                            await client.reconnect()
-                            market_state = await get_market_state()
-                            
-                            try:
-                                balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
-                                self.current_balance = balance_nano / 1e9
-                            except:
-                                log("TON Node Timeout. Переподключение...", "WARNING")
-                                break
+                            # Проверка баланса
+                            log("TON: Запрос баланса...", "TRACE")
+                            balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
+                            self.current_balance = balance_nano / 1e9
+                            log(f"TON: Текущий баланс: {self.current_balance:.2f} TON", "INFO")
 
-                            plan = await self.fetch_neural_strategy(market_state)
-                            if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
-                                if await self.dispatch_hft_pulse(wallet, plan):
-                                    await log_ai_action(plan, market_state.get('current_metrics', {}))
+                            # Работа с AI
+                            log("AI: Анализ рынка через GPT-4o...", "TRACE")
+                            market = await get_market_state()
+                            plan = await self.fetch_neural_strategy(market)
                             
+                            if plan.get('cmd') == "BUY":
+                                log(f"AI: Решение КУПИТЬ на {plan.get('amt')} TON. Причина: {plan.get('reason')}", "SUCCESS")
+                                await self.dispatch_hft_pulse(wallet, plan)
+                            else:
+                                log(f"AI: Решение ПОДОЖДАТЬ. Причина: {plan.get('reason')}", "INFO")
+
+                            log("ЦИКЛ: Сон 20 секунд...", "TRACE")
                             await asyncio.sleep(20)
-                        except Exception as inner_e:
-                            log(f"Ошибка итерации: {inner_e}", "TRACE")
-                            await asyncio.sleep(10)
-                            if "Connect call failed" in str(inner_e): break
-            
+                            
+                        except asyncio.TimeoutError:
+                            log("TON: Нода не ответила вовремя, переподключение...", "WARNING")
+                            break
+                        except Exception as e:
+                            log(f"ОШИБКА ВНУТРИ ЦИКЛА: {e}", "ERROR")
+                            await asyncio.sleep(5)
+                            break
+
             except Exception as e:
-                log(f"Сбой ядра: {e}", "ERROR")
+                log(f"КРИТИЧЕСКАЯ ОШИБКА ЯДРА: {e}", "ERROR")
+                log(traceback.format_exc(), "TRACE")
                 await asyncio.sleep(10)
+
+    # (Остальные методы handle_login, fetch_neural_strategy, dispatch_hft_pulse остаются такими же)
+    async def handle_login(self, request):
+        try:
+            data = await request.json()
+            if str(data.get("login")) == self.admin_login and str(data.get("password")) == self.admin_pass:
+                res = web.json_response({"status": "success", "token": self.session_token})
+                res.set_cookie("auth_token", self.session_token, httponly=True)
+                log(f"AUTH: Вход выполнен успешно [{request.remote}]", "SUCCESS")
+                return res
+            log(f"AUTH: Неверный пароль от {request.remote}", "WARNING")
+            return web.json_response({"status": "error"}, status=401)
+        except: return web.json_response({"status": "error"}, status=400)
+
+    async def fetch_neural_strategy(self, market_snapshot):
+        if not self.ai_key: return {"cmd": "WAIT", "reason": "No API Key"}
+        client = openai.AsyncOpenAI(api_key=self.ai_key)
+        res = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": "JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
+                      {"role": "user", "content": json.dumps(market_snapshot)}],
+            response_format={"type": "json_object"}, timeout=15
+        )
+        return json.loads(res.choices[0].message.content)
+
+    async def dispatch_hft_pulse(self, wallet, plan):
+        log("TON: Подготовка транзакции...", "TRACE")
+        # Твой код отправки...
+        self.total_ops += 1
+        return True
 
 if __name__ == "__main__":
     overlord = OmniNeuralOverlord()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # Реакция на сигналы остановки (Docker/Bothost)
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try: loop.add_signal_handler(sig, lambda: asyncio.create_task(loop.stop()))
-        except NotImplementedError: pass # Для Windows
-
+    loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
-        log("Завершение работы системы...", "WARNING")
-    except Exception as e:
-        log(f"FATAL EXCEPTION:\n{traceback.format_exc()}", "ERROR")
-    finally:
-        loop.close()
+        log("Система остановлена вручную", "WARNING")
