@@ -32,17 +32,17 @@ def log(message, level="INFO"):
 log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
+    # Пытаемся найти BeginCell в разных подмодулях (зависит от версии pytoniq)
     try:
         from pytoniq import begin_cell as BeginCell
-        log("TON: Используется метод begin_cell", "SUCCESS")
     except ImportError:
         try:
             from pytoniq_core import BeginCell
         except ImportError:
-            from pytoniq import BeginCell
+            from pytoniq.stack import BeginCell # Запасной вариант
     log("Зависимости TON: OK", "SUCCESS")
-except ImportError:
-    log("Критическая ошибка: pytoniq не найден!", "ERROR")
+except ImportError as e:
+    log(f"Критическая ошибка: pytoniq не найден! {e}", "ERROR")
     sys.exit(1)
 
 try:
@@ -141,27 +141,10 @@ class OmniNeuralOverlord:
 
     async def handle_admin(self, request):
         static_dir = self.get_static_path()
+        if not static_dir: return web.Response(text="Static not found", status=404)
         target = os.path.join(static_dir, 'admin', 'index.html')
         if os.path.exists(target): return web.FileResponse(target)
         return web.Response(text="Admin interface not found", status=404)
-
-    async def handle_privacy(self, request):
-        static_dir = self.get_static_path()
-        target = os.path.join(static_dir, 'privacy.html')
-        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
-
-    async def handle_terms(self, request):
-        static_dir = self.get_static_path()
-        target = os.path.join(static_dir, 'terms.html')
-        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
-
-    async def handle_manifest(self, request):
-        static_dir = self.get_static_path()
-        target = os.path.join(static_dir, 'tonconnect-manifest.json')
-        return web.FileResponse(target) if os.path.exists(target) else web.Response(status=404)
-
-    async def handle_health(self, request):
-        return web.json_response({"status": "ok", "uptime": round(time.time() - self.session_start)})
 
     async def handle_get_stats(self, request):
         if not self.is_auth(request): return web.json_response({"status": "unauthorized"}, status=401)
@@ -247,10 +230,7 @@ class OmniNeuralOverlord:
         
         self.app.router.add_get('/', self.handle_index)
         self.app.router.add_get('/admin', self.handle_admin)
-        self.app.router.add_get('/privacy', self.handle_privacy)
-        self.app.router.add_get('/terms', self.handle_terms)
-        self.app.router.add_get('/tonconnect-manifest.json', self.handle_manifest)
-        self.app.router.add_get('/api/health', self.handle_health)
+        self.app.router.add_get('/api/health', lambda r: web.json_response({"status": "ok"}))
         self.app.router.add_post('/api/login', self.handle_login)
         self.app.router.add_get('/api/stats', self.handle_get_stats)
         self.app.router.add_post('/api/config', self.handle_update_config)
@@ -262,7 +242,9 @@ class OmniNeuralOverlord:
             if os.path.exists(admin_static):
                 self.app.router.add_static('/admin/static/', path=admin_static, name='admin_static')
 
-        for route in list(self.app.router.routes()): cors.add(route)
+        for route in list(self.app.router.routes()): 
+            try: cors.add(route)
+            except: pass
         
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
@@ -286,7 +268,7 @@ class OmniNeuralOverlord:
         while self.is_active:
             try:
                 if not await self.update_config_from_db():
-                    log("Конфигурация в БД отсутствует. Ожидание...", "WARNING")
+                    log("Конфигурация отсутствует. Ожидание...", "WARNING")
                     await asyncio.sleep(10); continue
 
                 async with LiteClient.from_mainnet_config() as client:
@@ -300,15 +282,12 @@ class OmniNeuralOverlord:
                     
                     while self.is_active:
                         try:
-                            await client.reconnect()
-                            market_state = await get_market_state()
+                            # Проверяем соединение с нодой
+                            await asyncio.wait_for(client.reconnect(), timeout=10.0)
                             
-                            try:
-                                balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=15.0)
-                                self.current_balance = balance_nano / 1e9
-                            except:
-                                log("TON Node Timeout. Переподключение...", "WARNING")
-                                break
+                            market_state = await get_market_state()
+                            balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=15.0)
+                            self.current_balance = balance_nano / 1e9
 
                             plan = await self.fetch_neural_strategy(market_state)
                             if plan.get('cmd') == "BUY" and self.current_balance > (float(plan.get('amt', 0)) + 0.5):
@@ -316,6 +295,9 @@ class OmniNeuralOverlord:
                                     await log_ai_action(plan, market_state.get('current_metrics', {}))
                             
                             await asyncio.sleep(20)
+                        except asyncio.TimeoutError:
+                            log("TON Node Timeout. Переподключение...", "WARNING")
+                            break
                         except Exception as inner_e:
                             log(f"Ошибка итерации: {inner_e}", "TRACE")
                             await asyncio.sleep(10)
@@ -326,34 +308,28 @@ class OmniNeuralOverlord:
                     log(f"Сбой ядра: {e}", "ERROR")
                     await asyncio.sleep(10)
 
-    async def shutdown(self):
-        """Плавная остановка всех компонентов."""
-        log("Завершение работы системы...", "WARNING")
+    async def shutdown(self, sig=None):
+        log(f"Завершение работы системы (сигнал: {sig})...", "WARNING")
         self.is_active = False
-        
-        if self.site:
-            await self.site.stop()
-        if self.runner:
-            await self.runner.cleanup()
+        if self.site: await self.site.stop()
+        if self.runner: await self.runner.cleanup()
         
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         [task.cancel() for task in tasks]
-        
-        log("Все задачи отменены. Выход.", "SUCCESS")
         await asyncio.gather(*tasks, return_exceptions=True)
-        asyncio.get_event_loop().stop()
+        log("Система остановлена.", "SUCCESS")
+        loop = asyncio.get_event_loop()
+        loop.stop()
 
 if __name__ == "__main__":
     overlord = OmniNeuralOverlord()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
-    # Регистрация сигналов завершения
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(overlord.shutdown()))
+            loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(overlord.shutdown(s)))
         except NotImplementedError:
-            # Для Windows, где add_signal_handler не поддерживается в полной мере
             pass
     
     try:
