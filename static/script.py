@@ -1,3 +1,5 @@
+// --- QUANTUM TERMINAL v4.1 ENGINE ---
+
 // Конфигурация TonConnect
 const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
     manifestUrl: 'https://quantum.bothost.tech/static/tonconnect-manifest.json',
@@ -11,19 +13,41 @@ tonConnectUI.onStatusChange(async wallet => {
     userWallet = wallet;
     updateUIState();
     if(wallet) {
+        const address = wallet.account.address;
         showWhaleAlert("Wallet Synced", "Quantum Terminal Ready");
-        await fetchWalletData(wallet.account.address);
+        
+        // --- СИНХРОНИЗАЦИЯ С BACKEND (Quantum V3 Core) ---
+        syncWalletWithBackend(address);
+        
+        await fetchWalletData(address);
     } else {
         resetWalletData();
     }
 });
 
+// Новая функция для связи с вашим main.py
+async function syncWalletWithBackend(address) {
+    try {
+        await fetch('/api/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: address })
+        });
+        console.log("Backend Sync: Success");
+    } catch (e) {
+        console.error("Backend Sync: Failed", e);
+    }
+}
+
 // Получение данных кошелька через TonAPI
 async function fetchWalletData(address) {
     try {
         const shortAddr = `${address.slice(0, 4)}...${address.slice(-4)}`;
-        document.getElementById('wallet-short-addr').innerText = shortAddr;
-        document.getElementById('user-profile-mini').classList.remove('hidden');
+        const walletDisplay = document.getElementById('wallet-short-addr');
+        if(walletDisplay) walletDisplay.innerText = shortAddr;
+        
+        const profileMini = document.getElementById('user-profile-mini');
+        if(profileMini) profileMini.classList.remove('hidden');
 
         document.getElementById('profile-status').innerText = "VERIFIED OPERATOR";
         document.getElementById('profile-full-address').innerText = address;
@@ -38,7 +62,9 @@ async function fetchWalletData(address) {
         const accRes = await fetch(`https://tonapi.io/v2/accounts/${address}`);
         const accData = await accRes.json();
         const tonBalance = (accData.balance / 1e9).toFixed(2);
-        document.getElementById('main-balance-ton').innerText = `${tonBalance} TON`;
+        
+        const mainBal = document.getElementById('main-balance-ton');
+        if(mainBal) mainBal.innerText = `${tonBalance} TON`;
 
         renderJettons(data.balances, tonBalance);
     } catch (e) {
@@ -53,6 +79,7 @@ function renderJettons(balances, tonBalance) {
     if (!list) return;
     
     list.innerHTML = '';
+    // Дефолтный TON ряд
     list.innerHTML += createTokenRow("TON", "TON", tonBalance, "https://ton.org/download/ton_symbol.png", "5.24");
 
     balances.forEach(item => {
@@ -67,7 +94,7 @@ function renderJettons(balances, tonBalance) {
 
 function createTokenRow(name, symbol, balance, img, price) {
     return `
-        <div class="token-row flex justify-between items-center px-2 hover:bg-white/5 rounded-xl">
+        <div class="token-row flex justify-between items-center px-2 hover:bg-white/5 rounded-xl transition-all duration-300">
             <div class="flex items-center gap-3">
                 <img src="${img}" class="w-10 h-10 rounded-full border border-white/10" onerror="this.src='https://wallet.tg/assets/logo.png'">
                 <div>
@@ -85,8 +112,12 @@ function createTokenRow(name, symbol, balance, img, price) {
 
 // Сброс данных при отключении
 function resetWalletData() {
-    document.getElementById('user-profile-mini').classList.add('hidden');
-    document.getElementById('main-balance-ton').innerText = "0.00 TON";
+    const profileMini = document.getElementById('user-profile-mini');
+    if(profileMini) profileMini.classList.add('hidden');
+    
+    const mainBal = document.getElementById('main-balance-ton');
+    if(mainBal) mainBal.innerText = "0.00 TON";
+    
     const list = document.getElementById('tokenList');
     if(list) list.innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек</p>';
     
@@ -125,7 +156,10 @@ async function deployJetton() {
     const symbol = document.getElementById('jettonSymbol').value;
     const supply = document.getElementById('jettonSupply').value;
 
-    if(!name || !symbol || !supply) return alert("Fill Name, Symbol and Supply!");
+    if(!name || !symbol || !supply) {
+        showWhaleAlert("System Error", "Fill all deployment fields");
+        return;
+    }
 
     const btn = document.getElementById('deployBtn');
     btn.innerText = "FORGING...";
@@ -144,6 +178,7 @@ async function deployJetton() {
         showWhaleAlert("Mint Success", `${symbol} is on Mainnet`);
     } catch (e) {
         console.error(e);
+        showWhaleAlert("Mint Failed", "Transaction rejected");
     } finally {
         btn.disabled = false;
         updateUIState();
@@ -178,9 +213,18 @@ function showWhaleAlert(title, text) {
     if(!container) return;
     const alert = document.createElement('div');
     alert.className = 'whale-toast';
-    alert.innerHTML = `<p class="text-cyan-400 font-bold text-xs uppercase">${title}</p><p class="text-white text-[10px]">${text}</p>`;
+    alert.innerHTML = `
+        <div class="flex flex-col">
+            <p class="text-cyan-400 font-bold text-xs uppercase tracking-wider">${title}</p>
+            <p class="text-white text-[10px] opacity-80">${text}</p>
+        </div>
+    `;
     container.appendChild(alert);
-    setTimeout(() => alert.remove(), 4000);
+    setTimeout(() => {
+        alert.style.opacity = '0';
+        alert.style.transform = 'translateX(20px)';
+        setTimeout(() => alert.remove(), 500);
+    }, 4000);
 }
 
 // Анимация фона (Particles)
@@ -213,14 +257,14 @@ if(canvas) {
 }
 
 // Интерактив карточек (Mouse Move)
-function handleMouseMove(e) {
+document.addEventListener('mousemove', (e) => {
     const cards = document.querySelectorAll('.glass-card, .card-grid-item');
     cards.forEach(card => {
         const rect = card.getBoundingClientRect();
         card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
         card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
     });
-}
+});
 
 // Инициализация графика (Chart.js)
 function initChart() {
