@@ -12,7 +12,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
-# FastAPI для стабильной работы веб-интерфейса на Bothost
+# FastAPI для стабильной работы веб-интерфейса
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -56,7 +56,7 @@ load_dotenv()
 # --- FASTAPI LIFE-CYCLE (LIFESPAN) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Действия при запуске (заменяет @app.on_event("startup"))
+    # Действия при запуске
     log("CORE: Инициализация фоновых процессов...", "CORE")
     worker_task = asyncio.create_task(core_worker())
     yield
@@ -64,6 +64,10 @@ async def lifespan(app: FastAPI):
     log("CORE: Завершение работы...", "WARNING")
     overlord.is_active = False
     worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        log("CORE: Воркер успешно остановлен", "SUCCESS")
 
 # --- FASTAPI APP SETUP ---
 app = FastAPI(title="Quantum Omni Overlord", lifespan=lifespan)
@@ -107,7 +111,6 @@ class OmniNeuralOverlord:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
                 raw_mnemonic = str(cfg.get('mnemonic', ''))
-                # Глубокая очистка мнемоники
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
                 pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
@@ -130,7 +133,6 @@ overlord = OmniNeuralOverlord()
 async def serve_index():
     return FileResponse("static/index.html")
 
-# Фикс для TON Connect
 @app.get("/tonconnect-manifest.json")
 async def serve_manifest():
     manifest_path = "static/tonconnect-manifest.json"
@@ -138,13 +140,17 @@ async def serve_manifest():
         return FileResponse(manifest_path)
     return JSONResponse({"status": "error", "msg": "Manifest not found"}, status_code=404)
 
+# МАРШРУТ АДМИНКИ (Путь: static/admin/admin.html)
 @app.get("/admin")
-@app.get("/admin/index.html")
+@app.get("/admin/admin.html")
 async def serve_admin(request: Request):
+    # Проверка авторизации через куки
     if request.cookies.get("auth_token") == overlord.session_token:
-        admin_path = "static/admin/index.html"
+        admin_path = "static/admin/admin.html"
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
+        return JSONResponse({"error": "admin.html not found in static/admin/"}, status_code=404)
+    # Если не авторизован — редирект на главную или показ ошибки
     return FileResponse("static/index.html")
 
 @app.post("/api/login")
@@ -197,9 +203,10 @@ async def handle_update_config(request: Request):
     except Exception as e:
         return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
 
-# Подключение статики (Картинки и CSS не менять!)
+# Подключение статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
+    # Отдельное монтирование для картинок, если они используются в дизайне
     if os.path.exists("static/images"):
         app.mount("/images", StaticFiles(directory="static/images"), name="images")
 
