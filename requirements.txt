@@ -1,13 +1,23 @@
-openai==0.28.1
-numpy>=1.24.0
-python-dotenv
-ujson
-asyncio
+# Веб-сервер и API
+fastapi
+uvicorn
+python-multipart
 aiohttp>=3.9.0
 aiohttp_cors
+
+# Телеграм и TON
 aiogram>=3.0.0
 pytoniq==0.1.43
 pytoniq-core==0.1.46
 cryptography>=42.0.0
+
+# База данных
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9
+
+# ИИ и утилиты
+openai>=1.0.0
+numpy>=1.24.0
+python-dotenv
+ujson
+asyncio
