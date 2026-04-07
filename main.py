@@ -74,7 +74,7 @@ class OmniNeuralOverlord:
         log("ВНИМАНИЕ: Папка static не найдена!", "WARNING")
         return None
 
-    # --- WEB HANDLERS С ПОДДЕРЖКОЙ НОВОЙ СТРУКТУРЫ ---
+    # --- WEB HANDLERS ---
     async def handle_index(self, request):
         peer = request.remote
         path = request.path.lower().strip('/')
@@ -83,31 +83,23 @@ class OmniNeuralOverlord:
         static_dir = self.get_static_path()
         if not static_dir: return web.Response(text="Static folder missing", status=404)
         
-        # Маршрутизация согласно вашей структуре
-        # 1. Админка (теперь файл admin.html внутри папки admin)
+        # Маршрутизация
         if path in ['admin', 'admin/admin.html']:
             target = os.path.join(static_dir, 'admin', 'admin.html')
-        
-        # 2. Главная страница
         elif path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
-        
-        # 3. Служебные страницы
         elif path == 'privacy.html':
             target = os.path.join(static_dir, 'privacy.html')
         elif path == 'terms.html':
             target = os.path.join(static_dir, 'terms.html')
         elif path == 'tonconnect-manifest.json':
             target = os.path.join(static_dir, 'tonconnect-manifest.json')
-        
-        # 4. Прочие файлы (включая script.py)
         else:
             target = os.path.join(static_dir, path)
 
         if os.path.exists(target) and not os.path.isdir(target):
             return web.FileResponse(target)
         
-        log(f"WEB: Файл {path} не найден, возврат на index.html (fallback)", "TRACE")
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
     async def handle_login(self, request):
@@ -118,16 +110,13 @@ class OmniNeuralOverlord:
                 res.set_cookie("auth_token", self.session_token, httponly=True)
                 log(f"AUTH: Вход выполнен успешно [{request.remote}]", "SUCCESS")
                 return res
-            log(f"AUTH: Ошибка входа [{request.remote}]", "WARNING")
             return web.json_response({"status": "error", "message": "Invalid credentials"}, status=401)
         except: return web.json_response({"status": "error"}, status=400)
 
     async def handle_get_stats(self, request):
         if request.cookies.get("auth_token") != self.session_token:
-            log(f"WEB: Отказ в доступе к API для {request.remote}", "WARNING")
             return web.json_response({"status": "unauthorized"}, status=401)
         
-        log("WEB: Синхронизация статистики", "TRACE")
         db_stats = await get_stats_for_web()
         db_stats.update({
             'balance': f"{self.current_balance:.2f}",
@@ -139,7 +128,6 @@ class OmniNeuralOverlord:
         app = web.Application()
         cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
         
-        # Основной роутинг
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
         app.router.add_get('/admin/admin.html', self.handle_index)
@@ -147,17 +135,13 @@ class OmniNeuralOverlord:
         app.router.add_get('/terms.html', self.handle_index)
         app.router.add_get('/tonconnect-manifest.json', self.handle_index)
         
-        # API
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
         
         static_dir = self.get_static_path()
         if static_dir:
-            # Картинки: /images/logo.png
             app.router.add_static('/images/', path=os.path.join(static_dir, 'images'))
-            # Корень статики: /static/script.py
             app.router.add_static('/static/', path=static_dir)
-            # Папка админа: /admin/
             admin_path = os.path.join(static_dir, 'admin')
             if os.path.exists(admin_path):
                 app.router.add_static('/admin/assets/', path=admin_path)
@@ -169,6 +153,24 @@ class OmniNeuralOverlord:
         port = int(os.getenv("PORT", 3000))
         await web.TCPSite(self.runner, '0.0.0.0', port).start()
         log(f"СЕРВЕР: Доступен на http://0.0.0.0:{port}", "SUCCESS")
+
+    async def fetch_neural_strategy(self, market_snapshot):
+        if not self.ai_key:
+            # Лог с четким указанием пути к админке
+            log("AI: [!] API КЛЮЧ НЕ НАЙДЕН. Подключитесь через админку: /admin", "WARNING")
+            return {"cmd": "WAIT", "reason": "No API Key. Please connect via Admin Panel."}
+        try:
+            client = openai.AsyncOpenAI(api_key=self.ai_key)
+            res = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "system", "content": "JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
+                          {"role": "user", "content": json.dumps(market_snapshot)}],
+                response_format={"type": "json_object"}, timeout=15
+            )
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            log(f"AI: Ошибка запроса: {e}", "ERROR")
+            return {"cmd": "WAIT", "reason": "AI Error"}
 
     async def core_loop(self):
         log("БАЗА: Подключение...", "INFO")
@@ -187,14 +189,17 @@ class OmniNeuralOverlord:
             try:
                 log("КОНФИГ: Чтение настроек...", "TRACE")
                 cfg = await load_remote_config()
-                if not cfg or not cfg.get('mnemonic'):
-                    log("КОНФИГ: Ожидание настройки через админку...", "WARNING")
-                    self.last_status = "WAITING_CONFIG"
-                    await asyncio.sleep(10); continue
-
-                self.mnemonic = cfg.get('mnemonic')
-                self.ai_key = cfg.get('ai_api_key')
                 
+                # Обновляем ключи из БД
+                self.mnemonic = cfg.get('mnemonic') if cfg else None
+                self.ai_key = cfg.get('ai_api_key') if cfg else None
+                
+                if not self.mnemonic:
+                    log("КОНФИГ: Мемоника отсутствует. Жду настройки в /admin", "WARNING")
+                    self.last_status = "WAITING_CONFIG"
+                    await asyncio.sleep(10)
+                    continue
+
                 async with LiteClient.from_mainnet_config() as client:
                     wallet = await WalletV4R2.from_mnemonic(client, self.mnemonic.split())
                     log(f"TON: Кошелек {wallet.address} активен", "SUCCESS")
@@ -204,8 +209,7 @@ class OmniNeuralOverlord:
                         try:
                             balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=10.0)
                             self.current_balance = balance_nano / 1e9
-                            log(f"TON: Баланс: {self.current_balance:.2f} TON", "INFO")
-
+                            
                             market = await get_market_state()
                             plan = await self.fetch_neural_strategy(market)
                             
@@ -214,6 +218,10 @@ class OmniNeuralOverlord:
                                 await self.dispatch_hft_pulse(wallet, plan)
                             else:
                                 log(f"AI: Ожидание. Причина: {plan.get('reason')}", "INFO")
+
+                            # Если ключа нет, напоминаем раз в цикл
+                            if not self.ai_key:
+                                log("ПОДСКАЗКА: Чтобы активировать ИИ, введите API Key в панели /admin", "INFO")
 
                             await asyncio.sleep(20)
                         except asyncio.TimeoutError:
@@ -226,19 +234,6 @@ class OmniNeuralOverlord:
             except Exception as e:
                 log(f"ЯДРО: Критический сбой: {e}", "ERROR")
                 await asyncio.sleep(10)
-
-    async def fetch_neural_strategy(self, market_snapshot):
-        if not self.ai_key: return {"cmd": "WAIT", "reason": "No API Key"}
-        try:
-            client = openai.AsyncOpenAI(api_key=self.ai_key)
-            res = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": "JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
-                          {"role": "user", "content": json.dumps(market_snapshot)}],
-                response_format={"type": "json_object"}, timeout=15
-            )
-            return json.loads(res.choices[0].message.content)
-        except: return {"cmd": "WAIT", "reason": "AI Error"}
 
     async def dispatch_hft_pulse(self, wallet, plan):
         log("TON: Инициация транзакции...", "TRACE")
