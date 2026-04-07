@@ -82,27 +82,19 @@ class OmniNeuralOverlord:
         if not static_dir:
             return web.Response(text="Static folder not found", status=404)
 
-        # Логика определения файла на основе твоей структуры на скриншоте
+        # Логика определения файла
         if path == '' or path == 'index.html':
             target = os.path.join(static_dir, 'index.html')
         elif path == 'admin' or path == 'admin/admin.html':
             target = os.path.join(static_dir, 'admin', 'admin.html')
-        elif path == 'privacy.html':
-            target = os.path.join(static_dir, 'privacy.html')
-        elif path == 'terms.html':
-            target = os.path.join(static_dir, 'terms.html')
-        elif path == 'script.py':
-            target = os.path.join(static_dir, 'script.py')
-        elif path == 'tonconnect-manifest.json':
-            target = os.path.join(static_dir, 'tonconnect-manifest.json')
+        elif path == 'privacy.html' or path == 'terms.html' or path == 'tonconnect-manifest.json':
+            target = os.path.join(static_dir, path)
         else:
-            # Для любых других файлов (картинки, стили)
             target = os.path.join(static_dir, path)
 
         if os.path.exists(target) and not os.path.isdir(target):
             return web.FileResponse(target)
         
-        # Если файл не найден, отдаем главную (стандарт для SPA)
         return web.FileResponse(os.path.join(static_dir, 'index.html'))
 
     async def handle_login(self, request):
@@ -115,6 +107,19 @@ class OmniNeuralOverlord:
                 return res
             return web.json_response({"status": "error", "message": "Invalid credentials"}, status=401)
         except: return web.json_response({"status": "error"}, status=400)
+
+    # --- НОВЫЙ ЭНДПОИНТ: СОХРАНЕНИЕ КОШЕЛЬКА ПОЛЬЗОВАТЕЛЯ ---
+    async def handle_connect_wallet(self, request):
+        try:
+            data = await request.json()
+            address = data.get("address")
+            if address:
+                # Здесь можно добавить вызов в database.py для сохранения в таблицу users
+                log(f"WEB: Подключен кошелек клиента: {address}", "SUCCESS")
+                return web.json_response({"status": "ok", "synced": True})
+            return web.json_response({"status": "error", "message": "No address"}, status=400)
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def handle_get_stats(self, request):
         if request.cookies.get("auth_token") != self.session_token:
@@ -129,15 +134,21 @@ class OmniNeuralOverlord:
 
     async def start_web_server(self):
         app = web.Application()
-        cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True, 
+                expose_headers="*", 
+                allow_headers="*"
+            )
+        })
         
         # Регистрация маршрутов
         app.router.add_get('/', self.handle_index)
         app.router.add_get('/admin', self.handle_index)
         app.router.add_post('/api/login', self.handle_login)
         app.router.add_get('/api/stats', self.handle_get_stats)
+        app.router.add_post('/api/connect', self.handle_connect_wallet) # API для index.html
         
-        # Раздача статических файлов из подпапок
         static_dir = self.get_static_path()
         if static_dir:
             app.router.add_static('/static/', path=static_dir)
@@ -154,7 +165,6 @@ class OmniNeuralOverlord:
 
     async def fetch_neural_strategy(self, market_snapshot):
         if not self.ai_key:
-            log("AI: [!] API КЛЮЧ НЕ НАЙДЕН. Панель управления: /admin", "WARNING")
             return {"cmd": "WAIT", "reason": "No API Key"}
         try:
             client = openai.AsyncOpenAI(api_key=self.ai_key)
@@ -166,7 +176,7 @@ class OmniNeuralOverlord:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            log(f"AI: Ошибка запроса: {e}", "ERROR")
+            log(f"AI: Ошибка: {e}", "ERROR")
             return {"cmd": "WAIT", "reason": "AI Error"}
 
     async def core_loop(self):
@@ -189,7 +199,6 @@ class OmniNeuralOverlord:
                 self.ai_key = cfg.get('ai_api_key') if cfg else None
                 
                 if not self.mnemonic:
-                    log("КОНФИГ: Мемоника отсутствует. Жду настройки в /admin", "WARNING")
                     self.last_status = "WAITING_CONFIG"
                     await asyncio.sleep(10)
                     continue
@@ -209,12 +218,10 @@ class OmniNeuralOverlord:
                             if plan.get('cmd') == "BUY":
                                 log(f"AI: КУПИТЬ на {plan.get('amt')} TON", "SUCCESS")
                                 await self.dispatch_hft_pulse(wallet, plan)
-                            else:
-                                log(f"AI: Статус: {plan.get('reason')}", "INFO")
-
+                            
                             await asyncio.sleep(20)
                         except asyncio.TimeoutError:
-                            log("TON: Тайм-аут связи, переподключение...", "WARNING")
+                            log("TON: Тайм-аут, переподключение...", "WARNING")
                             break
                         except Exception as e:
                             log(f"ЦИКЛ: Ошибка: {e}", "ERROR")
@@ -232,7 +239,20 @@ class OmniNeuralOverlord:
 if __name__ == "__main__":
     overlord = OmniNeuralOverlord()
     loop = asyncio.get_event_loop()
+    
+    # Регистрация сигналов остановки
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(overlord)))
+
+    async def shutdown(ol):
+        log("СИСТЕМА: Получен сигнал остановки...", "WARNING")
+        ol.is_active = False
+        if ol.runner:
+            await ol.runner.cleanup()
+        log("СИСТЕМА: Выключение завершено", "CORE")
+        loop.stop()
+
     try:
         loop.run_until_complete(overlord.core_loop())
     except KeyboardInterrupt:
-        log("СИСТЕМА: Остановка вручную", "WARNING")
+        pass
