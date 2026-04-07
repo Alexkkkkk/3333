@@ -42,7 +42,6 @@ except ImportError:
         log("L1: Загрузка через pytoniq_core", "SUCCESS")
     except ImportError:
         log("Критическая ошибка: pytoniq не найден!", "ERROR")
-        # Не выходим, чтобы дать серверу запуститься и показать логи
 
 try:
     from database import (init_db, log_ai_action, get_market_state, 
@@ -108,7 +107,7 @@ class OmniNeuralOverlord:
             log(f"Ошибка конфига: {e}", "ERROR")
             return False
 
-# Инициализируем состояние
+# Инициализируем синглтон оверлорда
 overlord = OmniNeuralOverlord()
 
 # --- WEB ROUTES (FASTAPI) ---
@@ -116,12 +115,12 @@ overlord = OmniNeuralOverlord()
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
+    # index.html всегда в папке static
     return FileResponse("static/index.html")
 
 @app.get("/admin")
 @app.get("/admin/index.html")
 async def serve_admin(request: Request):
-    # Проверка сессии через куки (упрощенно)
     if request.cookies.get("auth_token") == overlord.session_token:
         return FileResponse("static/admin/index.html")
     return FileResponse("static/index.html")
@@ -132,7 +131,7 @@ async def handle_login(request: Request):
         data = await request.json()
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
             res = JSONResponse({"status": "success", "token": overlord.session_token})
-            res.set_cookie("auth_token", overlord.session_token, max_age=86400, httponly=True)
+            res.set_cookie("auth_token", overlord.session_token, max_age=86400, httponly=True, samesite='lax')
             log(f"AUTH: Доступ разрешен {request.client.host}", "SUCCESS")
             return res
         return JSONResponse({"status": "error", "msg": "INVALID ACCESS"}, status_code=401)
@@ -144,26 +143,42 @@ async def get_stats(request: Request):
     if request.cookies.get("auth_token") != overlord.session_token:
         return JSONResponse({"status": "unauthorized"}, status_code=401)
     
-    db_stats = await get_stats_for_web()
-    db_stats.update({
-        'balance': f"{overlord.current_balance:.2f}",
-        'pool_info': {
-            "address": str(overlord.pool_addr) if overlord.pool_addr else "NOT CONFIGURED",
-            "reserve_ton": overlord.pool_reserves["ton"],
-            "status": "SYNCED" if overlord.pool_addr else "WAITING"
-        },
-        'engine': {
-            "core_id": overlord.core_id,
-            "ops_total": overlord.total_ops,
-            "uptime": round(time.time() - overlord.session_start),
-            "last_status": overlord.last_status
-        }
-    })
-    return db_stats
+    try:
+        db_stats = await get_stats_for_web()
+        db_stats.update({
+            'balance': f"{overlord.current_balance:.2f}",
+            'pool_info': {
+                "address": str(overlord.pool_addr) if overlord.pool_addr else "NOT CONFIGURED",
+                "reserve_ton": overlord.pool_reserves["ton"],
+                "status": "SYNCED" if overlord.pool_addr else "WAITING"
+            },
+            'engine': {
+                "core_id": overlord.core_id,
+                "ops_total": overlord.total_ops,
+                "uptime": round(time.time() - overlord.session_start),
+                "last_status": overlord.last_status
+            }
+        })
+        return db_stats
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)})
 
-# Подключение статических файлов (твои картинки и дизайн)
+@app.post("/api/config")
+async def handle_update_config(request: Request):
+    if request.cookies.get("auth_token") != overlord.session_token:
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    try:
+        data = await request.json()
+        await update_remote_config(data)
+        await overlord.update_config_from_db()
+        return {"status": "success"}
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
+
+# Подключение статики (Картинки и CSS не менять!)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
+    # Дополнительный маппинг для папки images, если она используется напрямую
     if os.path.exists("static/images"):
         app.mount("/images", StaticFiles(directory="static/images"), name="images")
 
@@ -188,9 +203,9 @@ async def fetch_neural_strategy(market_snapshot):
         return {"cmd": "WAIT", "reason": "AI Error"}
 
 async def core_worker():
-    log("CORE: Запуск фонового процесса воркера...", "INFO")
+    log("CORE: Запуск фонового процесса воркера...", "CORE")
     
-    # Инициализация БД
+    # Ожидание базы данных
     while True:
         try:
             await init_db()
@@ -208,9 +223,13 @@ async def core_worker():
 
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
+                if len(mnemonic_list) < 12:
+                    log("Критическая ошибка: Мнемоника не валидна!", "ERROR")
+                    await asyncio.sleep(30); continue
+
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"TON: Узел синхронизирован ({wallet.address})", "SUCCESS")
+                log(f"TON: Узел синхронизирован. Кошелек: {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
@@ -220,23 +239,26 @@ async def core_worker():
                         
                         plan = await fetch_neural_strategy(market_state)
                         if plan.get('cmd') == "BUY" and overlord.current_balance > (float(plan.get('amt', 0)) + 0.5):
-                            # Логика импульса
                             amt = float(plan.get('amt', 0))
                             nano_amt = int(amt * 1e9)
-                            payload = (BeginCell().store_uint(0xea06185d, 32).store_uint(int(time.time() + 300), 64)
-                                      .store_coins(nano_amt).store_address(overlord.pool_addr)
+                            
+                            payload = (BeginCell()
+                                      .store_uint(0xea06185d, 32) 
+                                      .store_uint(int(time.time() + 300), 64)
+                                      .store_coins(nano_amt)
+                                      .store_address(overlord.pool_addr)
                                       .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
                             
                             await wallet.transfer(destination=overlord.vault_ton, amount=nano_amt + int(0.2e9), body=payload)
                             overlord.total_ops += 1
                             await log_ai_action(plan, market_state.get('current_metrics', {}))
-                            log(f"ИМПУЛЬС: Отправлено {amt} TON", "SUCCESS")
+                            log(f"ИМПУЛЬС: Отправлено {amt} TON в пул", "SUCCESS")
 
                         await asyncio.sleep(20)
                     except Exception as inner_e:
                         log(f"ITERATION ERROR: {inner_e}", "TRACE")
                         await asyncio.sleep(10)
-                        break # Переподключение LiteClient
+                        break 
 
         except Exception as e:
             log(f"FATAL CORE: {e}", "ERROR")
@@ -244,11 +266,12 @@ async def core_worker():
 
 @app.on_event("startup")
 async def on_startup():
+    # Запуск логики бота в отдельном потоке asyncio
     asyncio.create_task(core_worker())
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Запуск терминала на порту {port}", "CORE")
+    log(f"SYSTEM: Запуск сервера на порту {port}", "CORE")
     try:
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
