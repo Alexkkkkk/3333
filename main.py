@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI для стабильной работы веб-интерфейса
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -128,6 +128,13 @@ overlord = OmniNeuralOverlord()
 
 # --- WEB ROUTES (FASTAPI) ---
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    fav_path = "static/images/favicon.ico"
+    if os.path.exists(fav_path):
+        return FileResponse(fav_path)
+    return Response(status_code=204)
+
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
@@ -140,17 +147,14 @@ async def serve_manifest():
         return FileResponse(manifest_path)
     return JSONResponse({"status": "error", "msg": "Manifest not found"}, status_code=404)
 
-# МАРШРУТ АДМИНКИ (Путь: static/admin/admin.html)
 @app.get("/admin")
 @app.get("/admin/admin.html")
 async def serve_admin(request: Request):
-    # Проверка авторизации через куки
     if request.cookies.get("auth_token") == overlord.session_token:
         admin_path = "static/admin/admin.html"
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
-        return JSONResponse({"error": "admin.html not found in static/admin/"}, status_code=404)
-    # Если не авторизован — редирект на главную или показ ошибки
+        return JSONResponse({"error": "admin.html not found"}, status_code=404)
     return FileResponse("static/index.html")
 
 @app.post("/api/login")
@@ -170,7 +174,6 @@ async def handle_login(request: Request):
 async def get_stats(request: Request):
     if request.cookies.get("auth_token") != overlord.session_token:
         return JSONResponse({"status": "unauthorized"}, status_code=401)
-    
     try:
         db_stats = await get_stats_for_web()
         db_stats.update({
@@ -206,7 +209,6 @@ async def handle_update_config(request: Request):
 # Подключение статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    # Отдельное монтирование для картинок, если они используются в дизайне
     if os.path.exists("static/images"):
         app.mount("/images", StaticFiles(directory="static/images"), name="images")
 
@@ -232,7 +234,6 @@ async def fetch_neural_strategy(market_snapshot):
 
 async def core_worker():
     log("CORE: Запуск воркера TON...", "CORE")
-    
     while True:
         try:
             await init_db()
