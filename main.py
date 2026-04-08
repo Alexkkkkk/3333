@@ -113,7 +113,7 @@ class OmniNeuralOverlord:
                 raw_mnemonic = str(cfg.get('mnemonic', ''))
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
                 self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
-                pool_raw = self._clean_string(cfg.get('dedust_pool', ''))
+                pool_raw = self._clean_string(cfg.get('token_pool_address', cfg.get('dedust_pool', '')))
                 if pool_raw: 
                     try: self.pool_addr = Address(pool_raw)
                     except: log(f"Ошибка формата пула: {pool_raw}", "WARNING")
@@ -130,6 +130,7 @@ overlord = OmniNeuralOverlord()
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
+    # Чтобы не спамить 404 в логах Bothost
     fav_path = "static/images/favicon.ico"
     if os.path.exists(fav_path):
         return FileResponse(fav_path)
@@ -147,6 +148,7 @@ async def serve_manifest():
         return FileResponse(manifest_path)
     return JSONResponse({"status": "error", "msg": "Manifest not found"}, status_code=404)
 
+# Маршрут для админки по адресу /admin
 @app.get("/admin")
 @app.get("/admin/admin.html")
 async def serve_admin(request: Request):
@@ -154,7 +156,8 @@ async def serve_admin(request: Request):
         admin_path = "static/admin/admin.html"
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
-        return JSONResponse({"error": "admin.html not found"}, status_code=404)
+        return JSONResponse({"error": "admin.html not found in static/admin/"}, status_code=404)
+    # Если не авторизован — редирект на главную
     return FileResponse("static/index.html")
 
 @app.post("/api/login")
