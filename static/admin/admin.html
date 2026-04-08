@@ -141,7 +141,7 @@
             <div class="text-right hidden sm:block">
                 <p class="text-[10px] text-slate-500 uppercase font-bold">Status</p>
                 <p id="statusDisplay" class="text-xs text-green-400 flex items-center gap-1 justify-end">
-                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span> Online
+                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online
                 </p>
             </div>
             <button class="secondary-btn px-4 py-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onclick="logout()">Выйти</button>
@@ -169,12 +169,12 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="dedust-panel p-6">
                             <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Total Value Locked</p>
-                            <p class="text-2xl font-bold">$82,142,090</p>
+                            <p class="text-2xl font-bold" id="tvlDisplay">$82,142,090</p>
                             <span class="text-green-400 text-xs font-medium">↑ 2.5% (Admin view)</span>
                         </div>
                         <div class="dedust-panel p-6">
                             <p class="text-slate-500 text-xs uppercase font-semibold mb-1">24h System Volume</p>
-                            <p class="text-2xl font-bold">$12,405,112</p>
+                            <p class="text-2xl font-bold" id="volDisplay">$12,405,112</p>
                             <span class="text-blue-400 text-xs font-medium">14,201 total swaps</span>
                         </div>
                     </div>
@@ -188,7 +188,7 @@
                     <div class="space-y-5">
                         <div class="flex justify-between items-center">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-blue-500 rounded-full"></div>
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-[10px]">TON</div>
                                 <div>
                                     <p class="font-semibold text-sm leading-none">TON</p>
                                     <p class="text-[11px] text-slate-500 italic">Main Asset</p>
@@ -273,57 +273,61 @@
         const EXCHANGE_RATE = 42.12; 
         const TON_PRICE_USD = 5.24;
         let isReversed = false;
+        const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
         // --- ИНТЕГРАЦИЯ С БЭКЕНДОМ ---
-        // Используем '/' перед путем, чтобы запросы шли в корень, независимо от папки файла
         async function loadDashboardData() {
             try {
                 const response = await fetch('/api/stats');
                 
                 if (response.status === 401) {
-                    window.location.href = '/'; // Редирект в корень при ошибке доступа
+                    window.location.href = '/'; 
                     return;
                 }
 
                 const data = await response.json();
 
-                // Обновляем данные на странице
                 if (data.balance !== undefined) {
                     document.getElementById('userBalance').innerText = data.balance;
                 }
 
                 const statusEl = document.getElementById('statusDisplay');
                 if (data.engine && data.engine.last_status === "running") {
-                    statusEl.innerHTML = '<span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span> Online';
+                    statusEl.innerHTML = '<span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online';
                     statusEl.className = "text-xs text-green-400 flex items-center gap-1 justify-end";
                 }
 
             } catch (err) {
-                console.warn("API не отвечает (режим разработки):", err);
+                console.warn("API не отвечает (Development Mode)");
             }
         }
 
         async function logout() {
             if(confirm("Выйти из панели администратора?")) {
-                await fetch('/api/logout');
-                window.location.href = '/';
+                try {
+                    await fetch('/api/logout');
+                } finally {
+                    window.location.href = '/';
+                }
             }
         }
 
-        // Запуск
         window.onload = () => {
             loadDashboardData();
             setInterval(loadDashboardData, 10000);
+            renderMiniChart();
         };
 
         // --- ИНТЕРФЕЙСНЫЕ ФУНКЦИИ ---
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
+            
             document.getElementById(id).classList.add('active');
             const btn = document.querySelector(`[data-tab="${id}"]`);
             if(btn) btn.classList.add('nav-active');
-            if(id === 'analytics') renderBigChart();
+            
+            if(id === 'analytics') setTimeout(renderBigChart, 100);
         }
 
         function calculateSwap() {
@@ -365,31 +369,33 @@
         function handleSwapAction() {
             const amount = document.getElementById('inputAmount').value;
             if(!amount || amount <= 0) return alert("ADMIN: Укажите сумму");
-            alert(`ADMIN: Команда на обмен ${amount} отправлена.`);
+            alert(`ADMIN: Команда на обмен ${amount} отправлена в очередь исполнения.`);
         }
 
         // --- ГРАФИКИ ---
-        const miniCtx = document.getElementById('miniChart').getContext('2d');
-        new Chart(miniCtx, {
-            type: 'line',
-            data: {
-                labels: [1,2,3,4,5,6,7,8,9,10],
-                datasets: [{
-                    data: [10, 12, 11, 15, 14, 20, 18, 25, 22, 30],
-                    borderColor: '#0088cc',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    fill: true,
-                    backgroundColor: 'rgba(0, 136, 204, 0.05)'
-                }]
-            },
-            options: { 
-                plugins: { legend: { display: false } }, 
-                scales: { x: { display: false }, y: { display: false } },
-                maintainAspectRatio: false
-            }
-        });
+        function renderMiniChart() {
+            const miniCtx = document.getElementById('miniChart').getContext('2d');
+            new Chart(miniCtx, {
+                type: 'line',
+                data: {
+                    labels: [1,2,3,4,5,6,7,8,9,10],
+                    datasets: [{
+                        data: [10, 12, 11, 15, 14, 20, 18, 25, 22, 30],
+                        borderColor: '#0088cc',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: 'rgba(0, 136, 204, 0.05)'
+                    }]
+                },
+                options: { 
+                    plugins: { legend: { display: false } }, 
+                    scales: { x: { display: false }, y: { display: false } },
+                    maintainAspectRatio: false
+                }
+            });
+        }
 
         function renderBigChart() {
             const bigCtx = document.getElementById('bigChart').getContext('2d');
