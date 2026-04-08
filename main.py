@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI компоненты
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Body
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,7 +100,6 @@ class OmniNeuralOverlord:
         return "static"
 
     def get_logo_url(self):
-        # Возвращает путь к логотипу для фронтенда
         return "/images/logo.png"
 
     async def update_config_from_db(self):
@@ -154,12 +153,23 @@ async def serve_index():
 
 @app.get("/api/config")
 async def get_web_config():
-    # Эндпоинт для фронтенда, чтобы получить пути к ресурсам
     return {
         "logo": overlord.get_logo_url(),
         "project_name": "QUANCORE",
-        "version": "V4.1"
+        "version": "V4.1",
+        "core_id": overlord.core_id
     }
+
+@app.post("/api/connect")
+async def handle_wallet_connect(request: Request):
+    """Эндпоинт для JS-скрипта (script.js) для синхронизации кошелька"""
+    try:
+        data = await request.json()
+        address = data.get("address")
+        log(f"NETWORK: Оператор подключен -> {address[:10]}...", "SUCCESS")
+        return {"status": "success", "sync": True, "core": overlord.core_id}
+    except:
+        return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/admin")
 @app.get("/admin/")
@@ -208,8 +218,11 @@ async def get_stats(request: Request):
                 "status": "SYNCED" if overlord.pool_addr else "WAITING"
             },
             'engine': {
-                "core_id": overlord.core_id, "uptime": round(time.time() - overlord.session_start),
-                "last_status": overlord.last_status, "logo_path": overlord.get_logo_url()
+                "core_id": overlord.core_id, 
+                "uptime": round(time.time() - overlord.session_start),
+                "last_status": overlord.last_status, 
+                "logo_path": overlord.get_logo_url(),
+                "ops_total": overlord.total_ops
             }
         })
         return db_stats
