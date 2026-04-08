@@ -145,14 +145,11 @@ async def serve_index():
 @app.get("/admin")
 @app.get("/amin")
 async def serve_admin(request: Request):
-    """Всегда проверяет авторизацию перед выдачей админки."""
     token = request.cookies.get("auth_token")
     if token and token == overlord.session_token:
         admin_path = os.path.join(overlord.get_static_path(), "admin", "admin.html")
         if os.path.exists(admin_path):
             return FileResponse(admin_path)
-    
-    # Если токен невалиден — принудительно отдаем главную страницу (форму логина)
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
 @app.post("/api/login")
@@ -160,14 +157,12 @@ async def handle_login(request: Request):
     try:
         data = await request.json()
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
-            # Генерируем НОВЫЙ токен при каждом входе
             overlord.session_token = os.urandom(32).hex()
-            
             res = JSONResponse({"status": "success", "token": overlord.session_token})
             res.set_cookie(
                 key="auth_token", 
                 value=overlord.session_token, 
-                max_age=3600, # Сессия на 1 час для безопасности
+                max_age=3600, 
                 httponly=True, 
                 samesite='lax'
             )
@@ -181,7 +176,7 @@ async def handle_login(request: Request):
 async def handle_logout():
     res = JSONResponse({"status": "ok"})
     res.delete_cookie("auth_token")
-    overlord.session_token = os.urandom(32).hex() # Сброс текущего токена
+    overlord.session_token = os.urandom(32).hex()
     return res
 
 @app.get("/api/stats")
@@ -206,11 +201,13 @@ async def get_stats(request: Request):
         return db_stats
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
-# Монтирование статики
+# Монтирование статики (с проверкой существования)
 static_path = overlord.get_static_path()
-app.mount("/static", StaticFiles(directory=static_path), name="static")
-if os.path.exists(os.path.join(static_path, "images")):
-    app.mount("/images", StaticFiles(directory=os.path.join(static_path, "images")), name="images")
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+    images_dir = os.path.join(static_path, "images")
+    if os.path.exists(images_dir):
+        app.mount("/images", StaticFiles(directory=images_dir), name="images")
 
 # --- CORE LOGIC ---
 
@@ -253,6 +250,7 @@ async def dispatch_hft_pulse(wallet, plan):
         return False
 
 async def core_worker():
+    # Ожидание базы данных
     while True:
         try:
             await init_db()
@@ -262,19 +260,22 @@ async def core_worker():
             log("DB: Ожидание PostgreSQL...", "WARNING")
             await asyncio.sleep(5)
 
+    # Основной цикл воркера
     while overlord.is_active:
         try:
             if not await overlord.update_config_from_db():
                 overlord.last_status = "WAITING_CONFIG"
                 await asyncio.sleep(10); continue
 
+            # Создаем LiteClient один раз для серии операций
             async with LiteClient.from_mainnet_config() as client:
-                mnemonic_list = overlord.mnemonic.split()
-                if len(mnemonic_list) < 12:
-                    log("MNEMONIC ERROR: Ошибка фразы", "ERROR")
+                # Валидация мнемоники
+                if not overlord.mnemonic or len(overlord.mnemonic.split()) < 12:
+                    log("MNEMONIC ERROR: Пустая или некорректная фраза", "ERROR")
+                    overlord.last_status = "BAD_MNEMONIC"
                     await asyncio.sleep(30); continue
 
-                wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
+                wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
                 overlord.last_status = "ACTIVE"
                 log(f"TON: Система активна. Адрес: {wallet.address}", "SUCCESS")
                 
@@ -288,10 +289,11 @@ async def core_worker():
                         if plan.get('cmd') == "BUY" and overlord.current_balance > (float(plan.get('amt', 0)) + 0.5):
                             if await dispatch_hft_pulse(wallet, plan):
                                 await log_ai_action(plan, market_state.get('current_metrics', {}))
+                        
                         await asyncio.sleep(30)
                     except Exception as inner_e:
                         log(f"ITERATION ERROR: {inner_e}", "TRACE")
-                        await asyncio.sleep(10); break 
+                        await asyncio.sleep(10); break # Переподключаем LiteClient
         except Exception as e:
             log(f"FATAL CORE: {e}", "ERROR")
             await asyncio.sleep(10)
@@ -299,4 +301,5 @@ async def core_worker():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
+    # Параметр reload=False важен при использовании asyncio.create_task в lifespan
     uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
