@@ -184,18 +184,27 @@
                     <div class="icon-3d-decor"></div>
                     <svg class="absolute bottom-4 right-4 w-8 h-8 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2"/></svg>
                 </div>
+                
+                <div class="card-grid-item">
+                    <h3 class="font-bold text-lg text-white">Сеть TON</h3>
+                    <div id="ton-network-status" class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color: #00ff88;">
+                        Mainnet: <span id="block-height" class="font-mono">Syncing...</span>
+                    </div>
+                    <p class="text-[9px] text-slate-500 mt-2">Active Validator Nodes</p>
+                    <div class="icon-3d-decor" style="background: #00ff88; opacity: 0.2;"></div>
+                    <div class="absolute bottom-4 right-4 flex gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
+                    </div>
+                </div>
+
                 <div class="card-grid-item" onclick="switchTab('create')">
                     <h3 class="font-bold text-lg text-white">Создать</h3>
                     <p class="text-[10px] text-slate-500">Jetton Forge</p>
                     <div class="icon-3d-decor" style="background: #a855f7"></div>
                     <svg class="absolute bottom-4 right-4 w-8 h-8 text-purple-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round"/></svg>
                 </div>
-                <div class="card-grid-item" onclick="switchTab('coins')">
-                    <h3 class="font-bold text-lg text-white">Монеты</h3>
-                    <p class="text-[10px] text-slate-500">Market Assets</p>
-                    <div class="icon-3d-decor" style="background: #ff8800"></div>
-                    <svg class="absolute bottom-4 right-4 w-8 h-8 text-orange-400/50" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-                </div>
+
                 <div class="card-grid-item" onclick="switchTab('staking')">
                     <h3 class="font-bold text-lg text-white">Стейкинг</h3>
                     <p class="text-[10px] text-slate-500">Earn Rewards</p>
@@ -328,15 +337,31 @@
             buttonRootId: 'connectBtn'
         });
 
+        // НОВАЯ ФУНКЦИЯ: Мониторинг сети TON
+        async function updateTonNetworkStatus() {
+            const statusElement = document.getElementById('block-height');
+            try {
+                const response = await fetch('https://toncenter.com/api/v2/getMasterchainInfo');
+                const data = await response.json();
+                if (data.ok) {
+                    const seqno = data.result.last.seqno;
+                    statusElement.innerText = `#${seqno}`;
+                }
+            } catch (e) {
+                console.error("Network Status Error:", e);
+                statusElement.innerText = "Online";
+            }
+        }
+        setInterval(updateTonNetworkStatus, 10000); // Обновление каждые 10 сек
+        updateTonNetworkStatus();
+
         async function fetchBalances(address) {
             try {
-                // 1. Получаем TON баланс
                 const accountRes = await fetch(`https://tonapi.io/v2/accounts/${address}`);
                 const accountData = await accountRes.json();
                 const tonBalance = (accountData.balance / 1000000000).toFixed(2);
                 document.getElementById('main-balance-ton').innerText = `${tonBalance} TON`;
 
-                // 2. Получаем QC баланс из списка жетонов
                 const jettonsRes = await fetch(`https://tonapi.io/v2/accounts/${address}/jettons?currencies=ton`);
                 const jettonsData = await jettonsRes.json();
                 const qcToken = jettonsData.balances.find(b => b.jetton.address === QC_JETTON_ADDRESS);
