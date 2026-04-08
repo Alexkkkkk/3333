@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | DECENTRALIZED PROTOCOL</title>
+    <title>QUANTUM | ADMIN PANEL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent: #0088cc; /* Фирменный синий TON/DeDust */
+            --accent: #0088cc; 
+            --admin-red: #ef4444; /* Цвет для акцента админки */
             --bg: #0a0e12;
             --panel: rgba(23, 28, 35, 0.7);
             --border: rgba(255, 255, 255, 0.08);
@@ -25,7 +26,20 @@
             min-height: 100vh;
         }
 
-        /* Glassmorphism Panel */
+        /* Метка Admin */
+        .admin-badge {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--admin-red);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+
         .dedust-panel {
             background: var(--panel);
             backdrop-filter: blur(12px);
@@ -38,7 +52,6 @@
             border-color: rgba(0, 136, 204, 0.3);
         }
 
-        /* Inputs */
         .swap-input-group {
             background: rgba(13, 18, 23, 0.8);
             border: 1px solid var(--border);
@@ -51,7 +64,6 @@
             border-color: var(--accent);
         }
 
-        /* Buttons */
         .action-btn {
             background: var(--accent);
             color: white;
@@ -77,7 +89,6 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
-        /* Navigation */
         .nav-link {
             color: #94a3b8;
             font-weight: 500;
@@ -114,13 +125,19 @@
 </head>
 <body class="p-4">
     <header class="max-w-6xl mx-auto flex justify-between items-center py-6 mb-8">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('home')">
             <div class="w-10 h-10 bg-[#0088cc] rounded-xl flex items-center justify-center shadow-lg">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </div>
-            <span class="text-xl font-bold tracking-tight">QUANTUM</span>
+            <div class="flex flex-col">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold tracking-tight">QUANTUM</span>
+                    <span class="admin-badge">ADMIN</span>
+                </div>
+                <span class="text-[10px] text-slate-500 font-medium tracking-widest uppercase">Protocol Management</span>
+            </div>
         </div>
 
         <nav class="flex gap-4">
@@ -129,11 +146,18 @@
             <button class="nav-link" data-tab="analytics" onclick="switchTab('analytics')">Пулы</button>
         </nav>
 
-        <button class="action-btn px-6 py-2.5 text-sm">Подключить кошелек</button>
+        <div class="flex items-center gap-4">
+            <div class="text-right hidden sm:block">
+                <p class="text-[10px] text-slate-500 uppercase font-bold">Status</p>
+                <p class="text-xs text-green-400 flex items-center gap-1 justify-end">
+                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span> Online
+                </p>
+            </div>
+            <button class="action-btn px-6 py-2.5 text-sm" onclick="connectWallet()">Admin Wallet</button>
+        </div>
     </header>
 
     <main class="max-w-6xl mx-auto">
-        
         <section id="home" class="tab-content active">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 space-y-6">
@@ -141,11 +165,11 @@
                         <div class="relative z-10">
                             <h2 class="text-4xl font-bold mb-4">Neural Pulse Protocol</h2>
                             <p class="text-slate-400 text-lg max-w-lg mb-8">
-                                Самый быстрый способ обмена активов в сети TON с использованием квантовых алгоритмов оптимизации ликвидности.
+                                Контрольная панель децентрализованного протокола. Управление ликвидностью и мониторинг транзакций в реальном времени.
                             </p>
                             <div class="flex gap-4">
-                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3">Начать обмен</button>
-                                <button class="secondary-btn px-8 py-3">Документация</button>
+                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3">Управление свопами</button>
+                                <button class="secondary-btn px-8 py-3">Системный лог</button>
                             </div>
                         </div>
                         <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full"></div>
@@ -153,22 +177,22 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Общий объем (TVL)</p>
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Total Value Locked</p>
                             <p class="text-2xl font-bold">$82,142,090</p>
-                            <span class="text-green-400 text-xs font-medium">↑ 2.5% за 24ч</span>
+                            <span class="text-green-400 text-xs font-medium">↑ 2.5% (Admin view)</span>
                         </div>
                         <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Объем 24ч</p>
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">24h System Volume</p>
                             <p class="text-2xl font-bold">$12,405,112</p>
-                            <span class="text-blue-400 text-xs font-medium">14,201 сделок</span>
+                            <span class="text-blue-400 text-xs font-medium">14,201 total swaps</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="dedust-panel p-6">
                     <h3 class="font-bold mb-4 flex justify-between items-center">
-                        Топ токенов
-                        <span class="text-xs text-slate-500 font-normal underline cursor-pointer">Все</span>
+                        Мониторинг токенов
+                        <span class="text-xs text-slate-500 font-normal underline cursor-pointer">Edit List</span>
                     </h3>
                     <div class="space-y-5">
                         <div class="flex justify-between items-center">
@@ -176,25 +200,12 @@
                                 <div class="w-8 h-8 bg-blue-500 rounded-full"></div>
                                 <div>
                                     <p class="font-semibold text-sm leading-none">TON</p>
-                                    <p class="text-[11px] text-slate-500 italic">Toncoin</p>
+                                    <p class="text-[11px] text-slate-500 italic">Main Asset</p>
                                 </div>
                             </div>
                             <div class="text-right">
                                 <p class="text-sm font-medium">$5.24</p>
                                 <p class="text-[10px] text-green-400">+1.2%</p>
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-purple-500 rounded-full"></div>
-                                <div>
-                                    <p class="font-semibold text-sm leading-none">QUAN</p>
-                                    <p class="text-[11px] text-slate-500 italic">Quantum</p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-sm font-medium">$0.12</p>
-                                <p class="text-[10px] text-red-400">-0.4%</p>
                             </div>
                         </div>
                         <div class="pt-4 mt-4 border-t border-white/5">
@@ -204,64 +215,47 @@
                 </div>
             </div>
         </section>
-
+        
         <section id="swap" class="tab-content max-w-md mx-auto mt-10">
             <div class="dedust-panel p-6 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">Своп</h2>
-                    <button class="p-2 hover:bg-white/5 rounded-lg transition">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    </button>
+                    <h2 class="text-xl font-bold">Тестовый своп</h2>
+                    <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-500">ADMIN MODE</span>
                 </div>
-
                 <div class="space-y-1 relative">
                     <div class="swap-input-group">
                         <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
                             <span>Вы отдаете</span>
-                            <span>Баланс: 42.0</span>
+                            <span>Баланс: <span id="userBalance">42.0</span></span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount">
+                            <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount" oninput="calculateSwap()">
                             <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 hover:border-blue-500/50">
-                                <div class="w-5 h-5 bg-blue-500 rounded-full"></div>
-                                <span class="font-bold text-sm">TON</span>
+                                <div id="fromIcon" class="w-5 h-5 bg-blue-500 rounded-full"></div>
+                                <span id="fromSymbol" class="font-bold text-sm">TON</span>
                             </button>
                         </div>
                     </div>
-
                     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <button class="w-10 h-10 bg-[#1e252e] border border-white/10 rounded-xl flex items-center justify-center hover:border-blue-500 transition shadow-xl">
+                        <button onclick="reverseSwap()" class="w-10 h-10 bg-[#1e252e] border border-white/10 rounded-xl flex items-center justify-center hover:border-blue-500 transition shadow-xl">
                             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M7 10l5 5 5-5"></path></svg>
                         </button>
                     </div>
-
                     <div class="swap-input-group">
                         <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
                             <span>Вы получаете</span>
-                            <span>~ $214.2</span>
+                            <span id="usdValue">~ $0.00</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <input type="number" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-400">
+                            <input type="number" readonly placeholder="0.0" id="outputAmount" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-400">
                             <button class="secondary-btn px-3 py-1.5 flex items-center gap-2">
-                                <div class="w-5 h-5 bg-purple-500 rounded-full"></div>
-                                <span class="font-bold text-sm">QUAN</span>
+                                <div id="toIcon" class="w-5 h-5 bg-purple-500 rounded-full"></div>
+                                <span id="toSymbol" class="font-bold text-sm">QUAN</span>
                             </button>
                         </div>
                     </div>
                 </div>
-
-                <div class="mt-4 p-4 space-y-2">
-                    <div class="flex justify-between text-xs text-slate-500 italic">
-                        <span>Курс</span>
-                        <span>1 TON ≈ 42.12 QUAN</span>
-                    </div>
-                    <div class="flex justify-between text-xs text-slate-500 italic">
-                        <span>Проскальзывание</span>
-                        <span>0.5%</span>
-                    </div>
-                </div>
-
-                <button class="w-full mt-4 action-btn py-4 text-lg">Обменять</button>
+                <button class="w-full mt-4 action-btn py-4 text-lg" onclick="handleSwapAction()">Выполнить админ-обмен</button>
             </div>
         </section>
 
@@ -269,8 +263,8 @@
             <div class="dedust-panel p-8">
                 <div class="flex justify-between items-end mb-8">
                     <div>
-                        <h2 class="text-2xl font-bold">Ликвидность пулов</h2>
-                        <p class="text-slate-500 text-sm italic">Статистика в реальном времени</p>
+                        <h2 class="text-2xl font-bold">Аналитика ликвидности</h2>
+                        <p class="text-slate-500 text-sm italic">Полный доступ к данным протокола</p>
                     </div>
                     <div class="flex bg-black/20 p-1 rounded-xl">
                         <button class="px-4 py-1.5 text-xs font-bold bg-white/10 rounded-lg">TVL</button>
@@ -282,22 +276,74 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <script>
+        // JS остается без изменений, за исключением алертов для админа
+        const EXCHANGE_RATE = 42.12; 
+        const TON_PRICE_USD = 5.24;
+        let isReversed = false;
+
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
-            
             document.getElementById(id).classList.add('active');
             const btn = document.querySelector(`[data-tab="${id}"]`);
             if(btn) btn.classList.add('nav-active');
-
             if(id === 'analytics') renderBigChart();
         }
 
-        // Mini Chart Implementation
+        function calculateSwap() {
+            const input = document.getElementById('inputAmount');
+            const output = document.getElementById('outputAmount');
+            const usdDisplay = document.getElementById('usdValue');
+            const val = parseFloat(input.value) || 0;
+            if (!isReversed) {
+                output.value = (val * EXCHANGE_RATE).toFixed(2);
+                usdDisplay.innerText = `~ $${(val * TON_PRICE_USD).toFixed(2)}`;
+            } else {
+                output.value = (val / EXCHANGE_RATE).toFixed(4);
+                usdDisplay.innerText = `~ $${((val / EXCHANGE_RATE) * TON_PRICE_USD).toFixed(2)}`;
+            }
+        }
+
+        function reverseSwap() {
+            isReversed = !isReversed;
+            const fromSym = document.getElementById('fromSymbol');
+            const toSym = document.getElementById('toSymbol');
+            const fromIcon = document.getElementById('fromIcon');
+            const toIcon = document.getElementById('toIcon');
+            const rateDisplay = document.getElementById('currentRateDisplay');
+
+            if (isReversed) {
+                fromSym.innerText = 'QUAN';
+                toSym.innerText = 'TON';
+                fromIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
+                toIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
+            } else {
+                fromSym.innerText = 'TON';
+                toSym.innerText = 'QUAN';
+                fromIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
+                toIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
+            }
+            const currentIn = document.getElementById('inputAmount').value;
+            if(currentIn) calculateSwap();
+        }
+
+        function connectWallet() {
+            alert("ADMIN: Авторизация через TON Connect...");
+        }
+
+        function handleSwapAction() {
+            const amount = document.getElementById('inputAmount').value;
+            if(!amount || amount <= 0) {
+                alert("ADMIN: Ошибка — укажите сумму");
+                return;
+            }
+            alert(`ADMIN: Принудительное выполнение транзакции: ${amount} ${document.getElementById('fromSymbol').innerText}`);
+        }
+
+        // Charts Init
         const miniCtx = document.getElementById('miniChart').getContext('2d');
         new Chart(miniCtx, {
             type: 'line',
@@ -323,7 +369,6 @@
         function renderBigChart() {
             const bigCtx = document.getElementById('bigChart').getContext('2d');
             if (window.myBigChart) window.myBigChart.destroy();
-            
             window.myBigChart = new Chart(bigCtx, {
                 type: 'bar',
                 data: {
@@ -332,8 +377,7 @@
                         label: 'Liquidity',
                         data: [45000000, 12000000, 8000000, 35000000, 5000000],
                         backgroundColor: '#0088cc',
-                        borderRadius: 8,
-                        hoverBackgroundColor: '#00aaff'
+                        borderRadius: 8
                     }]
                 },
                 options: {
@@ -341,14 +385,8 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { 
-                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, 
-                            ticks: { color: '#64748b', font: { size: 10 } } 
-                        },
-                        x: { 
-                            grid: { display: false }, 
-                            ticks: { color: '#fff', font: { size: 11, weight: '500' } } 
-                        }
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                        x: { ticks: { color: '#fff' } }
                     }
                 }
             });
