@@ -167,8 +167,8 @@
                 
                 <div class="flex gap-4">
                     <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
-                        <p class="text-[9px] text-slate-500 uppercase font-bold">WALLET BALANCE</p>
-                        <p class="text-lg font-black text-white" id="main-balance-ton">0.00 TON</p>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">QC BALANCE</p>
+                        <p class="text-lg font-black text-white" id="main-balance-ton">0.00 QC</p>
                     </div>
                     <div class="flex-1 bg-white/5 p-3 rounded-2xl border border-white/5">
                         <p class="text-[9px] text-slate-500 uppercase font-bold">Nodes</p>
@@ -238,7 +238,7 @@
                     </div>
                     <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
                         <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-cyan-400">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">QUAN Output</span>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">QC Output</span>
                     </div>
                 </div>
                 <button id="mainSwapBtn" onclick="executeSwap()" class="w-full mt-6 btn-quantum py-4 rounded-2xl uppercase tracking-widest">Connect Wallet</button>
@@ -266,8 +266,8 @@
                         <span class="text-emerald-400">$24.1M Vol</span>
                     </div>
                     <div class="pool-row flex justify-between text-[11px]">
-                        <span class="text-white font-bold">TON / SCALE</span>
-                        <span class="text-emerald-400">$1.2M Vol</span>
+                        <span class="text-white font-bold">QC / TON</span>
+                        <span class="text-emerald-400">New Pool</span>
                     </div>
                 </div>
             </div>
@@ -322,14 +322,37 @@
     </nav>
 
     <script>
-        // Инициализация TON Connect 
-        // Важно: tonconnect-manifest.json должен лежать в папке static/
+        // КОНСТАНТЫ QUANCORE
+        const QC_JETTON_ADDRESS = "EQBrZYrk2PA659JmMCnkWVbJEIQSEuXyx1qIwBT05ugbj2ZI";
+
+        // Инициализация TON Connect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
-        // Система переключения вкладок
+        // Функция получения реального баланса QC
+        async function fetchQCBalance(address) {
+            try {
+                // Используем открытое API TonAPI для получения баланса жетона
+                const response = await fetch(`https://tonapi.io/v2/accounts/${address}/jettons?currencies=ton`);
+                const data = await response.json();
+                const qcToken = data.balances.find(b => b.jetton.address === QC_JETTON_ADDRESS);
+                
+                if (qcToken) {
+                    const balance = (qcToken.balance / Math.pow(10, qcToken.jetton.decimals)).toFixed(2);
+                    document.getElementById('main-balance-ton').innerText = `${balance} QC`;
+                    return balance;
+                }
+                document.getElementById('main-balance-ton').innerText = '0.00 QC';
+                return '0.00';
+            } catch (e) {
+                console.error("QC Balance Error:", e);
+                // Если API упало, показываем 0
+                document.getElementById('main-balance-ton').innerText = '0.00 QC';
+            }
+        }
+
         function switchTab(tabId, el) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             const activeTab = document.getElementById(tabId);
@@ -342,8 +365,7 @@
             if (tabId === 'analytics') setTimeout(initChart, 100);
         }
 
-        // Слушатель статуса кошелька
-        tonConnectUI.onStatusChange(wallet => {
+        tonConnectUI.onStatusChange(async (wallet) => {
             const btnSwap = document.getElementById('mainSwapBtn');
             const btnDeploy = document.getElementById('deployBtn');
 
@@ -359,25 +381,47 @@
                 
                 btnSwap.innerText = 'EXECUTE SWAP';
                 btnDeploy.innerText = 'MINT JETTON';
-                document.getElementById('main-balance-ton').innerText = '14.42 TON';
-                loadFakeBalances();
+                
+                // Загружаем реальный баланс QC
+                const qcBalance = await fetchQCBalance(addr);
+                loadRealAssets(qcBalance);
             } else {
                 document.getElementById('user-profile-mini').classList.add('hidden');
                 document.getElementById('profile-wallet-info').classList.add('hidden');
                 document.getElementById('profile-connect-prompt').classList.remove('hidden');
                 btnSwap.innerText = 'CONNECT WALLET';
                 btnDeploy.innerText = 'CONNECT WALLET';
-                document.getElementById('main-balance-ton').innerText = '0.00 TON';
+                document.getElementById('main-balance-ton').innerText = '0.00 QC';
                 document.getElementById('tokenList').innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Sync wallet to see assets</p>';
             }
         });
 
+        function loadRealAssets(qcBal) {
+            document.getElementById('tokenList').innerHTML = `
+                <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 mb-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center font-bold text-[10px] text-black">QC</div>
+                        <div><p class="text-sm font-bold text-white">Quancore</p></div>
+                    </div>
+                    <div class="text-right"><p class="text-sm font-black text-white">${qcBal}</p></div>
+                </div>
+                <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-[10px]">TON</div>
+                        <div><p class="text-sm font-bold text-white">Toncoin</p></div>
+                    </div>
+                    <div class="text-right"><p class="text-sm font-black text-white">Syncing...</p></div>
+                </div>`;
+        }
+
+        // Остальные функции (calculateSwap, executeSwap, deployJetton, showWhaleAlert, animate, и т.д.) 
+        // остаются идентичными вашему коду...
+        
         function calculateSwap() {
             const val = document.getElementById('swapInput').value;
             document.getElementById('swapOutput').value = val ? (val * 450.25).toFixed(2) : '0.0';
         }
 
-        // Выполнение обмена
         async function executeSwap() {
             if (!tonConnectUI.connected) return tonConnectUI.connectWallet();
             const amount = document.getElementById('swapInput').value;
@@ -396,7 +440,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // Создание жетона (Минтинг)
         async function deployJetton() {
             if (!tonConnectUI.connected) return tonConnectUI.connectWallet();
             const name = document.getElementById('jettonName').value;
@@ -409,7 +452,7 @@
                 validUntil: Math.floor(Date.now() / 1000) + 300,
                 messages: [{ 
                     address: tonConnectUI.account.address, 
-                    amount: "250000000", // 0.25 TON fee
+                    amount: "250000000", 
                     payload: "" 
                 }]
             };
@@ -419,7 +462,6 @@
             } catch (e) { alert("Minting cancelled"); }
         }
 
-        // Уведомления Whale Alerts
         function showWhaleAlert(title, text) {
             const container = document.getElementById('whale-alerts');
             const toast = document.createElement('div');
@@ -430,7 +472,6 @@
             setTimeout(() => toast.remove(), 5000);
         }
 
-        // Инициализация графика аналитики
         function initChart() {
             const canvas = document.getElementById('liquidityChart');
             if(!canvas) return;
@@ -462,7 +503,6 @@
             });
         }
 
-        // Анимированный фон (частицы)
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx = bgCanvas.getContext('2d');
         let particles = [];
@@ -494,28 +534,14 @@
         }
         animate();
 
-        // Параллакс фона при движении мыши
         function handleMouseMove(e) {
             const x = (e.clientX / window.innerWidth) * 20;
             const y = (e.clientY / window.innerHeight) * 20;
             document.body.style.backgroundPosition = `${x}% ${y}%`;
         }
 
-        // Эмуляция балансов при подключении
-        function loadFakeBalances() {
-            document.getElementById('tokenList').innerHTML = `
-                <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-[10px]">TON</div>
-                        <div><p class="text-sm font-bold text-white">Toncoin</p></div>
-                    </div>
-                    <div class="text-right"><p class="text-sm font-black text-white">14.42</p></div>
-                </div>`;
-        }
-
-        // Цикл Whale Alerts
         setInterval(() => {
-            const poolNames = ["TON/USDT", "TON/NOT", "TON/SCALE"];
+            const poolNames = ["TON/USDT", "QC/TON", "TON/SCALE"];
             const pool = poolNames[Math.floor(Math.random()*poolNames.length)];
             showWhaleAlert("LIQUIDITY UPDATE", `${pool} pool depth increased by ${(Math.random()*500).toFixed(0)} TON`);
         }, 20000);
