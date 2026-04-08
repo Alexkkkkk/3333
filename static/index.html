@@ -137,6 +137,26 @@
             border-bottom: 1px solid rgba(255,255,255,0.05);
             padding: 12px 0;
         }
+
+        /* --- STYLES FOR LOGO --- */
+        .header-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-logo-image {
+            width: 52px; 
+            height: 52px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 8px rgba(0, 242, 255, 0.3));
+            animation: logo-glow-flow 4s linear infinite;
+        }
+        @keyframes logo-glow-flow {
+            0% { filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.5)); }
+            33% { filter: drop-shadow(0 0 15px rgba(0, 98, 255, 0.6)); }
+            66% { filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.6)); }
+            100% { filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.5)); }
+        }
     </style>
 </head>
 <body onmousemove="handleMouseMove(event)">
@@ -144,8 +164,8 @@
     <div id="whale-alerts" class="fixed top-4 right-4 z-[1100] space-y-2 pointer-events-none w-72"></div>
 
     <header class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-50">
-        <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('home')">
-            <img src="/images/logo.png" alt="Logo" class="w-10 h-10 object-contain">
+        <div class="header-logo-container cursor-pointer" onclick="switchTab('home')">
+            <img src="/images/logo.png" alt="Logo" class="header-logo-image">
             <h1 class="text-xl font-black tracking-tighter uppercase italic text-white">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
         <div id="connectBtn"></div>
@@ -324,179 +344,4 @@
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
-            buttonRootId: 'connectBtn'
-        });
-
-        function switchTab(tabId, el) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            const activeTab = document.getElementById(tabId);
-            if(activeTab) activeTab.classList.add('active');
-            
-            if (el) {
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                el.classList.add('active');
-            }
-            if (tabId === 'analytics') setTimeout(initChart, 100);
-        }
-
-        tonConnectUI.onStatusChange(wallet => {
-            const btnSwap = document.getElementById('mainSwapBtn');
-            const btnDeploy = document.getElementById('deployBtn');
-
-            if (wallet) {
-                const addr = wallet.account.address;
-                const shortAddr = addr.slice(0, 4) + '...' + addr.slice(-4);
-                
-                document.getElementById('user-profile-mini').classList.remove('hidden');
-                document.getElementById('wallet-short-addr').innerText = shortAddr;
-                document.getElementById('profile-full-address').innerText = addr;
-                document.getElementById('profile-wallet-info').classList.remove('hidden');
-                document.getElementById('profile-connect-prompt').classList.add('hidden');
-                
-                btnSwap.innerText = 'EXECUTE SWAP';
-                btnDeploy.innerText = 'MINT JETTON';
-                document.getElementById('main-balance-ton').innerText = '14.42 TON';
-                loadFakeBalances();
-            } else {
-                document.getElementById('user-profile-mini').classList.add('hidden');
-                document.getElementById('profile-wallet-info').classList.add('hidden');
-                document.getElementById('profile-connect-prompt').classList.remove('hidden');
-                btnSwap.innerText = 'CONNECT WALLET';
-                btnDeploy.innerText = 'CONNECT WALLET';
-                document.getElementById('main-balance-ton').innerText = '0.00 TON';
-                document.getElementById('tokenList').innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Sync wallet to see assets</p>';
-            }
-        });
-
-        function calculateSwap() {
-            const val = document.getElementById('swapInput').value;
-            document.getElementById('swapOutput').value = val ? (val * 450.25).toFixed(2) : '0.0';
-        }
-
-        async function executeSwap() {
-            if (!tonConnectUI.connected) return tonConnectUI.connectWallet();
-            const amount = document.getElementById('swapInput').value;
-            if(!amount || amount <= 0) return alert("Enter amount");
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300,
-                messages: [{ address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", amount: (amount * 1000000000).toString() }]
-            };
-            try {
-                await tonConnectUI.sendTransaction(transaction);
-                showWhaleAlert("SWAP SUCCESSFUL", `${amount} TON converted via DeDust`);
-            } catch (e) { console.error(e); }
-        }
-
-        async function deployJetton() {
-            if (!tonConnectUI.connected) return tonConnectUI.connectWallet();
-            const name = document.getElementById('jettonName').value;
-            const symbol = document.getElementById('jettonSymbol').value;
-            const supply = document.getElementById('jettonSupply').value;
-            if(!name || !symbol || !supply) return alert("Fill all fields");
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300,
-                messages: [{ address: tonConnectUI.account.address, amount: "250000000", payload: "" }]
-            };
-            try {
-                await tonConnectUI.sendTransaction(transaction);
-                showWhaleAlert("FORGE INITIALIZED", `${symbol} is being minted...`);
-            } catch (e) { alert("Minting cancelled"); }
-        }
-
-        function showWhaleAlert(title, text) {
-            const container = document.getElementById('whale-alerts');
-            const toast = document.createElement('div');
-            toast.className = 'whale-toast';
-            toast.innerHTML = `<p class="text-[10px] font-bold text-cyan-400">🐋 ${title}</p>
-                               <p class="text-[9px] text-white">${text}</p>`;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 5000);
-        }
-
-        function initChart() {
-            const canvas = document.getElementById('liquidityChart');
-            if(!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if(window.myQuantumChart) window.myQuantumChart.destroy();
-            window.myQuantumChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-                    datasets: [{
-                        data: [450, 520, 490, 610, 580, 720],
-                        borderColor: '#00f2ff',
-                        backgroundColor: 'rgba(0, 242, 255, 0.05)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', size: 10 } },
-                        x: { grid: { display: false }, ticks: { color: '#475569', size: 10 } }
-                    }
-                }
-            });
-        }
-
-        const canvas = document.getElementById('bg-canvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-        window.onresize();
-
-        class Particle {
-            constructor() { this.reset(); }
-            reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.speed = Math.random() * 0.5 + 0.2;
-                this.opacity = Math.random() * 0.5;
-            }
-            update() {
-                this.y -= this.speed;
-                if (this.y < 0) this.reset();
-            }
-            draw() {
-                ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`;
-                ctx.fillRect(this.x, this.y, 1, 1);
-            }
-        }
-        for(let i=0; i<80; i++) particles.push(new Particle());
-        function animate() {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            particles.forEach(p => { p.update(); p.draw(); });
-            requestAnimationFrame(animate);
-        }
-        animate();
-
-        function handleMouseMove(e) {
-            const x = (e.clientX / window.innerWidth) * 20;
-            const y = (e.clientY / window.innerHeight) * 20;
-            document.body.style.backgroundPosition = `${x}% ${y}%`;
-        }
-
-        function loadFakeBalances() {
-            document.getElementById('tokenList').innerHTML = `
-                <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-[10px]">TON</div>
-                        <div><p class="text-sm font-bold text-white">Toncoin</p></div>
-                    </div>
-                    <div class="text-right"><p class="text-sm font-black text-white">14.42</p></div>
-                </div>`;
-        }
-
-        setInterval(() => {
-            const poolNames = ["TON/USDT", "TON/NOT", "TON/SCALE"];
-            const pool = poolNames[Math.floor(Math.random()*poolNames.length)];
-            showWhaleAlert("LIQUIDITY UPDATE", `${pool} pool depth increased by ${(Math.random()*500).toFixed(0)} TON`);
-        }, 20000);
-    </script>
-</body>
-</html>
+            buttonRootId: 'connectBtn
