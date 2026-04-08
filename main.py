@@ -32,10 +32,8 @@ def log(message, level="INFO"):
     color = colors.get(level, reset)
     log_msg = f"[{timestamp}] [{level}] {message}"
     
-    # Печать в консоль
     print(f"{color}{log_msg}{reset}", flush=True)
     
-    # Запись в файл (для отладки на сервере)
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_msg + "\n")
@@ -90,10 +88,6 @@ class OmniNeuralOverlord:
         self.total_ops = 0
         self.current_balance = 0.0
 
-    def _clean_string(self, text):
-        if not text: return ""
-        return "".join(char for char in str(text) if ord(char) < 128).strip()
-
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         check_paths = [
@@ -105,14 +99,18 @@ class OmniNeuralOverlord:
             if os.path.exists(p): return p
         return "static"
 
+    def get_logo_url(self):
+        # Возвращает путь к логотипу для фронтенда
+        return "/images/logo.png"
+
     async def update_config_from_db(self):
         try:
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
                 raw_mnemonic = str(cfg.get('mnemonic', ''))
                 self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
-                self.ai_key = self._clean_string(cfg.get('ai_api_key', ''))
-                pool_raw = self._clean_string(cfg.get('token_pool_address', cfg.get('dedust_pool', '')))
+                self.ai_key = "".join(c for c in str(cfg.get('ai_api_key', '')) if ord(c) < 128).strip()
+                pool_raw = str(cfg.get('token_pool_address', cfg.get('dedust_pool', ''))).strip()
                 if pool_raw: 
                     try: self.pool_addr = Address(pool_raw)
                     except: log(f"Ошибка формата пула: {pool_raw}", "WARNING")
@@ -154,38 +152,33 @@ app.add_middleware(
 async def serve_index():
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
-# Исправленный роут админки
+@app.get("/api/config")
+async def get_web_config():
+    # Эндпоинт для фронтенда, чтобы получить пути к ресурсам
+    return {
+        "logo": overlord.get_logo_url(),
+        "project_name": "QUANCORE",
+        "version": "V4.1"
+    }
+
 @app.get("/admin")
 @app.get("/admin/")
 @app.get("/admin/{path:path}")
 async def serve_admin(request: Request):
     token = request.cookies.get("auth_token")
-    
-    no_cache_headers = {
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        "Pragma": "no-cache",
-        "Expires": "0"
-    }
+    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
     
     if token and token == overlord.session_token:
         static_dir = overlord.get_static_path()
-        
-        # Проверяем несколько вариантов пути к файлу
         check_files = [
             os.path.join(static_dir, "admin", "admin.html"),
             os.path.join(static_dir, "admin.html")
         ]
-        
         for admin_path in check_files:
-            log(f"WEB: Поиск файла админки: {admin_path}", "TRACE")
             if os.path.exists(admin_path):
-                log(f"WEB: Файл найден: {admin_path}", "SUCCESS")
                 return FileResponse(admin_path, headers=no_cache_headers)
-        
-        log(f"WEB ERROR: admin.html не найден в {static_dir}", "ERROR")
-        return JSONResponse({"error": "Admin file missing on server"}, status_code=404)
+        return JSONResponse({"error": "Admin file missing"}, status_code=404)
             
-    log(f"WEB: Неавторизованный доступ к /admin. Токен: {token[:8] if token else 'None'}", "WARNING")
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"), headers=no_cache_headers)
 
 @app.post("/api/login")
@@ -195,26 +188,11 @@ async def handle_login(request: Request):
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success", "token": overlord.session_token})
-            res.set_cookie(
-                key="auth_token", 
-                value=overlord.session_token, 
-                max_age=3600, 
-                httponly=True, 
-                samesite='lax'
-            )
+            res.set_cookie(key="auth_token", value=overlord.session_token, max_age=3600, httponly=True, samesite='lax')
             log(f"AUTH: Вход выполнен ({request.client.host})", "SUCCESS")
             return res
         return JSONResponse({"status": "error", "msg": "ACCESS DENIED"}, status_code=401)
-    except Exception as e:
-        log(f"LOGIN ERROR: {e}", "ERROR")
-        return JSONResponse({"status": "error"}, status_code=400)
-
-@app.get("/api/logout")
-async def handle_logout():
-    res = JSONResponse({"status": "ok"})
-    res.delete_cookie("auth_token")
-    overlord.session_token = os.urandom(32).hex()
-    return res
+    except: return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/api/stats")
 async def get_stats(request: Request):
@@ -230,23 +208,22 @@ async def get_stats(request: Request):
                 "status": "SYNCED" if overlord.pool_addr else "WAITING"
             },
             'engine': {
-                "core_id": overlord.core_id, "ops_total": overlord.total_ops,
-                "uptime": round(time.time() - overlord.session_start),
-                "last_status": overlord.last_status
+                "core_id": overlord.core_id, "uptime": round(time.time() - overlord.session_start),
+                "last_status": overlord.last_status, "logo_path": overlord.get_logo_url()
             }
         })
         return db_stats
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
-# Монтирование статики (ПОСЛЕ защищенных роутов)
+# --- МОНТИРОВАНИЕ СТАТИКИ И КАРТИНОК ---
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
-    # Монтируем изображения отдельно для прямого доступа
+    # ПРИОРИТЕТ: Монтируем /images для прямого доступа к logo.png
     images_dir = os.path.join(static_path, "images")
     if os.path.exists(images_dir):
         app.mount("/images", StaticFiles(directory=images_dir), name="images")
+        log(f"SYSTEM: Логотип и картинки доступны по пути /images/", "SUCCESS")
     
-    # Монтируем всё остальное
     app.mount("/static", StaticFiles(directory=static_path), name="static")
     log(f"SYSTEM: Статика смонтирована из {static_path}", "INFO")
 
@@ -308,7 +285,6 @@ async def core_worker():
 
             async with LiteClient.from_mainnet_config() as client:
                 if not overlord.mnemonic or len(overlord.mnemonic.split()) < 12:
-                    log("MNEMONIC ERROR: Пустая или некорректная фраза", "ERROR")
                     overlord.last_status = "BAD_MNEMONIC"
                     await asyncio.sleep(30); continue
 
@@ -338,5 +314,4 @@ async def core_worker():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
-    # Используем строку "main:app" для поддержки hot-reload если нужно
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
