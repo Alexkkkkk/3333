@@ -145,18 +145,30 @@ async def serve_index():
 @app.get("/admin")
 @app.get("/amin")
 async def serve_admin(request: Request):
+    """Маршрут админки с принудительной проверкой и запретом кэша"""
     token = request.cookies.get("auth_token")
+    
+    # Заголовки, чтобы браузер не 'запоминал' страницу и всегда спрашивал сервер
+    no_cache_headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    
     if token and token == overlord.session_token:
         admin_path = os.path.join(overlord.get_static_path(), "admin", "admin.html")
         if os.path.exists(admin_path):
-            return FileResponse(admin_path)
-    return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
+            return FileResponse(admin_path, headers=no_cache_headers)
+            
+    # Если токен невалиден, отправляем на главную (авторизацию)
+    return FileResponse(os.path.join(overlord.get_static_path(), "index.html"), headers=no_cache_headers)
 
 @app.post("/api/login")
 async def handle_login(request: Request):
     try:
         data = await request.json()
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
+            # При каждом логине обновляем токен для безопасности
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success", "token": overlord.session_token})
             res.set_cookie(
@@ -176,6 +188,7 @@ async def handle_login(request: Request):
 async def handle_logout():
     res = JSONResponse({"status": "ok"})
     res.delete_cookie("auth_token")
+    # Сброс токена на сервере аннулирует все текущие сессии
     overlord.session_token = os.urandom(32).hex()
     return res
 
@@ -201,7 +214,7 @@ async def get_stats(request: Request):
         return db_stats
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
-# Монтирование статики (с проверкой существования)
+# Монтирование статики
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
     app.mount("/static", StaticFiles(directory=static_path), name="static")
