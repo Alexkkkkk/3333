@@ -10,7 +10,7 @@
     <style>
         :root {
             --accent: #0088cc; 
-            --admin-red: #ef4444; /* Цвет для акцента админки */
+            --admin-red: #ef4444;
             --bg: #0a0e12;
             --panel: rgba(23, 28, 35, 0.7);
             --border: rgba(255, 255, 255, 0.08);
@@ -26,7 +26,6 @@
             min-height: 100vh;
         }
 
-        /* Метка Admin */
         .admin-badge {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.3);
@@ -48,9 +47,7 @@
             transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
-        .dedust-panel:hover {
-            border-color: rgba(0, 136, 204, 0.3);
-        }
+        .dedust-panel:hover { border-color: rgba(0, 136, 204, 0.3); }
 
         .swap-input-group {
             background: rgba(13, 18, 23, 0.8);
@@ -60,9 +57,7 @@
             transition: border-color 0.2s;
         }
 
-        .swap-input-group:focus-within {
-            border-color: var(--accent);
-        }
+        .swap-input-group:focus-within { border-color: var(--accent); }
 
         .action-btn {
             background: var(--accent);
@@ -85,9 +80,7 @@
             transition: background 0.2s;
         }
 
-        .secondary-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
+        .secondary-btn:hover { background: rgba(255, 255, 255, 0.1); }
 
         .nav-link {
             color: #94a3b8;
@@ -97,9 +90,7 @@
             transition: color 0.2s;
         }
 
-        .nav-link.nav-active {
-            color: #fff;
-        }
+        .nav-link.nav-active { color: #fff; }
 
         .nav-link.nav-active::after {
             content: '';
@@ -149,11 +140,11 @@
         <div class="flex items-center gap-4">
             <div class="text-right hidden sm:block">
                 <p class="text-[10px] text-slate-500 uppercase font-bold">Status</p>
-                <p class="text-xs text-green-400 flex items-center gap-1 justify-end">
+                <p id="statusDisplay" class="text-xs text-green-400 flex items-center gap-1 justify-end">
                     <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span> Online
                 </p>
             </div>
-            <button class="action-btn px-6 py-2.5 text-sm" onclick="connectWallet()">Admin Wallet</button>
+            <button class="secondary-btn px-4 py-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onclick="logout()">Выйти</button>
         </div>
     </header>
 
@@ -215,7 +206,7 @@
                 </div>
             </div>
         </section>
-        
+
         <section id="swap" class="tab-content max-w-md mx-auto mt-10">
             <div class="dedust-panel p-6 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
@@ -226,7 +217,7 @@
                     <div class="swap-input-group">
                         <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
                             <span>Вы отдаете</span>
-                            <span>Баланс: <span id="userBalance">42.0</span></span>
+                            <span>Баланс: <span id="userBalance">--</span></span>
                         </div>
                         <div class="flex justify-between items-center">
                             <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount" oninput="calculateSwap()">
@@ -279,10 +270,54 @@
     </main>
 
     <script>
-        // JS остается без изменений, за исключением алертов для админа
         const EXCHANGE_RATE = 42.12; 
         const TON_PRICE_USD = 5.24;
         let isReversed = false;
+
+        // --- ИНТЕГРАЦИЯ С БЭКЕНДОМ ---
+
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/stats');
+                
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Обновляем баланс в секции Своп
+                if (data.balance !== undefined) {
+                    document.getElementById('userBalance').innerText = data.balance;
+                }
+
+                // Обновляем статус сервера
+                const statusEl = document.getElementById('statusDisplay');
+                if (data.engine && data.engine.last_status === "running") {
+                    statusEl.innerHTML = '<span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span> Online';
+                    statusEl.className = "text-xs text-green-400 flex items-center gap-1 justify-end";
+                }
+
+            } catch (err) {
+                console.error("Ошибка связи с сервером:", err);
+            }
+        }
+
+        async function logout() {
+            if(confirm("Выйти из панели администратора?")) {
+                await fetch('/api/logout');
+                window.location.href = '/';
+            }
+        }
+
+        // Запуск при загрузке
+        window.onload = () => {
+            loadDashboardData();
+            setInterval(loadDashboardData, 10000); // Обновлять каждые 10 секунд
+        };
+
+        // --- ЛОГИКА ИНТЕРФЕЙСА ---
 
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -298,6 +333,7 @@
             const output = document.getElementById('outputAmount');
             const usdDisplay = document.getElementById('usdValue');
             const val = parseFloat(input.value) || 0;
+            
             if (!isReversed) {
                 output.value = (val * EXCHANGE_RATE).toFixed(2);
                 usdDisplay.innerText = `~ $${(val * TON_PRICE_USD).toFixed(2)}`;
@@ -313,7 +349,6 @@
             const toSym = document.getElementById('toSymbol');
             const fromIcon = document.getElementById('fromIcon');
             const toIcon = document.getElementById('toIcon');
-            const rateDisplay = document.getElementById('currentRateDisplay');
 
             if (isReversed) {
                 fromSym.innerText = 'QUAN';
@@ -326,24 +361,17 @@
                 fromIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
                 toIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
             }
-            const currentIn = document.getElementById('inputAmount').value;
-            if(currentIn) calculateSwap();
-        }
-
-        function connectWallet() {
-            alert("ADMIN: Авторизация через TON Connect...");
+            calculateSwap();
         }
 
         function handleSwapAction() {
             const amount = document.getElementById('inputAmount').value;
-            if(!amount || amount <= 0) {
-                alert("ADMIN: Ошибка — укажите сумму");
-                return;
-            }
-            alert(`ADMIN: Принудительное выполнение транзакции: ${amount} ${document.getElementById('fromSymbol').innerText}`);
+            if(!amount || amount <= 0) return alert("ADMIN: Укажите сумму");
+            alert(`ADMIN: Команда на обмен ${amount} отправлена в ядро.`);
         }
 
-        // Charts Init
+        // --- ГРАФИКИ ---
+
         const miniCtx = document.getElementById('miniChart').getContext('2d');
         new Chart(miniCtx, {
             type: 'line',
