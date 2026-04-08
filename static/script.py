@@ -1,9 +1,14 @@
 // ==========================================================
 // PROJECT: QUANTUM TERMINAL v4.1 ENGINE
 // ROLE: FRONTEND LOGIC & BLOCKCHAIN INTERACTION
+// CORE ASSET: QUANCORE (QC)
 // ==========================================================
 
-// --- КОНФИГУРАЦИЯ TONCONNECT ---
+// Конфигурация активов
+const QC_CONTRACT = "EQBrZYrk2PA659JmMCnkWVbLp14-5Gq8Yp9X_H9uR1pI_6_P"; // Адрес из скриншота
+const QC_SYMBOL = "QC";
+
+// Конфигурация TonConnect
 const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
     manifestUrl: 'https://quantum.bothost.tech/static/tonconnect-manifest.json',
     buttonRootId: 'connectBtn'
@@ -18,11 +23,8 @@ tonConnectUI.onStatusChange(async wallet => {
     
     if(wallet) {
         const address = wallet.account.address;
-        showWhaleAlert("Wallet Synced", "Quantum Terminal Ready");
-        
-        // Автоматическая синхронизация с вашим main.py
+        showWhaleAlert("Quantum Sync", "Operator Verified");
         syncWalletWithBackend(address);
-        
         await fetchWalletData(address);
     } else {
         resetWalletData();
@@ -30,49 +32,38 @@ tonConnectUI.onStatusChange(async wallet => {
 });
 
 /**
- * СИНХРОНИЗАЦИЯ С BACKEND (Quantum V3 Core)
+ * СИНХРОНИЗАЦИЯ С BACKEND
  */
 async function syncWalletWithBackend(address) {
     try {
-        const response = await fetch('/api/connect', {
+        await fetch('/api/connect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                address: address,
-                timestamp: Date.now()
-            })
+            body: JSON.stringify({ address, timestamp: Date.now() })
         });
-        const result = await response.json();
-        console.log("Quantum Backend Sync:", result.status);
-    } catch (e) {
-        console.error("Quantum Backend Sync: Offline", e);
-    }
+    } catch (e) { console.error("Backend Offline"); }
 }
 
 /**
- * ПОЛУЧЕНИЕ ДАННЫХ ЧЕРЕЗ TONAPI
+ * ПОЛУЧЕНИЕ ДАННЫХ ИЗ БЛОКЧЕЙНА (TONAPI)
  */
 async function fetchWalletData(address) {
     try {
-        const shortAddr = `${address.slice(0, 4)}...${address.slice(-4)}`;
-        const walletDisplay = document.getElementById('wallet-short-addr');
-        if(walletDisplay) walletDisplay.innerText = shortAddr;
-        
-        const profileMini = document.getElementById('user-profile-mini');
-        if(profileMini) profileMini.classList.remove('hidden');
+        // UI Элементы
+        const elements = {
+            shortAddr: document.getElementById('wallet-short-addr'),
+            profile: document.getElementById('user-profile-mini'),
+            status: document.getElementById('profile-status'),
+            fullAddr: document.getElementById('profile-full-address'),
+            mainBal: document.getElementById('main-balance-ton')
+        };
 
-        const profileStatus = document.getElementById('profile-status');
-        if(profileStatus) profileStatus.innerText = "VERIFIED OPERATOR";
-        
-        const fullAddrDisp = document.getElementById('profile-full-address');
-        if(fullAddrDisp) fullAddrDisp.innerText = address;
-        
-        const walletInfo = document.getElementById('profile-wallet-info');
-        const connectPrompt = document.getElementById('profile-connect-prompt');
-        if(walletInfo) walletInfo.classList.remove('hidden');
-        if(connectPrompt) connectPrompt.classList.add('hidden');
+        if(elements.shortAddr) elements.shortAddr.innerText = `${address.slice(0, 4)}...${address.slice(-4)}`;
+        if(elements.profile) elements.profile.classList.remove('hidden');
+        if(elements.status) elements.status.innerText = "VERIFIED OPERATOR";
+        if(elements.fullAddr) elements.fullAddr.innerText = address;
 
-        // Загрузка баланса TON и Жетонов
+        // Загрузка данных аккаунта и жетонов
         const [accRes, jettonRes] = await Promise.all([
             fetch(`https://tonapi.io/v2/accounts/${address}`),
             fetch(`https://tonapi.io/v2/accounts/${address}/jettons`)
@@ -82,178 +73,118 @@ async function fetchWalletData(address) {
         const jettonData = await jettonRes.json();
         
         const tonBalance = (accData.balance / 1e9).toFixed(2);
-        const mainBal = document.getElementById('main-balance-ton');
-        if(mainBal) mainBal.innerText = `${tonBalance} TON`;
+        if(elements.mainBal) elements.mainBal.innerText = `${tonBalance} TON`;
 
         renderJettons(jettonData.balances, tonBalance);
     } catch (e) {
-        console.error("Quantum Sync Error:", e);
-        showWhaleAlert("Data Error", "Failed to sync assets");
+        showWhaleAlert("Sync Error", "Blockchain data unreachable");
     }
 }
 
 /**
- * РЕНДЕР СПИСКА ТОКЕНОВ
+ * РЕНДЕР СПИСКА ТОКЕНОВ (С ФИЛЬТРАЦИЕЙ QC)
  */
 function renderJettons(balances, tonBalance) {
     const list = document.getElementById('tokenList');
     if (!list) return;
-    
     list.innerHTML = '';
-    // Добавляем системный TON
-    list.innerHTML += createTokenRow("TON", "TON", tonBalance, "https://ton.org/download/ton_symbol.png", "5.24");
+    
+    // 1. Сначала TON
+    list.innerHTML += createTokenRow("TON", "TON", tonBalance, "https://ton.org/download/ton_symbol.png", "5.24", false);
 
+    // 2. Ищем QUANCORE (QC) среди балансов
+    const qcAsset = balances.find(b => b.jetton.address === QC_CONTRACT);
+    if(qcAsset) {
+        const j = qcAsset.jetton;
+        const bal = (parseInt(qcAsset.balance) / Math.pow(10, j.decimals)).toFixed(2);
+        list.insertAdjacentHTML('afterbegin', createTokenRow(j.name, j.symbol, bal, j.image, "0.00", true));
+    }
+
+    // 3. Остальные токены
     balances.forEach(item => {
+        if(item.jetton.address === QC_CONTRACT) return;
         const j = item.jetton;
         const bal = (parseInt(item.balance) / Math.pow(10, j.decimals)).toFixed(2);
         if (parseFloat(bal) > 0) {
             const price = item.price ? item.price.prices.USD : 0;
-            list.innerHTML += createTokenRow(j.name, j.symbol, bal, j.image, price);
+            list.innerHTML += createTokenRow(j.name, j.symbol, bal, j.image, price, false);
         }
     });
 }
 
-function createTokenRow(name, symbol, balance, img, price) {
-    const usdValue = price ? (balance * price).toFixed(2) : "0.00";
+function createTokenRow(name, symbol, balance, img, price, isQC = false) {
+    const highlight = isQC ? 'border border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,242,255,0.1)]' : 'hover:bg-white/5';
+    const badge = isQC ? '<span class="text-[8px] bg-cyan-500 text-black px-1 rounded ml-1 font-black">CORE</span>' : '';
+    const usdValue = (balance * price).toFixed(2);
+
     return `
-        <div class="token-row flex justify-between items-center px-3 py-2 hover:bg-white/5 rounded-xl transition-all">
+        <div class="token-row flex justify-between items-center px-3 py-2 rounded-xl transition-all ${highlight} mb-1">
             <div class="flex items-center gap-3">
                 <img src="${img}" class="w-8 h-8 rounded-full border border-white/10" onerror="this.src='https://wallet.tg/assets/logo.png'">
                 <div>
-                    <p class="font-bold text-sm text-white">${symbol}</p>
+                    <p class="font-bold text-sm text-white">${symbol}${badge}</p>
                     <p class="text-[10px] text-slate-500">${name}</p>
                 </div>
             </div>
             <div class="text-right">
                 <p class="font-bold text-sm text-white">${balance}</p>
-                <p class="text-[9px] text-emerald-400">$${usdValue}</p>
+                <p class="text-[9px] text-emerald-400 font-mono">${isQC ? 'STABLE' : '$' + usdValue}</p>
             </div>
         </div>
     `;
 }
 
 /**
- * ЛОГИКА ОБМЕНА (SWAP)
+ * ЛОГИКА ОБМЕНА (SWAP) НА QC
  */
 function calculateSwap() {
     const input = document.getElementById('swapInput');
     const output = document.getElementById('swapOutput');
     if(!input || !output) return;
     
-    const val = input.value;
-    output.value = val ? (val * 450.25).toFixed(2) : ''; // Примерный курс QUAN
+    // Фиксированный курс терминала для QC (например 1 TON = 1000 QC)
+    const rate = 1000;
+    output.value = input.value ? (input.value * rate).toFixed(0) : '';
 }
 
 async function executeSwap() {
     if (!userWallet) { await tonConnectUI.connectWallet(); return; }
-    
     const amount = document.getElementById('swapInput')?.value;
-    if(!amount || amount <= 0) {
-        showWhaleAlert("Input Required", "Enter TON amount");
-        return;
-    }
+    if(!amount || amount <= 0) return showWhaleAlert("Error", "Enter TON amount");
 
     const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [{
-            address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", // ZERO ADDRESS или ваш кошелек
+            address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", // Кошелек сбора ликвидности
             amount: (amount * 1e9).toString(), 
         }]
     };
 
     try {
         await tonConnectUI.sendTransaction(transaction);
-        showWhaleAlert("Swap Initiated", `${amount} TON -> QUAN`);
-    } catch (e) {
-        showWhaleAlert("Cancelled", "Transaction rejected");
-    }
+        showWhaleAlert("Order Sent", `Swapping TON for ${QC_SYMBOL}`);
+    } catch (e) { showWhaleAlert("Declined", "User rejected swap"); }
 }
 
 /**
- * УПРАВЛЕНИЕ ТРАНЗАКЦИЯМИ (MINT / DEPLOY)
- */
-async function deployJetton() {
-    if (!userWallet) { await tonConnectUI.connectWallet(); return; }
-    
-    const name = document.getElementById('jettonName')?.value;
-    const symbol = document.getElementById('jettonSymbol')?.value;
-    const supply = document.getElementById('jettonSupply')?.value;
-
-    if(!name || !symbol || !supply) {
-        showWhaleAlert("System Error", "Fill all deployment fields");
-        return;
-    }
-
-    const btn = document.getElementById('deployBtn');
-    if(btn) {
-        btn.innerText = "FORGING...";
-        btn.disabled = true;
-    }
-
-    const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 300,
-        messages: [{
-            address: "EQB3ncyBUTjZUA5EnGhc_f_697L6SSc88_m5_N0D83v97m8", 
-            amount: "270000000", // 0.27 TON fee
-        }]
-    };
-
-    try {
-        await tonConnectUI.sendTransaction(transaction);
-        showWhaleAlert("Mint Success", `${symbol} deployment broadcasted`);
-    } catch (e) {
-        showWhaleAlert("Mint Failed", "Transaction rejected");
-    } finally {
-        if(btn) {
-            btn.disabled = false;
-            btn.innerText = "Mint Jetton";
-        }
-    }
-}
-
-/**
- * СИСТЕМА ВКЛАДОК
+ * ФУНКЦИИ ИНТЕРФЕЙСА
  */
 function switchTab(tabId, el) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    const activeTab = document.getElementById(tabId);
-    if(activeTab) activeTab.classList.add('active');
-    
+    document.getElementById(tabId)?.classList.add('active');
     if (el) {
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         el.classList.add('active');
     }
-    
     if (tabId === 'analytics') setTimeout(initChart, 100);
 }
 
-/**
- * ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА
- */
-function resetWalletData() {
-    const profileMini = document.getElementById('user-profile-mini');
-    if(profileMini) profileMini.classList.add('hidden');
-    
-    const mainBal = document.getElementById('main-balance-ton');
-    if(mainBal) mainBal.innerText = "0.00 TON";
-    
-    const list = document.getElementById('tokenList');
-    if(list) list.innerHTML = '<p class="text-center text-slate-500 py-10 text-xs">Подключите кошелек</p>';
-    
-    const pStatus = document.getElementById('profile-status');
-    if(pStatus) pStatus.innerText = "GUEST OPERATOR";
-    
-    document.getElementById('profile-wallet-info')?.classList.add('hidden');
-    document.getElementById('profile-connect-prompt')?.classList.remove('hidden');
-    updateUIState();
-}
-
 function updateUIState() {
-    const swapBtn = document.getElementById('mainSwapBtn');
-    const deployBtn = document.getElementById('deployBtn');
-    
-    if(swapBtn) swapBtn.innerText = userWallet ? "Execute Swap" : "Connect Wallet";
-    if(deployBtn) deployBtn.innerText = userWallet ? "Mint Jetton" : "Connect Wallet";
+    const btns = ['mainSwapBtn', 'deployBtn'];
+    btns.forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) btn.innerText = userWallet ? (id === 'deployBtn' ? "Mint Jetton" : "Execute Swap") : "Connect Wallet";
+    });
 }
 
 function showWhaleAlert(title, text) {
@@ -263,77 +194,44 @@ function showWhaleAlert(title, text) {
     alert.className = 'whale-toast';
     alert.innerHTML = `
         <div class="flex flex-col">
-            <p class="text-cyan-400 font-bold text-xs uppercase tracking-wider">${title}</p>
+            <p class="text-cyan-400 font-bold text-xs uppercase">${title}</p>
             <p class="text-white text-[10px] opacity-80">${text}</p>
         </div>
     `;
     container.appendChild(alert);
     setTimeout(() => {
         alert.style.opacity = '0';
-        alert.style.transform = 'translateX(20px)';
         setTimeout(() => alert.remove(), 500);
     }, 4000);
 }
 
-// ПАРАЛЛАКС ФОНА
-function handleMouseMove(e) {
+// ПАРАЛЛАКС И ЧАСТИЦЫ
+document.addEventListener('mousemove', (e) => {
     const x = (e.clientX / window.innerWidth) * 20;
     const y = (e.clientY / window.innerHeight) * 20;
     document.body.style.backgroundPosition = `${x}% ${y}%`;
-}
-document.addEventListener('mousemove', handleMouseMove);
+});
 
-// ГРАФИК (Chart.js)
-let myQuantumChart = null;
-function initChart() {
-    const canvas = document.getElementById('liquidityChart');
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if(myQuantumChart) myQuantumChart.destroy();
-    
-    myQuantumChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-            datasets: [{
-                data: [450, 520, 490, 610, 580, 720],
-                borderColor: '#00f2ff',
-                backgroundColor: 'rgba(0, 242, 255, 0.05)',
-                fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', size: 10 } },
-                x: { grid: { display: false }, ticks: { color: '#475569', size: 10 } }
-            }
-        }
-    });
-}
-
-// ИНИЦИАЛИЗАЦИЯ ЧАСТИЦ (Background)
 const canvasBg = document.getElementById('bg-canvas');
 if(canvasBg) {
-    const ctxP = canvasBg.getContext('2d');
+    const ctx = canvasBg.getContext('2d');
     let pts = [];
-    function initCanvas() {
+    function init() {
         canvasBg.width = window.innerWidth; canvasBg.height = window.innerHeight;
         pts = Array.from({length: 40}, () => ({ 
             x: Math.random()*canvasBg.width, y: Math.random()*canvasBg.height, 
-            s: Math.random()*1.5 + 0.5, v: Math.random()*0.3 + 0.1 
+            s: Math.random()*1.5, v: Math.random()*0.2 + 0.1 
         }));
     }
     function draw() {
-        ctxP.clearRect(0,0,canvasBg.width, canvasBg.height);
-        ctxP.fillStyle = "rgba(0, 242, 255, 0.3)";
+        ctx.clearRect(0,0,canvasBg.width, canvasBg.height);
+        ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
         pts.forEach(p => { 
             p.y -= p.v; if(p.y < 0) p.y = canvasBg.height; 
-            ctxP.beginPath(); ctxP.arc(p.x, p.y, p.s, 0, Math.PI*2); ctxP.fill(); 
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); 
         });
         requestAnimationFrame(draw);
     }
-    window.addEventListener('resize', initCanvas);
-    initCanvas(); draw();
+    window.addEventListener('resize', init);
+    init(); draw();
 }
