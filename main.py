@@ -11,14 +11,16 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
-# FastAPI для стабильной работы веб-интерфейса
+# FastAPI компоненты
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# --- СИСТЕМА ЛОГИРОВАНИЯ ---
+# --- УЛУЧШЕННАЯ СИСТЕМА ЛОГИРОВАНИЯ ---
+LOG_FILE = "quantum_system.log"
+
 def log(message, level="INFO"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     colors = {
@@ -28,7 +30,17 @@ def log(message, level="INFO"):
     }
     reset = "\033[0m"
     color = colors.get(level, reset)
-    print(f"{color}[{timestamp}] [{level}] {message}{reset}", flush=True)
+    log_msg = f"[{timestamp}] [{level}] {message}"
+    
+    # Печать в консоль
+    print(f"{color}{log_msg}{reset}", flush=True)
+    
+    # Запись в файл (для отладки на сервере)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_msg + "\n")
+    except:
+        pass
 
 # --- УЛЬТРА-ЗАЩИЩЕННЫЙ ИМПОРТ TON ---
 log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM (FASTAPI HYBRID) <<<", "CORE")
@@ -142,11 +154,11 @@ app.add_middleware(
 async def serve_index():
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
+# Исправленный роут админки
 @app.get("/admin")
 @app.get("/admin/")
-@app.get("/amin")
+@app.get("/admin/{path:path}")
 async def serve_admin(request: Request):
-    """Маршрут админки с расширенной отладкой"""
     token = request.cookies.get("auth_token")
     
     no_cache_headers = {
@@ -156,17 +168,22 @@ async def serve_admin(request: Request):
     }
     
     if token and token == overlord.session_token:
-        # Пытаемся найти admin.html
         static_dir = overlord.get_static_path()
-        admin_path = os.path.join(static_dir, "admin", "admin.html")
         
-        log(f"WEB: Запрос админки. Проверка пути: {admin_path}", "TRACE")
+        # Проверяем несколько вариантов пути к файлу
+        check_files = [
+            os.path.join(static_dir, "admin", "admin.html"),
+            os.path.join(static_dir, "admin.html")
+        ]
         
-        if os.path.exists(admin_path):
-            return FileResponse(admin_path, headers=no_cache_headers)
-        else:
-            log(f"WEB ERROR: Файл {admin_path} не найден!", "ERROR")
-            return JSONResponse({"error": "Admin file missing on server"}, status_code=404)
+        for admin_path in check_files:
+            log(f"WEB: Поиск файла админки: {admin_path}", "TRACE")
+            if os.path.exists(admin_path):
+                log(f"WEB: Файл найден: {admin_path}", "SUCCESS")
+                return FileResponse(admin_path, headers=no_cache_headers)
+        
+        log(f"WEB ERROR: admin.html не найден в {static_dir}", "ERROR")
+        return JSONResponse({"error": "Admin file missing on server"}, status_code=404)
             
     log(f"WEB: Неавторизованный доступ к /admin. Токен: {token[:8] if token else 'None'}", "WARNING")
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"), headers=no_cache_headers)
@@ -188,7 +205,8 @@ async def handle_login(request: Request):
             log(f"AUTH: Вход выполнен ({request.client.host})", "SUCCESS")
             return res
         return JSONResponse({"status": "error", "msg": "ACCESS DENIED"}, status_code=401)
-    except:
+    except Exception as e:
+        log(f"LOGIN ERROR: {e}", "ERROR")
         return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/api/logout")
@@ -220,13 +238,17 @@ async def get_stats(request: Request):
         return db_stats
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
-# Монтирование статики (ПОСЛЕ роутов админки)
+# Монтирование статики (ПОСЛЕ защищенных роутов)
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
-    app.mount("/static", StaticFiles(directory=static_path), name="static")
+    # Монтируем изображения отдельно для прямого доступа
     images_dir = os.path.join(static_path, "images")
     if os.path.exists(images_dir):
         app.mount("/images", StaticFiles(directory=images_dir), name="images")
+    
+    # Монтируем всё остальное
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+    log(f"SYSTEM: Статика смонтирована из {static_path}", "INFO")
 
 # --- CORE LOGIC ---
 
@@ -316,4 +338,5 @@ async def core_worker():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
-    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
+    # Используем строку "main:app" для поддержки hot-reload если нужно
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
