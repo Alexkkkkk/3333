@@ -2,37 +2,100 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QUANCORE | FORGE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .forge-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px border rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 1rem;
+            color: white;
+            font-weight: bold;
+            outline: none;
+            transition: all 0.3s;
+            margin-bottom: 0.75rem;
+        }
+        .forge-input:focus {
+            border-color: #a855f7;
+            background: rgba(168, 85, 247, 0.05);
+        }
+    </style>
 </head>
-<body>
+<body class="bg-[#050b10] text-slate-300">
     <canvas id="bg-canvas"></canvas>
+    
     <header class="p-6 flex justify-between items-center relative z-50">
-        <a href="index.html" class="flex items-center gap-2"><img src="images/logo.png" class="w-10"></a>
+        <a href="index.html" class="flex items-center gap-2">
+            <img src="/images/logo.png" alt="Logo" class="w-10 h-10">
+            <h1 class="text-xl font-black italic text-white uppercase">QUAN<span class="text-cyan-400">CORE</span></h1>
+        </a>
         <div id="connectBtn"></div>
     </header>
 
-    <main class="max-w-lg mx-auto px-4 pb-32">
-        <div class="glass-card">
-            <h2 class="font-black italic text-white uppercase text-xl mb-4">Mint Jetton</h2>
-            <div class="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-4 text-[10px] text-red-400">
-                Fee: 0.25 TON per deployment.
+    <main class="max-w-lg mx-auto px-4 pb-32 relative z-10">
+        <div class="glass-card p-6 bg-gradient-to-br from-purple-500/10 to-transparent rounded-[2rem] border border-white/10 backdrop-blur-md shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-black italic text-white uppercase text-xl tracking-wider">MINT TERMINAL</h2>
+                <div class="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center border border-purple-500/30">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+                </div>
             </div>
-            <input type="text" placeholder="Name" class="forge-input">
-            <input type="text" placeholder="Symbol" class="forge-input uppercase">
-            <input type="number" placeholder="Total Supply" class="forge-input">
-            <button class="w-full py-4 rounded-2xl font-black text-black btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">MINT JETTON</button>
+
+            <div class="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl mb-6 flex items-start gap-3">
+                <svg class="w-4 h-4 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/></svg>
+                <p class="text-[11px] text-red-400 font-bold leading-tight">SYSTEM NOTICE:<br><span class="opacity-70 font-medium lowercase">Fee: 0.25 TON per deployment required for smart-contract initialization.</span></p>
+            </div>
+
+            <div class="space-y-1">
+                <div class="relative group">
+                    <input type="text" placeholder="TOKEN NAME (e.g. Quantum)" class="forge-input placeholder:text-white/10">
+                </div>
+                <div class="relative group">
+                    <input type="text" placeholder="SYMBOL (e.g. QC)" class="forge-input uppercase placeholder:text-white/10">
+                </div>
+                <div class="relative group">
+                    <input type="number" placeholder="TOTAL SUPPLY" class="forge-input placeholder:text-white/10">
+                </div>
+                
+                <button class="w-full mt-4 py-5 rounded-2xl font-black text-black uppercase tracking-[0.2em] text-xs transition-all active:scale-95 shadow-lg shadow-purple-500/20" 
+                        style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
+                    INITIALIZE MINT
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-6 px-4 flex justify-between items-center opacity-40">
+            <span class="text-[9px] font-bold uppercase tracking-widest">Jetton Standard: TEP-74</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-purple-400">Verified</span>
         </div>
     </main>
 
-    <nav class="nav-bar">
-        <a href="index.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span>HOME</span></a>
-        <a href="swap.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg><span>SWAP</span></a>
-        <a href="forge.html" class="nav-item active"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg><span>FORGE</span></a>
-        <a href="assets.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg><span>DATA</span></a>
+    <nav class="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-2xl border-t border-white/5 p-3 flex justify-around items-center z-50">
+        <a href="index.html" class="flex flex-col items-center text-slate-500 hover:text-white transition-all group">
+            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span class="text-[9px] font-bold uppercase">Home</span>
+        </a>
+        <a href="swap.html" class="flex flex-col items-center text-slate-500 hover:text-white transition-all group">
+            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            <span class="text-[9px] font-bold uppercase">Swap</span>
+        </a>
+        <a href="forge.html" class="flex flex-col items-center text-purple-400 transition-all">
+            <svg class="w-6 h-6 mb-1 scale-110" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            <span class="text-[9px] font-bold uppercase">Forge</span>
+        </a>
+        <a href="assets.html" class="flex flex-col items-center text-slate-500 hover:text-white transition-all group">
+            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[9px] font-bold uppercase">Data</span>
+        </a>
+        <a href="/admin" class="flex flex-col items-center text-slate-500 hover:text-white transition-all group">
+            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span class="text-[9px] font-bold uppercase">Operator</span>
+        </a>
     </nav>
 
     <script>
@@ -41,7 +104,6 @@
             buttonRootId: 'connectBtn'
         });
 
-        // Та же логика анимации Canvas, что и в index.html
         const canvas = document.getElementById('bg-canvas');
         if (canvas) {
             const ctx = canvas.getContext('2d');
@@ -53,11 +115,11 @@
                 constructor() {
                     this.x = Math.random() * canvas.width;
                     this.y = Math.random() * canvas.height;
-                    this.speed = Math.random() * 0.5 + 0.1;
-                    this.opacity = Math.random() * 0.3;
+                    this.speed = Math.random() * 0.4 + 0.1;
+                    this.opacity = Math.random() * 0.2;
                 }
                 update() { this.y -= this.speed; if (this.y < 0) this.y = canvas.height; }
-                draw() { ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`; ctx.fillRect(this.x, this.y, 1, 1); }
+                draw() { ctx.fillStyle = `rgba(168, 85, 247, ${this.opacity})`; ctx.fillRect(this.x, this.y, 1, 1); }
             }
             for(let i=0; i<60; i++) particles.push(new Particle());
             function animate() {
