@@ -1,6 +1,6 @@
 import "@stdlib/deploy";
 
-// Стандарт сообщения для перевода Jetton
+// Сообщение для взаимодействия с Jetton-кошельком
 message(0x0f8a7ea5) TokenTransfer {
     query_id: Int as uint64;
     amount: Int as coins;
@@ -15,50 +15,50 @@ contract QuantumEternalCore with Deployable {
     owner: Address;
     jettonWallet: Address?; 
     
-    // Резервы AMM
+    // Резервы AMM (Автоматического маркет-мейкера)
     tonReserves: Int as coins = 0;
     qcReserves: Int as coins = 0;
     
-    // Энергетическое ядро (Саморазвитие)
+    // Система саморазвития (Growth Engine)
     growthEnergy: Int as coins = 0; 
     totalEvolutionPower: Int as coins = 0;
     
-    // Состояние системы
+    // Состояние
     isLocked: Bool = false;
-    const minStorage: Int = ton("0.2"); // Запас на хранение данных
+    const minStorage: Int = ton("0.2"); 
 
     init(owner: Address) {
         self.owner = owner;
     }
 
-    // --- ОСНОВНОЙ ТОРГОВЫЙ ИНТЕРФЕЙС ---
+    // --- ОСНОВНОЙ ТОРГОВЫЙ ЦИКЛ ---
     receive() {
         let ctx: Context = context();
         let tonIn: Int = ctx.value;
         
-        // 1. Проверки безопасности
+        // Защита и проверка
         require(!self.isLocked, "Core Synchronizing");
         require(tonIn >= ton("0.01"), "Quantum Dust Rejected"); 
         require(self.jettonWallet != null, "Awaiting Seed");
 
-        // 2. Распределение потоков (2% комиссия)
-        // 1.5% — в фонд вечного роста (Growth Energy)
-        // 0.5% — твоя личная прибыль (накапливается на балансе)
+        // Распределение комиссий (2% суммарно)
+        // 1.5% идет на "накачку" цены (Growth Energy)
+        // 0.5% — твоя чистая прибыль владельца
         let energyIn: Int = (tonIn * 15) / 1000;
         let profitIn: Int = (tonIn * 5) / 1000;
         
         self.growthEnergy = self.growthEnergy + energyIn;
         let swapNet: Int = tonIn - energyIn - profitIn;
 
-        // 3. Алгоритм Constant Product (x * y = k)
+        // Формула Рыночной цены (x * y = k)
         let qcOut: Int = (self.qcReserves * swapNet) / (self.tonReserves + swapNet);
         
-        // Обновление резервов после сделки
+        // Обновление состояния пула
         self.tonReserves = self.tonReserves + swapNet;
         self.qcReserves = self.qcReserves - qcOut;
 
-        // 4. АВТО-УКРЕПЛЕНИЕ ЦЕНЫ (The Eternal Engine)
-        // Если фонд накопил > 3 TON, 20% вливается в ликвидность для поднятия цены
+        // THE ETERNAL ENGINE: Авто-укрепление курса
+        // Если накопилось > 3 TON, 20% фонда вливается в ликвидность без продажи QC
         if (self.growthEnergy > ton("3")) {
             let support: Int = self.growthEnergy / 5; 
             self.tonReserves = self.tonReserves + support;
@@ -66,7 +66,7 @@ contract QuantumEternalCore with Deployable {
             self.totalEvolutionPower = self.totalEvolutionPower + support;
         }
 
-        // 5. Исполнение транзакции
+        // Отправка QC пользователю
         send(SendParameters{
             to: self.jettonWallet!!,
             value: ton("0.05"), 
@@ -82,9 +82,15 @@ contract QuantumEternalCore with Deployable {
         });
     }
 
-    // --- УПРАВЛЕНИЕ И ЭВОЛЮЦИЯ ---
+    // --- УПРАВЛЕНИЕ ВЛАДЕЛЬЦЕМ ---
 
-    // Мгновенный памп цены за счет всей накопленной энергии
+    // Установка адреса Jetton-кошелька контракта (выполни один раз после деплоя)
+    receive(newWallet: Address) {
+        require(sender() == self.owner, "Access Denied");
+        self.jettonWallet = newWallet;
+    }
+
+    // "Квантовый Скачок" — мгновенный влив всей энергии в цену
     receive("max_evolution") {
         require(sender() == self.owner, "Access Denied");
         self.tonReserves = self.tonReserves + self.growthEnergy;
@@ -92,13 +98,7 @@ contract QuantumEternalCore with Deployable {
         self.growthEnergy = 0;
     }
 
-    // Экстренная заморозка контракта
-    receive("lock") {
-        require(sender() == self.owner, "Access Denied");
-        self.isLocked = !self.isLocked;
-    }
-
-    // Вывод твоей чистой прибыли (0.5% со всех сделок)
+    // Вывод прибыли (0.5% + излишки газа)
     receive("harvest") {
         require(sender() == self.owner, "Access Denied");
         let profit: Int = myBalance() - self.tonReserves - self.growthEnergy - self.minStorage;
@@ -111,19 +111,33 @@ contract QuantumEternalCore with Deployable {
         });
     }
 
-    // Первичная инициализация пула (отправь это сообщение с суммой QC после деплоя)
+    // Инициализация резервов (отправь число QC для запуска рынка)
     receive(msg: Int) {
-        if (sender() == self.owner) {
-            self.qcReserves = msg;
-            self.tonReserves = myBalance() - self.minStorage;
-        }
+        require(sender() == self.owner, "Access Denied");
+        self.qcReserves = msg;
+        self.tonReserves = myBalance() - self.minStorage;
     }
 
-    // --- ГЕТТЕРЫ ДЛЯ ФРОНТЕНДА ---
+    // Экстренная блокировка
+    receive("lock") {
+        require(sender() == self.owner, "Access Denied");
+        self.isLocked = !self.isLocked;
+    }
+
+    // --- ГЕТТЕРЫ (ДЛЯ ТВОЕГО САЙТА) ---
+
+    // Возвращает текущую рыночную цену (сколько нанотонов стоит 1 QC)
+    get fun current_price(): Int {
+        if (self.qcReserves == 0) { return 0; }
+        return (self.tonReserves * 1000000000) / self.qcReserves;
+    }
+
+    // Статистика фонда саморазвития
     get fun get_nexus_stats(): String {
-        return "Energy: ".concat(self.growthEnergy.toString()).concat(" | Power: ").concat(self.totalEvolutionPower.toString());
+        return "Energy: ".concat(self.growthEnergy.toString()).concat(" | Evolution: ").concat(self.totalEvolutionPower.toString());
     }
 
+    // Текущие резервы пула
     get fun get_reserves(): String {
         return "TON: ".concat(self.tonReserves.toString()).concat(" | QC: ").concat(self.qcReserves.toString());
     }
