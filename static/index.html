@@ -13,22 +13,22 @@
     
     <header class="p-6 flex justify-between items-center relative z-50">
         <div class="flex items-center gap-2">
-            <img src="images/logo.png" alt="Logo" class="w-10 h-10">
+            <img src="/images/logo.png" alt="Logo" id="core-logo" class="w-10 h-10">
             <h1 class="text-xl font-black italic text-white uppercase">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
         <div id="connectBtn"></div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 pb-32 space-y-6">
-        <div class="glass-card bg-gradient-to-br from-cyan-500/10 to-transparent">
+    <main class="max-w-7xl mx-auto px-4 pb-32 space-y-6 relative z-10">
+        <div class="glass-card bg-gradient-to-br from-cyan-500/10 to-transparent p-6 rounded-3xl border border-white/10 backdrop-blur-md">
             <div class="mb-6">
-                <h2 class="text-3xl font-black uppercase italic">Quantum Pulse v4.1</h2>
-                <p class="text-slate-400 text-xs">Система мониторинга ликвидности</p>
+                <h2 class="text-3xl font-black uppercase italic text-white" id="project-title">Quantum Pulse v4.1</h2>
+                <p class="text-slate-400 text-xs">Система мониторинга ликвидности | <span id="core-id-display" class="text-cyan-500">OFFLINE</span></p>
             </div>
             <div class="flex gap-4">
                 <div class="flex-1 bg-white/5 p-4 rounded-2xl border border-white/5">
                     <p class="text-[9px] text-slate-500 uppercase font-bold">QC BALANCE</p>
-                    <p class="text-xl font-black" id="main-balance-qc">0.00 QC</p>
+                    <p class="text-xl font-black text-white" id="main-balance-qc">0.00 QC</p>
                 </div>
                 <div class="flex-1 bg-white/5 p-4 rounded-2xl border border-white/5">
                     <p class="text-[9px] text-slate-500 uppercase font-bold">WALLET TON</p>
@@ -38,57 +38,89 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-            <a href="swap.html" class="card-grid-item">
+            <a href="swap.html" class="card-grid-item bg-white/5 p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                 <h3 class="font-bold text-lg text-white">Обмен</h3>
-                <p class="text-[10px] text-slate-500">Fast Swap Engine</p>
+                <p class="text-[10px] text-slate-500 uppercase">Fast Swap Engine</p>
             </a>
-            <a href="assets.html" class="card-grid-item">
+            <a href="assets.html" class="card-grid-item bg-white/5 p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                 <h3 class="font-bold text-lg text-white">Активы</h3>
-                <p class="text-[10px] text-slate-500">Wallet Portfolio</p>
+                <p class="text-[10px] text-slate-500 uppercase">Wallet Portfolio</p>
             </a>
-            <a href="forge.html" class="card-grid-item">
+            <a href="forge.html" class="card-grid-item bg-white/5 p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                 <h3 class="font-bold text-lg text-white">Forge</h3>
-                <p class="text-[10px] text-slate-500">Mint Jettons</p>
+                <p class="text-[10px] text-slate-500 uppercase">Mint Jettons</p>
             </a>
-            <a href="staking.html" class="card-grid-item">
+            <a href="staking.html" class="card-grid-item bg-white/5 p-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                 <h3 class="font-bold text-lg text-white">Staking</h3>
-                <p class="text-[10px] text-slate-500">Earn Rewards</p>
+                <p class="text-[10px] text-slate-500 uppercase">Earn Rewards</p>
             </a>
         </div>
     </main>
 
-    <nav class="nav-bar">
-        <a href="index.html" class="nav-item active">
+    <nav class="nav-bar fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-white/10 p-4 flex justify-around items-center z-50">
+        <a href="index.html" class="nav-item active flex flex-col items-center text-cyan-400">
             <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span>HOME</span>
+            <span class="text-[10px] font-bold">HOME</span>
         </a>
-        <a href="swap.html" class="nav-item">
+        <a href="swap.html" class="nav-item flex flex-col items-center text-slate-500 hover:text-white">
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-            <span>SWAP</span>
+            <span class="text-[10px] font-bold">SWAP</span>
         </a>
-        <a href="forge.html" class="nav-item">
+        <a href="forge.html" class="nav-item flex flex-col items-center text-slate-500 hover:text-white">
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-            <span>FORGE</span>
+            <span class="text-[10px] font-bold">FORGE</span>
         </a>
-        <a href="assets.html" class="nav-item">
+        <a href="assets.html" class="nav-item flex flex-col items-center text-slate-500 hover:text-white">
             <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span>DATA</span>
+            <span class="text-[10px] font-bold">DATA</span>
         </a>
     </nav>
 
     <script>
+        // Инициализация TON Connect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
+        // Функция обновления данных с сервера
+        async function updateCoreData() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                if (data.core_id) {
+                    document.getElementById('core-id-display').innerText = data.core_id;
+                    document.getElementById('project-title').innerText = data.project_name + " " + data.version;
+                }
+            } catch (e) {
+                console.log("Core API offline");
+            }
+        }
+
+        // Следим за подключением кошелька
+        tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+                fetch('/api/connect', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ address: wallet.account.address })
+                });
+            }
+        });
+
+        // Анимация фона (Matrix/Particles)
         const canvas = document.getElementById('bg-canvas');
         if (canvas) {
             const ctx = canvas.getContext('2d');
             let particles = [];
-            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            function resize() { 
+                canvas.width = window.innerWidth; 
+                canvas.height = window.innerHeight; 
+            }
             window.addEventListener('resize', resize);
             resize();
+
             class Particle {
                 constructor() {
                     this.x = Math.random() * canvas.width;
@@ -96,8 +128,14 @@
                     this.speed = Math.random() * 0.5 + 0.1;
                     this.opacity = Math.random() * 0.3;
                 }
-                update() { this.y -= this.speed; if (this.y < 0) this.y = canvas.height; }
-                draw() { ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`; ctx.fillRect(this.x, this.y, 1, 1); }
+                update() { 
+                    this.y -= this.speed; 
+                    if (this.y < 0) this.y = canvas.height; 
+                }
+                draw() { 
+                    ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`; 
+                    ctx.fillRect(this.x, this.y, 1, 1); 
+                }
             }
             for(let i=0; i<60; i++) particles.push(new Particle());
             function animate() {
@@ -107,6 +145,10 @@
             }
             animate();
         }
+
+        // Запуск обновлений
+        updateCoreData();
+        setInterval(updateCoreData, 30000);
     </script>
 </body>
 </html>
