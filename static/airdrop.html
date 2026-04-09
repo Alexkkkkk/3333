@@ -1,1 +1,280 @@
-1
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QUANCORE | NEURAL DROP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
+        
+        body { font-family: 'Space Grotesk', sans-serif; overflow-x: hidden; }
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: 0; pointer-events: none; }
+        
+        /* Эффект старого монитора (Scanlines) */
+        body::before {
+            content: " "; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 3px, 3px 100%; z-index: 100; pointer-events: none;
+        }
+
+        .text-glow { text-shadow: 0 0 15px rgba(249, 115, 22, 0.8), 0 0 30px rgba(249, 115, 22, 0.3); }
+
+        /* Ультра-карточка с эффектом глубины */
+        .ultra-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-blur: 20px;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        .ultra-card:hover {
+            background: rgba(249, 115, 22, 0.05);
+            border-color: rgba(249, 115, 22, 0.4);
+            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(249, 115, 22, 0.1);
+        }
+
+        /* Анимированный шум на фоне */
+        .noise {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.05; pointer-events: none; mix-blend-mode: overlay;
+        }
+
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { animation: marquee 25s linear infinite; }
+
+        .progress-glow { box-shadow: 0 0 15px rgba(249, 115, 22, 0.6); }
+    </style>
+</head>
+<body class="bg-[#020609] text-white selection:bg-orange-500/50">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="relative z-[110] bg-orange-600/10 border-b border-orange-500/20 py-1 backdrop-blur-md overflow-hidden">
+        <div class="animate-marquee whitespace-nowrap flex gap-12 text-[10px] font-mono font-bold text-orange-400 uppercase tracking-[0.2em]">
+            <span>SYSTEM STATUS: STABLE</span>
+            <span>// QC POOL: 4,200,341 AVAILABLE</span>
+            <span>// NEW CLAIM: 1,200 QC BY ADDR...4F2</span>
+            <span>// NETWORK LOAD: 14%</span>
+            <span>// SYSTEM STATUS: STABLE</span>
+        </div>
+    </div>
+
+    <header class="p-8 flex justify-between items-center relative z-50">
+        <div class="group cursor-pointer">
+            <a href="index.html" class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-orange-500 blur-lg opacity-20 group-hover:opacity-50 transition-opacity"></div>
+                    <img src="/images/logo.png" alt="Logo" class="w-12 h-12 relative z-10 brightness-110">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black italic uppercase tracking-tighter leading-none">QUAN<span class="text-orange-500 text-glow">CORE</span></h1>
+                    <span class="text-[8px] text-orange-500/60 font-bold tracking-[0.4em] uppercase">Airdrop Terminal</span>
+                </div>
+            </a>
+        </div>
+        <div id="connectBtn" class="hover:scale-105 transition-transform"></div>
+    </header>
+
+    <main class="max-w-xl mx-auto px-6 pb-44 relative z-10">
+        
+        <div class="ultra-card rounded-[3rem] p-8 mb-10 overflow-hidden relative">
+            <div class="noise"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-10">
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="h-2 w-2 bg-orange-500 rounded-full animate-ping"></span>
+                            <span class="text-orange-500 font-bold text-[10px] tracking-widest uppercase">Live Connection</span>
+                        </div>
+                        <h2 class="text-4xl font-black italic tracking-tighter uppercase">Drop <span class="text-orange-500">Center</span></h2>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocol Version</p>
+                        <p class="font-mono text-xs text-white">4.1.0-BETA</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/5 p-5 rounded-3xl border border-white/5 backdrop-blur-sm">
+                        <p class="text-[9px] text-slate-400 font-bold uppercase mb-2">Total Pool Distributed</p>
+                        <p class="text-2xl font-black font-mono">1,450,000 <span class="text-orange-500 text-xs">QC</span></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-3xl border border-white/5 backdrop-blur-sm">
+                        <p class="text-[9px] text-slate-400 font-bold uppercase mb-2">Your Status</p>
+                        <p id="eligibility-status" class="text-2xl font-black font-mono text-orange-500 opacity-50 italic">OFFLINE</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-8">
+            <h3 class="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500 ml-4 mb-4">Available Distributions</h3>
+            
+            <div class="ultra-card rounded-[2.5rem] p-7 group relative overflow-hidden">
+                <div class="noise"></div>
+                <div class="flex justify-between items-start mb-8 relative z-10">
+                    <div class="flex gap-4 items-center">
+                        <div class="w-14 h-14 bg-orange-500/10 rounded-2xl border border-orange-500/30 flex items-center justify-center text-orange-500 shadow-inner">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="text-xl font-black italic uppercase leading-none mb-1">Early Adopter</h4>
+                            <p class="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Season #1</p>
+                        </div>
+                    </div>
+                    <div class="bg-orange-500 text-black font-black text-[9px] px-3 py-1 rounded-full uppercase tracking-tighter">Active Now</div>
+                </div>
+
+                <div class="space-y-6 relative z-10">
+                    <div class="bg-black/20 p-4 rounded-2xl border border-white/5">
+                        <div class="flex justify-between text-[10px] font-bold uppercase mb-3">
+                            <span class="text-slate-500">Allocation Claimed</span>
+                            <span class="text-orange-500">82.4%</span>
+                        </div>
+                        <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden p-[1px]">
+                            <div class="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full progress-glow" style="width: 82.4%"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[9px] text-slate-500 uppercase font-black mb-1 tracking-widest">Reward Amount</p>
+                            <p class="text-4xl font-black italic text-glow">500.00 <span class="text-sm text-orange-500 not-italic uppercase">QC</span></p>
+                        </div>
+                        <button onclick="claimAirdrop('S1')" class="relative overflow-hidden bg-white text-black h-14 px-10 rounded-2xl font-black uppercase text-xs transition-all hover:bg-orange-500 hover:text-white hover:scale-105 active:scale-95 shadow-2xl">
+                            Claim
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ultra-card rounded-[2.5rem] p-7 opacity-40 grayscale pointer-events-none border-dashed">
+                <div class="flex justify-between items-center">
+                    <div class="flex gap-4 items-center">
+                        <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-slate-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold italic uppercase leading-none mb-1">Community Test</h4>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic font-mono">Completed // 01.03.26</p>
+                        </div>
+                    </div>
+                    <p class="font-black text-xl italic text-slate-600">CLAIMED</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-2 flex justify-between items-center z-[200] shadow-2xl">
+        <a href="index.html" class="flex-1 flex flex-col items-center py-3 text-slate-500 hover:text-white transition-all">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span class="text-[7px] font-black uppercase tracking-[0.2em]">Terminal</span>
+        </a>
+        <div class="flex-1 flex flex-col items-center py-3 text-orange-500 relative">
+            <div class="absolute inset-0 bg-orange-500/10 rounded-2xl blur-md"></div>
+            <svg class="w-6 h-6 mb-1 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span class="text-[7px] font-black uppercase tracking-[0.2em] relative z-10">Airdrop</span>
+        </div>
+        <a href="operator.html" class="flex-1 flex flex-col items-center py-3 text-slate-500 hover:text-white transition-all">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[7px] font-black uppercase tracking-[0.2em]">Data</span>
+        </a>
+    </nav>
+
+    <script>
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        // Отслеживание статуса кошелька
+        tonConnectUI.onStatusChange(wallet => {
+            const statusEl = document.getElementById('eligibility-status');
+            if (wallet) {
+                statusEl.innerText = "QUALIFIED";
+                statusEl.classList.remove('opacity-50', 'text-orange-500');
+                statusEl.classList.add('text-green-400', 'text-glow');
+            } else {
+                statusEl.innerText = "OFFLINE";
+                statusEl.className = "text-2xl font-black font-mono text-orange-500 opacity-50 italic";
+            }
+        });
+
+        async function claimAirdrop(id) {
+            if (!tonConnectUI.connected) {
+                alert("CRITICAL ERROR: Wallet connection required.");
+                return;
+            }
+            alert(`Инициализация протокола квантового захвата для пула ${id}...`);
+        }
+
+        // Параллакс эффект для карточек
+        document.addEventListener('mousemove', (e) => {
+            const cards = document.querySelectorAll('.ultra-card');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 20;
+                const rotateY = (centerX - x) / 20;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+        });
+
+        // Обновленная анимация фона
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize); resize();
+
+            class Particle {
+                constructor() {
+                    this.reset();
+                    this.y = Math.random() * canvas.height;
+                }
+                reset() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = canvas.height + 20;
+                    this.speed = Math.random() * 0.5 + 0.2;
+                    this.opacity = Math.random() * 0.3;
+                    this.size = Math.random() * 2 + 1;
+                    this.color = Math.random() > 0.8 ? '#f97316' : '#ffffff';
+                }
+                update() {
+                    this.y -= this.speed;
+                    if (this.y < -10) this.reset();
+                }
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = this.opacity;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    if(this.color === '#f97316') {
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#f97316';
+                    } else { ctx.shadowBlur = 0; }
+                }
+            }
+
+            for(let i=0; i<60; i++) particles.push(new Particle());
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => { p.update(); p.draw(); });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+    </script>
+</body>
+</html>
