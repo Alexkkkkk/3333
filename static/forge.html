@@ -21,8 +21,8 @@
             <div class="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-4 text-[10px] text-red-400">
                 Fee: 0.25 TON per deployment.
             </div>
-            <input type="text" placeholder="Name (e.g. Quantum)" class="forge-input">
-            <input type="text" placeholder="Symbol (e.g. QUAN)" class="forge-input uppercase">
+            <input type="text" placeholder="Name" class="forge-input">
+            <input type="text" placeholder="Symbol" class="forge-input uppercase">
             <input type="number" placeholder="Total Supply" class="forge-input">
             <button class="w-full py-4 rounded-2xl font-black text-black btn-quantum" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">MINT JETTON</button>
         </div>
@@ -34,6 +34,39 @@
         <a href="forge.html" class="nav-item active"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg><span>FORGE</span></a>
         <a href="assets.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg><span>DATA</span></a>
     </nav>
-    <script src="script-common.js"></script>
+
+    <script>
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        // Та же логика анимации Canvas, что и в index.html
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.speed = Math.random() * 0.5 + 0.1;
+                    this.opacity = Math.random() * 0.3;
+                }
+                update() { this.y -= this.speed; if (this.y < 0) this.y = canvas.height; }
+                draw() { ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`; ctx.fillRect(this.x, this.y, 1, 1); }
+            }
+            for(let i=0; i<60; i++) particles.push(new Particle());
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => { p.update(); p.draw(); });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+    </script>
 </body>
 </html>
