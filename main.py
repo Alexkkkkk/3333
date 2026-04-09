@@ -89,6 +89,7 @@ class OmniNeuralOverlord:
         self.current_balance = 0.0
 
     def get_static_path(self):
+        # Авто-определение пути к папке static
         base_dir = os.path.dirname(os.path.abspath(__file__))
         check_paths = [
             os.path.join(base_dir, 'static'),
@@ -100,7 +101,7 @@ class OmniNeuralOverlord:
         return "static"
 
     def get_logo_url(self):
-        return "/static/images/logo.png"
+        return "/images/logo.png"
 
     async def update_config_from_db(self):
         try:
@@ -158,9 +159,14 @@ async def serve_index():
 @app.get("/images/logo.png")
 async def serve_logo_direct():
     static_dir = overlord.get_static_path()
+    # Пробуем найти logo.png внутри static/images
     logo_path = os.path.join(static_dir, "images", "logo.png")
     if os.path.exists(logo_path):
         return FileResponse(logo_path)
+    # Запасной вариант: в корне static
+    alt_logo_path = os.path.join(static_dir, "logo.png")
+    if os.path.exists(alt_logo_path):
+        return FileResponse(alt_logo_path)
     return JSONResponse({"error": "Logo file missing"}, status_code=404)
 
 # Прямой проброс для фавиконки
@@ -182,7 +188,10 @@ async def serve_any_page(page_name: str):
 # Прямой проброс для CSS
 @app.get("/style.css")
 async def serve_css():
-    return FileResponse(os.path.join(overlord.get_static_path(), "style.css"))
+    css_path = os.path.join(overlord.get_static_path(), "style.css")
+    if os.path.exists(css_path):
+        return FileResponse(css_path)
+    return Response(status_code=404)
 
 @app.get("/api/config")
 async def get_web_config():
@@ -213,6 +222,7 @@ async def serve_admin_root(request: Request):
     
     if token and token == overlord.session_token:
         static_dir = overlord.get_static_path()
+        # Ищем в static/admin/admin.html или просто static/admin.html
         admin_file = os.path.join(static_dir, "admin", "admin.html")
         if not os.path.exists(admin_file):
             admin_file = os.path.join(static_dir, "admin.html")
@@ -353,7 +363,6 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    # Читаем порт из переменной окружения Bothost
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
