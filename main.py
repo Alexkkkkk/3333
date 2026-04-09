@@ -100,6 +100,7 @@ class OmniNeuralOverlord:
         return "static"
 
     def get_logo_url(self):
+        # Исправлено для доступа через смонтированную папку /static
         return "/static/images/logo.png"
 
     async def update_config_from_db(self):
@@ -178,13 +179,15 @@ async def serve_admin_root(request: Request):
     token = request.cookies.get("auth_token")
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
     
+    # Проверка авторизации через куки
     if token and token == overlord.session_token:
-        admin_path = os.path.join(overlord.get_static_path(), "admin", "admin.html")
-        if os.path.exists(admin_path):
-            return FileResponse(admin_path, headers=no_cache_headers)
-        return JSONResponse({"error": "Admin file missing in static/admin/"}, status_code=404)
+        static_dir = overlord.get_static_path()
+        admin_file = os.path.join(static_dir, "admin", "admin.html")
+        if os.path.exists(admin_file):
+            return FileResponse(admin_file, headers=no_cache_headers)
+        return JSONResponse({"error": f"Admin file not found in {admin_file}"}, status_code=404)
             
-    # Если не авторизован, кидаем на главную (или можно сделать отдельный login.html)
+    # Перенаправление на главную при отсутствии доступа
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"), headers=no_cache_headers)
 
 @app.post("/api/login")
@@ -194,6 +197,7 @@ async def handle_login(request: Request):
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success", "token": overlord.session_token})
+            # Установка httponly куки для защиты сессии
             res.set_cookie(key="auth_token", value=overlord.session_token, max_age=3600, httponly=True, samesite='lax')
             log(f"AUTH: Вход выполнен ({request.client.host})", "SUCCESS")
             return res
@@ -227,9 +231,12 @@ async def get_stats(request: Request):
 # --- МОНТИРОВАНИЕ СТАТИКИ ---
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
-    # Монтируем всю папку static, чтобы были доступны и /static/style.css, и /static/admin/admin.html
+    # ПРИОРИТЕТНОЕ МОНТИРОВАНИЕ: 
+    # Это делает доступными /static/index.html, /static/admin/admin.html, /static/images/logo.png
     app.mount("/static", StaticFiles(directory=static_path), name="static")
     log(f"SYSTEM: Статика смонтирована из {static_path}", "INFO")
+else:
+    log(f"SYSTEM ERROR: Папка статики не найдена по пути {static_path}", "ERROR")
 
 # --- CORE LOGIC ---
 
@@ -316,6 +323,7 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
+    # Чтение порта из переменных окружения Bothost
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
