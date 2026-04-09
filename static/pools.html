@@ -1,1 +1,336 @@
-1
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QUANCORE | LIVE TERMINAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        :root { --cyan: #06b6d4; --cyan-glow: rgba(6, 182, 212, 0.4); }
+        
+        body { 
+            font-family: 'Space Grotesk', sans-serif; 
+            background-color: #010409; 
+            color: white; 
+            overflow-x: hidden;
+            perspective: 1000px;
+        }
+
+        #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Фоновая сетка с перспективой */
+        .hologram-grid {
+            position: fixed; inset: 0;
+            background-image: 
+                linear-gradient(var(--cyan-glow) 1px, transparent 1px),
+                linear-gradient(90deg, var(--cyan-glow) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.05;
+            transform: perspective(500px) rotateX(60deg);
+            transform-origin: center top;
+            z-index: 1;
+        }
+
+        /* Анимированная карточка */
+        .quantum-card {
+            background: rgba(10, 20, 30, 0.4);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            backdrop-blur: 40px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out, box-shadow 0.3s;
+        }
+
+        .quantum-card:hover {
+            box-shadow: 0 0 50px rgba(6, 182, 212, 0.15);
+            border-color: var(--cyan);
+        }
+
+        /* Сканерный луч */
+        .scan-bar {
+            position: absolute; width: 100%; height: 40%;
+            background: linear-gradient(to bottom, transparent, var(--cyan-glow), transparent);
+            top: -40%; left: 0; opacity: 0; pointer-events: none;
+        }
+        .quantum-card:hover .scan-bar {
+            animation: scan-move 3s infinite linear;
+            opacity: 1;
+        }
+        @keyframes scan-move { 0% { top: -40%; } 100% { top: 120%; } }
+
+        /* Эффект потока данных в коннекторе */
+        .data-flow {
+            width: 40px; height: 1px; background: rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .data-flow::before {
+            content: ''; position: absolute; width: 15px; height: 100%;
+            background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
+            animation: flow 1s infinite linear;
+        }
+        @keyframes flow { 0% { left: -20px; } 100% { left: 50px; } }
+
+        /* Бегущая строка транзакций */
+        .ticker {
+            position: fixed; bottom: 120px; left: 0; width: 100%;
+            background: rgba(6, 182, 212, 0.05);
+            border-top: 1px solid rgba(6, 182, 212, 0.1);
+            border-bottom: 1px solid rgba(6, 182, 212, 0.1);
+            padding: 8px 0; z-index: 100; overflow: hidden;
+            white-space: nowrap; font-family: 'JetBrains Mono', monospace;
+            font-size: 8px; text-transform: uppercase; color: #64748b;
+        }
+        .ticker-inner { display: inline-block; animation: ticker 40s infinite linear; }
+        @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        .cyan-glow { text-shadow: 0 0 15px var(--cyan); }
+        
+        /* Стили для кнопок */
+        .btn-quantum {
+            position: relative; overflow: hidden;
+            transition: all 0.3s;
+        }
+        .btn-quantum::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%); transition: 0.6s;
+        }
+        .btn-quantum:hover::after { transform: translateX(100%); }
+
+    </style>
+</head>
+<body class="selection:bg-cyan-500/30">
+    <div class="hologram-grid"></div>
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="relative z-[100] bg-black/60 border-b border-cyan-500/20 py-2 backdrop-blur-md">
+        <div class="max-w-xl mx-auto px-6 flex justify-between items-center font-mono text-[8px] tracking-[0.2em] text-cyan-400">
+            <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></span>
+                    NETWORK_STABLE
+                </span>
+                <span class="opacity-40">|</span>
+                <span>LATENCY: <span id="ping">24</span>ms</span>
+            </div>
+            <span id="sys-clock">00:00:00:00</span>
+        </div>
+    </div>
+
+    <header class="p-8 flex justify-between items-center relative z-50">
+        <a href="index.html" class="flex items-center gap-4 group">
+            <div class="w-14 h-14 relative">
+                <div class="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl group-hover:bg-cyan-500/40 transition-all"></div>
+                <img src="/images/logo.png" alt="Logo" class="w-14 h-14 relative z-10 brightness-125 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+            </div>
+            <div>
+                <h1 class="text-3xl font-black italic uppercase leading-none tracking-tighter">QUAN<span class="text-cyan-400 cyan-glow">CORE</span></h1>
+                <p class="text-[7px] font-bold tracking-[0.6em] text-cyan-500/60 uppercase">Real-Time Terminal</p>
+            </div>
+        </a>
+        <div id="connectBtn" class="scale-90"></div>
+    </header>
+
+    <main class="max-w-xl mx-auto px-6 pb-64 relative z-10">
+        
+        <div class="quantum-card rounded-[3rem] p-8 mb-10 overflow-hidden" id="tilt-card-main">
+            <div class="scan-bar"></div>
+            <p class="text-[9px] text-slate-500 font-black uppercase tracking-[0.5em] mb-4">Live Liquidity Balance</p>
+            
+            <div class="flex items-end justify-between mb-8">
+                <div>
+                    <h2 class="text-6xl font-black italic tracking-tighter mono" id="balance-main">$0.<span class="text-3xl text-cyan-500/50">00</span></h2>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                        <span class="text-[10px] text-green-400 font-bold mono uppercase">Market Active</span>
+                    </div>
+                </div>
+                <div class="w-32 h-16 opacity-80">
+                    <canvas id="liveChart" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <button class="btn-quantum bg-cyan-500 text-black font-black uppercase text-[10px] py-5 rounded-2xl shadow-[0_10px_30px_-5px_rgba(6,182,212,0.5)]">Deposit</button>
+                <button class="btn-quantum bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] py-5 rounded-2xl hover:bg-white/10">Withdraw</button>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <h3 class="text-[9px] font-black uppercase tracking-[0.8em] text-slate-600 text-center mb-6">Active Neural Pools</h3>
+
+            <div class="quantum-card rounded-[2.5rem] p-6 group" id="tilt-card-pool">
+                <div class="scan-bar"></div>
+                <div class="flex justify-between items-start mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center font-black text-[10px] z-10">QC</div>
+                            <div class="data-flow"></div>
+                            <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-[10px] z-10 shadow-[0_0_20px_rgba(37,99,235,0.4)]">TON</div>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-black italic uppercase leading-tight">QC / TON</h4>
+                            <p class="text-[8px] text-cyan-400 font-bold tracking-widest uppercase">DeDust Yield</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[8px] text-slate-500 font-black mb-1 uppercase">EST. APR</p>
+                        <p class="text-3xl font-black text-green-400 mono italic" id="apr-val">142.50%</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mb-6">
+                    <div class="flex-1 bg-black/40 border border-white/5 p-3 rounded-xl">
+                        <p class="text-[7px] text-slate-500 uppercase font-black">24H Volume</p>
+                        <p class="text-xs font-bold mono">$245.8K</p>
+                    </div>
+                    <div class="flex-1 bg-black/40 border border-white/5 p-3 rounded-xl">
+                        <p class="text-[7px] text-slate-500 uppercase font-black">TVL</p>
+                        <p class="text-xs font-bold mono">$1.2M</p>
+                    </div>
+                </div>
+
+                <button onclick="stake('QC_TON')" class="btn-quantum w-full bg-white text-black py-4 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-cyan-500 hover:text-white">Provide Assets</button>
+            </div>
+
+            <div class="quantum-card rounded-[2.5rem] p-6 opacity-30 grayscale border-dashed">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center text-[8px] font-bold">???</div>
+                        <p class="text-[10px] font-black uppercase tracking-widest">Locked Pool</p>
+                    </div>
+                    <span class="text-[8px] border border-white/20 px-2 py-1 rounded">V4 ONLY</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="ticker">
+        <div class="ticker-inner" id="ticker-content">
+            SECURE_NODE_04: LIQUIDITY_ADDED 4,500 TON ... USER_772: HARVESTED 120.4 QC ... SYSTEM: CALIBRATING_POOLS_V3 ... NEW_DEPOSIT: 14,000 USDT ... SECURE_NODE_01: SYNCED ...
+        </div>
+    </div>
+
+    <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-black/80 backdrop-blur-3xl border border-cyan-500/20 rounded-[3rem] p-2 flex justify-between items-center z-[200] shadow-2xl">
+        <a href="index.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span class="text-[8px] font-black uppercase">Core</span>
+        </a>
+        <a href="airdrop.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span class="text-[8px] font-black uppercase">Drop</span>
+        </a>
+        <div class="flex-1 flex flex-col items-center py-4 text-cyan-400 relative">
+            <div class="absolute inset-x-2 inset-y-1 bg-cyan-500/20 rounded-[2rem] blur-md"></div>
+            <svg class="w-7 h-7 mb-1 relative z-10 filter drop-shadow-[0_0_8px_cyan]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span class="text-[8px] font-black uppercase relative z-10">Pools</span>
+        </div>
+        <a href="operator.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[8px] font-black uppercase">Data</span>
+        </a>
+    </nav>
+
+    <script>
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        // Часы
+        function updateClock() {
+            const now = new Date();
+            const ms = Math.floor(now.getMilliseconds() / 10).toString().padStart(2, '0');
+            document.getElementById('sys-clock').innerText = now.toLocaleTimeString() + ':' + ms;
+        }
+        setInterval(updateClock, 10);
+
+        // Пинг и APR
+        setInterval(() => {
+            document.getElementById('ping').innerText = Math.floor(Math.random() * 15 + 15);
+            const apr = document.getElementById('apr-val');
+            const current = parseFloat(apr.innerText);
+            apr.innerText = (current + (Math.random() - 0.5) * 0.04).toFixed(2) + '%';
+        }, 2000);
+
+        // Интерактивный наклон (Tilt Effect)
+        function applyTilt(id) {
+            const el = document.getElementById(id);
+            el.addEventListener('mousemove', (e) => {
+                const rect = el.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const xc = rect.width / 2;
+                const yc = rect.height / 2;
+                const dx = x - xc;
+                const dy = y - yc;
+                el.style.transform = `rotateY(${dx / 20}deg) rotateX(${-dy / 20}deg)`;
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.transform = `rotateY(0deg) rotateX(0deg)`;
+            });
+        }
+        applyTilt('tilt-card-main');
+        applyTilt('tilt-card-pool');
+
+        // Рисование графиков
+        function drawLiveChart(id, color) {
+            const c = document.getElementById(id);
+            const ctx = c.getContext('2d');
+            c.width = c.offsetWidth; c.height = c.offsetHeight;
+            let pts = Array.from({length: 20}, () => Math.random() * c.height);
+            
+            function animate() {
+                ctx.clearRect(0,0,c.width,c.height);
+                pts.shift();
+                pts.push(Math.random() * c.height);
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                pts.forEach((p, i) => ctx.lineTo(i * (c.width/19), p));
+                ctx.stroke();
+                requestAnimationFrame(() => setTimeout(animate, 150));
+            }
+            animate();
+        }
+        drawLiveChart('liveChart', '#06b6d4');
+
+        // Фоновые частицы
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        for(let i=0; i<40; i++) particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            s: Math.random() * 2,
+            v: Math.random() * 0.5
+        });
+
+        function animateBG() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
+            particles.forEach(p => {
+                p.y -= p.v; if(p.y < 0) p.y = canvas.height;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill();
+            });
+            requestAnimationFrame(animateBG);
+        }
+        animateBG();
+
+        function stake(id) {
+            if (!tonConnectUI.connected) {
+                alert("ACCESS DENIED: CONNECT WALLET"); return;
+            }
+            alert("Инициализация квантового канала " + id + "...");
+        }
+    </script>
+</body>
+</html>
