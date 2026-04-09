@@ -3,424 +3,373 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | ADMIN PANEL</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>NEURAL SENTINEL | Secure Command Center</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent: #0088cc; 
-            --admin-red: #ef4444;
-            --bg: #0a0e12;
-            --panel: rgba(23, 28, 35, 0.7);
-            --border: rgba(255, 255, 255, 0.08);
+            --neon-blue: #00f2ff;
+            --bg-dark: #0a0b10;
+            --card-bg: rgba(16, 18, 27, 0.95);
+            --neon-red: #ff3333;
         }
 
-        body {
-            background-color: var(--bg);
-            background-image: 
-                radial-gradient(circle at 50% -20%, rgba(0, 136, 204, 0.15), transparent 40%),
-                radial-gradient(circle at 0% 100%, rgba(188, 0, 255, 0.05), transparent 30%);
-            color: #fff;
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
+        body { 
+            background: var(--bg-dark); 
+            color: var(--neon-blue); 
+            font-family: 'Share Tech Mono', monospace; 
+            margin: 0; 
+            padding: 20px; 
+            overflow-x: hidden; 
         }
 
-        .admin-badge {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: var(--admin-red);
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.05em;
+        /* Сканирующая полоса */
+        body::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(0, 242, 255, 0.1);
+            z-index: 1000;
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+        @keyframes scanline { 0% { top: 0; } 100% { top: 100%; } }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            border: 1px solid var(--neon-blue); 
+            padding: 20px; 
+            border-radius: 4px; 
+            box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.05); 
+        }
+
+        h1 { 
+            text-align: center; 
+            text-shadow: 0 0 15px var(--neon-blue); 
+            letter-spacing: 6px; 
             text-transform: uppercase;
-            margin-left: 8px;
+            font-size: 24px;
+            margin-bottom: 30px;
         }
 
-        .dedust-panel {
-            background: var(--panel);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            transition: transform 0.2s ease, border-color 0.2s ease;
+        h2 { 
+            border-bottom: 1px solid rgba(0, 242, 255, 0.3); 
+            padding-bottom: 8px; 
+            text-transform: uppercase; 
+            font-size: 14px; 
+            margin-top: 0;
+            letter-spacing: 2px;
         }
 
-        .dedust-panel:hover { border-color: rgba(0, 136, 204, 0.3); }
-
-        .swap-input-group {
-            background: rgba(13, 18, 23, 0.8);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 16px;
-            transition: border-color 0.2s;
+        .stat-val { 
+            font-size: 32px; 
+            color: #fff; 
+            text-shadow: 0 0 10px var(--neon-blue); 
         }
 
-        .swap-input-group:focus-within { border-color: var(--accent); }
+        .input-group { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 12px; 
+        }
 
-        .action-btn {
-            background: var(--accent);
-            color: white;
-            font-weight: 600;
-            border-radius: 16px;
+        input { 
+            background: #000; 
+            border: 1px solid #1a3a40; 
+            color: #fff; 
+            padding: 10px; 
+            width: 180px; 
+            border-radius: 2px; 
+            font-family: inherit;
+            outline: none;
+        }
+        input:focus { border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+
+        button { 
+            background: var(--neon-blue); 
+            color: #000; 
+            border: none; 
+            padding: 14px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%; 
+            margin-top: 10px; 
+            text-transform: uppercase;
+            letter-spacing: 2px;
             transition: all 0.2s;
-            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.2);
+        }
+        button:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+
+        .status-online { color: #0f0; animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        #log-container {
+            background: #000;
+            padding: 12px;
+            border: 1px solid #1a1d2e;
+            height: 140px;
+            overflow-y: auto;
+            font-size: 11px;
+            color: #0f0;
+            margin-top: 10px;
+            border-radius: 4px;
         }
 
-        .action-btn:hover {
-            filter: brightness(1.1);
-            transform: translateY(-1px);
+        /* Окно авторизации как на скриншоте */
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
         }
 
-        .secondary-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            transition: background 0.2s;
+        .auth-card {
+            width: 340px;
+            text-align: center;
+            border: 1px solid var(--neon-blue);
+            background: var(--card-bg);
+            padding: 30px;
         }
 
-        .secondary-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .hidden { display: none !important; }
 
-        .nav-link {
-            color: #94a3b8;
-            font-weight: 500;
-            position: relative;
-            padding: 8px 12px;
-            transition: color 0.2s;
+        .pool-data {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            background: rgba(0, 242, 255, 0.03);
+            padding: 15px;
+            border-radius: 4px;
         }
+        .pool-box { text-align: center; }
+        .pool-label { font-size: 10px; color: #555; display: block; margin-bottom: 5px; }
+        .pool-val { font-size: 18px; font-weight: bold; color: #fff; }
 
-        .nav-link.nav-active { color: #fff; }
-
-        .nav-link.nav-active::after {
-            content: '';
-            position: absolute;
-            bottom: -20px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     </style>
 </head>
-<body class="p-4">
-    <header class="max-w-6xl mx-auto flex justify-between items-center py-6 mb-8">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('home')">
-            <div class="w-10 h-10 bg-[#0088cc] rounded-xl flex items-center justify-center shadow-lg">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <div class="flex flex-col">
-                <div class="flex items-center">
-                    <span class="text-xl font-bold tracking-tight">QUANTUM</span>
-                    <span class="admin-badge">ADMIN</span>
-                </div>
-                <span class="text-[10px] text-slate-500 font-medium tracking-widest uppercase">Protocol Management</span>
-            </div>
+<body>
+
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 style="color: var(--neon-red); border-color: var(--neon-red); margin-bottom: 10px;">SECURE_GATEWAY_V4</h2>
+            <p style="font-size: 10px; margin-bottom: 25px; color: var(--neon-blue);">AUTHORIZATION REQUIRED</p>
+            
+            <input type="text" id="login_field" placeholder="TERMINAL_ID" style="width: 100%; margin-bottom: 15px;" value="1">
+            <input type="password" id="pass_field" placeholder="ACCESS_KEY" style="width: 100%; margin-bottom: 20px;">
+            
+            <button onclick="attemptLogin()">INIT_CORE_LINK</button>
+            <p id="auth_error" style="color: var(--neon-red); font-size: 10px; margin-top: 15px;" class="hidden">ERROR: INVALID ACCESS KEY</p>
         </div>
+    </div>
 
-        <nav class="flex gap-4">
-            <button class="nav-link nav-active" data-tab="home" onclick="switchTab('home')">Обзор</button>
-            <button class="nav-link" data-tab="swap" onclick="switchTab('swap')">Своп</button>
-            <button class="nav-link" data-tab="analytics" onclick="switchTab('analytics')">Пулы</button>
-        </nav>
-
-        <div class="flex items-center gap-4">
-            <div class="text-right hidden sm:block">
-                <p class="text-[10px] text-slate-500 uppercase font-bold">Status</p>
-                <p id="statusDisplay" class="text-xs text-green-400 flex items-center gap-1 justify-end">
-                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online
-                </p>
-            </div>
-            <button class="secondary-btn px-4 py-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onclick="logout()">Выйти</button>
-        </div>
-    </header>
-
-    <main class="max-w-6xl mx-auto">
-        <section id="home" class="tab-content active">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="dedust-panel p-10 relative overflow-hidden">
-                        <div class="relative z-10">
-                            <h2 class="text-4xl font-bold mb-4">Neural Pulse Protocol</h2>
-                            <p class="text-slate-400 text-lg max-w-lg mb-8">
-                                Контрольная панель децентрализованного протокола. Управление ликвидностью и мониторинг транзакций в реальном времени.
-                            </p>
-                            <div class="flex gap-4">
-                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3">Управление свопами</button>
-                                <button class="secondary-btn px-8 py-3">Системный лог</button>
-                            </div>
-                        </div>
-                        <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full"></div>
+    <div id="main-content" class="hidden">
+        <h1>🌀 NEURAL SENTINEL :: COMMAND_CENTER</h1>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>SYSTEM_TELEMETRY</h2>
+                <div style="margin: 20px 0;">
+                    <p>CORE_STATUS: <span id="ai_status" class="status-online">SYNCHRONIZING...</span></p>
+                    <div style="margin-bottom: 15px;">
+                        <span style="font-size: 10px; color: #555;">MAIN_RESERVE (TON)</span><br>
+                        <span id="total_vol" class="stat-val">0.00</span>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Total Value Locked</p>
-                            <p class="text-2xl font-bold" id="tvlDisplay">$82,142,090</p>
-                            <span class="text-green-400 text-xs font-medium">↑ 2.5% (Admin view)</span>
-                        </div>
-                        <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">24h System Volume</p>
-                            <p class="text-2xl font-bold" id="volDisplay">$12,405,112</p>
-                            <span class="text-blue-400 text-xs font-medium">14,201 total swaps</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dedust-panel p-6">
-                    <h3 class="font-bold mb-4 flex justify-between items-center">
-                        Мониторинг токенов
-                        <span class="text-xs text-slate-500 font-normal underline cursor-pointer">Edit List</span>
-                    </h3>
-                    <div class="space-y-5">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-[10px]">TON</div>
-                                <div>
-                                    <p class="font-semibold text-sm leading-none">TON</p>
-                                    <p class="text-[11px] text-slate-500 italic">Main Asset</p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-sm font-medium">$5.24</p>
-                                <p class="text-[10px] text-green-400">+1.2%</p>
-                            </div>
-                        </div>
-                        <div class="pt-4 mt-4 border-t border-white/5">
-                            <canvas id="miniChart" height="100"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="swap" class="tab-content max-w-md mx-auto mt-10">
-            <div class="dedust-panel p-6 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">Тестовый своп</h2>
-                    <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-500">ADMIN MODE</span>
-                </div>
-                <div class="space-y-1 relative">
-                    <div class="swap-input-group">
-                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
-                            <span>Вы отдаете</span>
-                            <span>Баланс: <span id="userBalance">--</span></span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount" oninput="calculateSwap()">
-                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 hover:border-blue-500/50">
-                                <div id="fromIcon" class="w-5 h-5 bg-blue-500 rounded-full"></div>
-                                <span id="fromSymbol" class="font-bold text-sm">TON</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <button onclick="reverseSwap()" class="w-10 h-10 bg-[#1e252e] border border-white/10 rounded-xl flex items-center justify-center hover:border-blue-500 transition shadow-xl">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M7 10l5 5 5-5"></path></svg>
-                        </button>
-                    </div>
-                    <div class="swap-input-group">
-                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
-                            <span>Вы получаете</span>
-                            <span id="usdValue">~ $0.00</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <input type="number" readonly placeholder="0.0" id="outputAmount" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-400">
-                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2">
-                                <div id="toIcon" class="w-5 h-5 bg-purple-500 rounded-full"></div>
-                                <span id="toSymbol" class="font-bold text-sm">QUAN</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <button class="w-full mt-4 action-btn py-4 text-lg" onclick="handleSwapAction()">Выполнить админ-обмен</button>
-            </div>
-        </section>
-
-        <section id="analytics" class="tab-content">
-            <div class="dedust-panel p-8">
-                <div class="flex justify-between items-end mb-8">
                     <div>
-                        <h2 class="text-2xl font-bold">Аналитика ликвидности</h2>
-                        <p class="text-slate-500 text-sm italic">Полный доступ к данным протокола</p>
+                        <span style="font-size: 10px; color: #555;">MARKET_PRICE_USD</span><br>
+                        <span id="total_profit" class="stat-val">$0.00</span>
                     </div>
-                    <div class="flex bg-black/20 p-1 rounded-xl">
-                        <button class="px-4 py-1.5 text-xs font-bold bg-white/10 rounded-lg">TVL</button>
-                        <button class="px-4 py-1.5 text-xs font-bold text-slate-500">Volume</button>
-                    </div>
-                </div>
-                <div class="h-[400px]">
-                    <canvas id="bigChart"></canvas>
+                    <p style="font-size: 10px; margin-top: 25px;">CORE_ID: <span id="core_id" style="color: #f0f;">---</span></p>
                 </div>
             </div>
-        </section>
-    </main>
+
+            <div class="card">
+                <h2>DEDUST_LIQUIDITY_POOL</h2>
+                <p style="font-size: 10px; opacity: 0.5;">ADDR: <span id="pool_addr_display">NOT_LINKED</span></p>
+                <div class="pool-data">
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE_TON</span>
+                        <span id="pool_ton" class="pool-val">0.00</span>
+                    </div>
+                    <div class="pool-box">
+                        <span class="pool-label">RESERVE_TOKEN</span>
+                        <span id="pool_token" class="pool-val">0.00</span>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px;">POOL_HEALTH:</span>
+                    <span id="pool_status" style="color: #0f0; font-size: 12px;">STABLE</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>CORE_PROTOCOL_SETTINGS</h2>
+                <div class="input-group">
+                    <span style="font-size: 11px;">MNEMONIC_VAULT:</span> 
+                    <input type="password" id="cfg_mnemonic" placeholder="Secret words">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">OPENAI_NEURAL_LINK:</span> 
+                    <input type="password" id="cfg_ai_key" placeholder="sk-...">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">DEX_POOL_TARGET:</span> 
+                    <input type="text" id="cfg_pool" placeholder="EQ...">
+                </div>
+                <div class="input-group">
+                    <span style="font-size: 11px;">STRATEGY_INTENSITY:</span> 
+                    <input type="number" id="cfg_strategy" value="10">
+                </div>
+                <button onclick="saveConfig()">UPDATE_DATABASE_CONFIG</button>
+            </div>
+
+            <div class="card">
+                <h2>AI_DECISION_ENGINE</h2>
+                <div style="height: 120px; margin-bottom: 10px;">
+                    <canvas id="chartOps"></canvas>
+                </div>
+                <div id="log-container">
+                    [SYSTEM] Terminal initialized... awaiting uplink...
+                </div>
+            </div>
+        </div>
+
+        <p style="text-align: center; font-size: 10px; color: #333; margin-top: 40px;">
+            NODE_LOCATION: NETHERLANDS (NL_4) | ENCRYPTION: AES-256-GCM
+        </p>
+    </div>
 
     <script>
-        const EXCHANGE_RATE = 42.12; 
-        const TON_PRICE_USD = 5.24;
-        let isReversed = false;
-        const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+        let myChart;
+        const logBox = document.getElementById('log-container');
 
-        // --- ИНТЕГРАЦИЯ С БЭКЕНДОМ ---
-        async function loadDashboardData() {
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.style.borderBottom = "1px solid #111";
+            div.style.padding = "2px 0";
+            div.innerHTML = `<span style="color: #555;">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            logBox.prepend(div);
+            if (logBox.children.length > 30) logBox.lastElementChild.remove();
+        }
+
+        async function attemptLogin() {
+            const login = document.getElementById('login_field').value;
+            const password = document.getElementById('pass_field').value;
             try {
-                const response = await fetch('/api/stats');
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ login, password })
+                });
+                if (res.ok) {
+                    document.getElementById('auth-overlay').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    addLog("UPLINK ESTABLISHED. ACCESS GRANTED.");
+                    refreshStats();
+                    setInterval(refreshStats, 5000);
+                } else {
+                    document.getElementById('auth_error').classList.remove('hidden');
+                }
+            } catch (e) { alert("CONNECTION_FAILED"); }
+        }
+
+        async function refreshStats() {
+            try {
+                const res = await fetch('/api/stats');
+                if (res.status === 401) { location.reload(); return; }
+                const data = await res.json();
                 
-                if (response.status === 401) {
-                    window.location.href = '/'; 
-                    return;
+                document.getElementById('total_vol').innerText = data.balance || "0.00";
+                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
+                document.getElementById('ai_status').innerText = data.engine?.last_status || "ACTIVE";
+                document.getElementById('core_id').innerText = data.engine?.core_id || "SENTINEL-X";
+
+                if (data.pool_info) {
+                    const addr = data.pool_info.address;
+                    document.getElementById('pool_addr_display').innerText = addr !== "NOT CONFIGURED" ? addr : "NOT_LINKED";
+                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
+                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
+                    document.getElementById('pool_status').innerText = data.pool_info.status || "IDLE";
                 }
 
-                const data = await response.json();
-
-                if (data.balance !== undefined) {
-                    document.getElementById('userBalance').innerText = data.balance;
-                }
-
-                const statusEl = document.getElementById('statusDisplay');
-                if (data.engine && data.engine.last_status === "running") {
-                    statusEl.innerHTML = '<span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online';
-                    statusEl.className = "text-xs text-green-400 flex items-center gap-1 justify-end";
-                }
-
-            } catch (err) {
-                console.warn("API не отвечает (Development Mode)");
+                updateChart(data.engine?.ops_total || 0);
+            } catch (e) { 
+                document.getElementById('ai_status').innerText = "DISCONNECTED";
+                document.getElementById('ai_status').style.color = "red";
             }
         }
 
-        async function logout() {
-            if(confirm("Выйти из панели администратора?")) {
-                try {
-                    await fetch('/api/logout');
-                } finally {
-                    window.location.href = '/';
+        async function saveConfig() {
+            const settings = {
+                mnemonic: document.getElementById('cfg_mnemonic').value,
+                ai_api_key: document.getElementById('cfg_ai_key').value,
+                dedust_pool: document.getElementById('cfg_pool').value,
+                ai_strategy_level: parseInt(document.getElementById('cfg_strategy').value)
+            };
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(settings)
+                });
+                if (res.ok) {
+                    addLog("✅ CONFIG_SYNC_SUCCESS: DATA_WRITTEN_TO_DB");
+                    alert("Протокол настроек обновлен!");
                 }
-            }
+            } catch (e) { addLog("🚨 CRITICAL_DB_WRITE_ERROR"); }
         }
 
-        window.onload = () => {
-            loadDashboardData();
-            setInterval(loadDashboardData, 10000);
-            renderMiniChart();
-        };
-
-        // --- ИНТЕРФЕЙСНЫЕ ФУНКЦИИ ---
-        function switchTab(id) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
+        function updateChart(opsCount) {
+            const ctx = document.getElementById('chartOps').getContext('2d');
+            const dataValues = [
+                Math.floor(opsCount * 0.25) + 2, 
+                Math.floor(opsCount * 0.15) + 1, 
+                Math.floor(opsCount * 0.6)
+            ];
             
-            document.getElementById(id).classList.add('active');
-            const btn = document.querySelector(`[data-tab="${id}"]`);
-            if(btn) btn.classList.add('nav-active');
-            
-            if(id === 'analytics') setTimeout(renderBigChart, 100);
-        }
-
-        function calculateSwap() {
-            const input = document.getElementById('inputAmount');
-            const output = document.getElementById('outputAmount');
-            const usdDisplay = document.getElementById('usdValue');
-            const val = parseFloat(input.value) || 0;
-            
-            if (!isReversed) {
-                output.value = (val * EXCHANGE_RATE).toFixed(2);
-                usdDisplay.innerText = `~ $${(val * TON_PRICE_USD).toFixed(2)}`;
+            if (myChart) {
+                myChart.data.datasets[0].data = dataValues;
+                myChart.update();
             } else {
-                output.value = (val / EXCHANGE_RATE).toFixed(4);
-                usdDisplay.innerText = `~ $${((val / EXCHANGE_RATE) * TON_PRICE_USD).toFixed(2)}`;
-            }
-        }
-
-        function reverseSwap() {
-            isReversed = !isReversed;
-            const fromSym = document.getElementById('fromSymbol');
-            const toSym = document.getElementById('toSymbol');
-            const fromIcon = document.getElementById('fromIcon');
-            const toIcon = document.getElementById('toIcon');
-
-            if (isReversed) {
-                fromSym.innerText = 'QUAN';
-                toSym.innerText = 'TON';
-                fromIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
-                toIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
-            } else {
-                fromSym.innerText = 'TON';
-                toSym.innerText = 'QUAN';
-                fromIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
-                toIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
-            }
-            calculateSwap();
-        }
-
-        function handleSwapAction() {
-            const amount = document.getElementById('inputAmount').value;
-            if(!amount || amount <= 0) return alert("ADMIN: Укажите сумму");
-            alert(`ADMIN: Команда на обмен ${amount} отправлена в очередь исполнения.`);
-        }
-
-        // --- ГРАФИКИ ---
-        function renderMiniChart() {
-            const miniCtx = document.getElementById('miniChart').getContext('2d');
-            new Chart(miniCtx, {
-                type: 'line',
-                data: {
-                    labels: [1,2,3,4,5,6,7,8,9,10],
-                    datasets: [{
-                        data: [10, 12, 11, 15, 14, 20, 18, 25, 22, 30],
-                        borderColor: '#0088cc',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        pointRadius: 0,
-                        fill: true,
-                        backgroundColor: 'rgba(0, 136, 204, 0.05)'
-                    }]
-                },
-                options: { 
-                    plugins: { legend: { display: false } }, 
-                    scales: { x: { display: false }, y: { display: false } },
-                    maintainAspectRatio: false
-                }
-            });
-        }
-
-        function renderBigChart() {
-            const bigCtx = document.getElementById('bigChart').getContext('2d');
-            if (window.myBigChart) window.myBigChart.destroy();
-            window.myBigChart = new Chart(bigCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['TON/USDT', 'TON/QUAN', 'TON/DOGE', 'TON/NOT', 'QUAN/USDT'],
-                    datasets: [{
-                        label: 'Liquidity',
-                        data: [45000000, 12000000, 8000000, 35000000, 5000000],
-                        backgroundColor: '#0088cc',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
-                        x: { ticks: { color: '#fff' } }
+                myChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['BUY', 'SELL', 'ANALYSIS'],
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: ['#00f2ff', '#f0f', '#1a1d2e'],
+                            borderColor: '#0a0b10',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: { legend: { position: 'right', labels: { color: '#00f2ff', font: { size: 10 } } } }
                     }
-                }
-            });
+                });
+            }
+        }
+
+        // Проверка сессии при загрузке
+        if (document.cookie.includes('auth_token')) {
+            document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            refreshStats();
+            setInterval(refreshStats, 5000);
         }
     </script>
 </body>
