@@ -154,6 +154,23 @@ async def serve_index():
         return FileResponse(path)
     return JSONResponse({"error": "Index file missing"}, status_code=404)
 
+# Прямой проброс для логотипа (убирает 404 в логах)
+@app.get("/images/logo.png")
+async def serve_logo_direct():
+    static_dir = overlord.get_static_path()
+    logo_path = os.path.join(static_dir, "images", "logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path)
+    return JSONResponse({"error": "Logo file missing"}, status_code=404)
+
+# Прямой проброс для фавиконки
+@app.get("/favicon.ico")
+async def serve_favicon():
+    fav_path = os.path.join(overlord.get_static_path(), "favicon.ico")
+    if os.path.exists(fav_path):
+        return FileResponse(fav_path)
+    return Response(status_code=204)
+
 # Динамический роут для всех страниц (swap.html, assets.html и т.д.)
 @app.get("/{page_name}.html")
 async def serve_any_page(page_name: str):
@@ -162,7 +179,7 @@ async def serve_any_page(page_name: str):
         return FileResponse(path)
     return JSONResponse({"error": "Page not found"}, status_code=404)
 
-# Прямой проброс для CSS (решает проблему 404 Not Found)
+# Прямой проброс для CSS
 @app.get("/style.css")
 async def serve_css():
     return FileResponse(os.path.join(overlord.get_static_path(), "style.css"))
