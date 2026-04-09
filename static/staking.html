@@ -22,7 +22,6 @@
             letter-spacing: -0.01em;
         }
 
-        /* Ультра-премиальное стекло */
         .premium-glass {
             background: rgba(15, 23, 42, 0.4);
             backdrop-filter: blur(25px) saturate(180%);
@@ -31,19 +30,20 @@
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .premium-glass:hover {
-            border-color: rgba(6, 182, 212, 0.3);
-            background: rgba(15, 23, 42, 0.6);
+        /* Контейнер для графика котировок */
+        .chart-visual {
+            width: 100%;
+            height: 140px;
+            background: rgba(6, 182, 212, 0.03);
+            border-radius: 2rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(6, 182, 212, 0.1);
         }
 
-        /* Анимированный градиентный текст */
-        .text-gradient {
-            background: linear-gradient(to right, #fff, var(--neon-cyan));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+        #price-chart { width: 100%; height: 100%; }
 
-        /* Неоновая кнопка */
         .btn-neural {
             position: relative;
             overflow: hidden;
@@ -59,7 +59,7 @@
         }
         .btn-neural:hover::after { transform: translateX(100%); }
 
-        #bg-canvas { position: fixed; inset: 0; z-index: 0; }
+        #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         
         .scanline {
             width: 100%; height: 2px;
@@ -85,7 +85,10 @@
             </div>
             <div>
                 <h1 class="text-xl font-black italic text-white uppercase tracking-tighter leading-none">QUAN<span class="text-cyan-400">CORE</span></h1>
-                <span class="text-[8px] font-bold text-cyan-500/60 uppercase tracking-[0.3em]">Neural Protocol v3.0</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[8px] font-bold text-cyan-500/60 uppercase tracking-[0.3em]">QC/TON:</span>
+                    <span class="text-[10px] font-mono text-green-400 font-bold" id="live-price">$2.4512</span>
+                </div>
             </div>
         </div>
         <div id="connectBtn" class="scale-90 shadow-2xl shadow-cyan-500/10"></div>
@@ -93,22 +96,15 @@
 
     <main class="max-w-lg mx-auto px-4 pb-32 relative z-10">
         
-        <div class="flex justify-between items-center px-2 mb-6">
-            <div class="flex gap-4">
-                <div class="flex flex-col">
-                    <span class="text-[8px] text-slate-500 font-bold uppercase">Node Stability</span>
-                    <div class="flex gap-0.5 mt-1">
-                        <div class="w-1 h-3 bg-cyan-500 rounded-full"></div>
-                        <div class="w-1 h-3 bg-cyan-500 rounded-full"></div>
-                        <div class="w-1 h-3 bg-cyan-500 rounded-full"></div>
-                        <div class="w-1 h-3 bg-cyan-500/20 rounded-full"></div>
-                    </div>
-                </div>
+        <div class="chart-visual premium-glass">
+            <div class="absolute top-4 left-6 flex items-center gap-3">
+                <div class="w-2 h-2 bg-cyan-500 rounded-full animate-ping"></div>
+                <span class="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400/80">Neural Growth Index</span>
             </div>
-            <div class="text-right">
-                <span class="text-[8px] text-slate-500 font-bold uppercase">Uptime</span>
-                <p class="text-[10px] font-mono text-white mt-1">99.98%</p>
+            <div class="absolute top-4 right-6 text-right">
+                <span class="text-[10px] font-mono text-green-400 font-bold">+12.4%</span>
             </div>
+            <canvas id="price-chart"></canvas>
         </div>
 
         <div class="premium-glass rounded-[2.5rem] p-8 mb-6 relative overflow-hidden group">
@@ -120,7 +116,7 @@
                     <div class="text-right">
                         <p class="text-[10px] text-cyan-400 font-black tracking-widest uppercase mb-1">Yield Cap</p>
                         <div class="h-1.5 w-24 bg-white/5 rounded-full overflow-hidden">
-                            <div class="h-full bg-cyan-500 w-[65%] shadow-[0_0_10px_#06b6d4]"></div>
+                            <div class="h-full bg-cyan-500 w-[72%] shadow-[0_0_10px_#06b6d4]"></div>
                         </div>
                     </div>
                 </div>
@@ -165,19 +161,16 @@
                 <span class="text-[8px] font-mono text-slate-600">ID: QC-NODE-01</span>
             </div>
             <div class="font-mono text-[9px] space-y-1.5 h-20 overflow-hidden text-cyan-400/40" id="node-logs">
-                <p>> Booting neural engine...</p>
-                <p>> Connection established with DeDust Shard</p>
+                <p>> Initializing Quancore Neural Engine...</p>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
             <div class="premium-glass rounded-3xl p-5 relative group overflow-hidden">
-                <div class="absolute bottom-0 right-0 w-16 h-16 bg-cyan-500/5 blur-2xl"></div>
                 <p class="text-[9px] text-slate-500 font-black uppercase mb-1">Locked Value</p>
                 <p class="text-2xl font-black text-white italic" id="staked-val">2,450.00</p>
             </div>
             <div class="premium-glass rounded-3xl p-5 relative overflow-hidden">
-                <div class="absolute bottom-0 right-0 w-16 h-16 bg-green-500/5 blur-2xl"></div>
                 <p class="text-[9px] text-slate-500 font-black uppercase mb-1">Mining Rewards</p>
                 <p class="text-2xl font-black text-green-400 italic" id="reward-val">42.1855</p>
             </div>
@@ -198,19 +191,74 @@
     </nav>
 
     <script>
+        // --- LIVE PRICE CHART (ВЕРХНЯЯ ВИЗУАЛИЗАЦИЯ) ---
+        const priceCanvas = document.getElementById('price-chart');
+        const pCtx = priceCanvas.getContext('2d');
+        let pricePoints = Array.from({length: 30}, (_, i) => 50 + Math.random() * 30);
+
+        function drawPriceChart() {
+            priceCanvas.width = priceCanvas.offsetWidth;
+            priceCanvas.height = priceCanvas.offsetHeight;
+            
+            pCtx.clearRect(0, 0, priceCanvas.width, priceCanvas.height);
+            
+            // Сдвигаем данные
+            pricePoints.shift();
+            const lastVal = pricePoints[pricePoints.length - 1];
+            pricePoints.push(Math.max(20, Math.min(100, lastVal + (Math.random() - 0.48) * 10)));
+
+            // Рисуем градиентную область
+            pCtx.beginPath();
+            pCtx.moveTo(0, priceCanvas.height);
+            pricePoints.forEach((p, i) => {
+                const x = (i / (pricePoints.length - 1)) * priceCanvas.width;
+                const y = priceCanvas.height - (p / 120) * priceCanvas.height;
+                pCtx.lineTo(x, y);
+            });
+            pCtx.lineTo(priceCanvas.width, priceCanvas.height);
+            
+            const grad = pCtx.createLinearGradient(0, 0, 0, priceCanvas.height);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0.2)');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            pCtx.fillStyle = grad;
+            pCtx.fill();
+
+            // Рисуем линию
+            pCtx.beginPath();
+            pCtx.strokeStyle = '#06b6d4';
+            pCtx.lineWidth = 3;
+            pCtx.lineJoin = 'round';
+            pCtx.shadowBlur = 15;
+            pCtx.shadowColor = 'rgba(6, 182, 212, 0.5)';
+            
+            pricePoints.forEach((p, i) => {
+                const x = (i / (pricePoints.length - 1)) * priceCanvas.width;
+                const y = priceCanvas.height - (p / 120) * priceCanvas.height;
+                if (i === 0) pCtx.moveTo(x, y);
+                else pCtx.lineTo(x, y);
+            });
+            pCtx.stroke();
+        }
+        setInterval(drawPriceChart, 150);
+
+        // --- ЦЕНА В ХЕДЕРЕ ---
+        let currentPrice = 2.4512;
+        setInterval(() => {
+            currentPrice += (Math.random() - 0.49) * 0.002;
+            document.getElementById('live-price').innerText = `$${currentPrice.toFixed(4)}`;
+        }, 1000);
+
         // --- CALCULATION LOGIC ---
         const input = document.getElementById('stake-input');
         const APR = 0.245;
-        
         input.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value) || 0;
             document.getElementById('calc-monthly').innerText = (val * APR / 12).toFixed(2);
             document.getElementById('calc-yearly').innerText = (val * APR).toFixed(2);
         });
+        function setMax() { input.value = 5000; input.dispatchEvent(new Event('input')); }
 
-        function setMax() { input.value = 10000; input.dispatchEvent(new Event('input')); }
-
-        // --- REWARD TICKER (Real-time effect) ---
+        // --- REWARD TICKER ---
         let currentReward = 42.1855;
         setInterval(() => {
             currentReward += 0.0001;
@@ -221,57 +269,40 @@
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let dots = [];
-        const dotCount = 60;
-
         function init() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            dots = [];
-            for (let i = 0; i < dotCount; i++) {
-                dots.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: (Math.random() - 0.5) * 0.5
-                });
-            }
+            dots = Array.from({length: 50}, () => ({
+                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4
+            }));
         }
-
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.strokeStyle = 'rgba(6, 182, 212, 0.05)';
             ctx.fillStyle = 'rgba(6, 182, 212, 0.3)';
-
             dots.forEach((d, i) => {
                 d.x += d.vx; d.y += d.vy;
                 if (d.x < 0 || d.x > canvas.width) d.vx *= -1;
                 if (d.y < 0 || d.y > canvas.height) d.vy *= -1;
-
-                ctx.beginPath();
-                ctx.arc(d.x, d.y, 1.5, 0, Math.PI * 2);
-                ctx.fill();
-
+                ctx.beginPath(); ctx.arc(d.x, d.y, 1, 0, Math.PI * 2); ctx.fill();
                 for (let j = i + 1; j < dots.length; j++) {
                     const d2 = dots[j];
                     const dist = Math.hypot(d.x - d2.x, d.y - d2.y);
-                    if (dist < 150) {
-                        ctx.lineWidth = 1 - dist/150;
-                        ctx.beginPath();
-                        ctx.moveTo(d.x, d.y);
-                        ctx.lineTo(d2.x, d2.y);
-                        ctx.stroke();
+                    if (dist < 120) {
+                        ctx.lineWidth = 1 - dist/120;
+                        ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d2.x, d2.y); ctx.stroke();
                     }
                 }
             });
             requestAnimationFrame(draw);
         }
-
         window.addEventListener('resize', init);
         init(); draw();
 
-        // --- LOGS EMULATION ---
+        // --- LOGS ---
         const logs = document.getElementById('node-logs');
-        const msgs = ["Block #821033 confirmed", "Shard re-balancing...", "Pool liquidity: 4.2M QC", "Neural link: STABLE", "DeDust pool fee: 0.25%", "Node rewards recalculated"];
+        const msgs = ["Block confirmed", "Neural re-balancing...", "Pool liquidity sync", "Connection: STABLE", "DeDust shard update"];
         setInterval(() => {
             const p = document.createElement('p');
             p.innerText = `> [${new Date().toLocaleTimeString()}]: ${msgs[Math.floor(Math.random()*msgs.length)]}`;
