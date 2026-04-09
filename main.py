@@ -169,6 +169,22 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 async def serve_index():
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
+# УНИВЕРСАЛЬНЫЙ РОУТ ДЛЯ ВСЕХ ВАШИХ HTML (swap, forge, assets, staking)
+@app.get("/{filename}.html")
+async def serve_any_html(filename: str):
+    static_dir = overlord.get_static_path()
+    # Проверяем в корне static и в подпапке admin
+    check_paths = [
+        os.path.join(static_dir, f"{filename}.html"),
+        os.path.join(static_dir, "admin", f"{filename}.html")
+    ]
+    for p in check_paths:
+        if os.path.exists(p):
+            return FileResponse(p)
+    
+    log(f"WEB ERROR: {filename}.html не найден", "WARNING")
+    return JSONResponse({"detail": f"File {filename}.html not found"}, status_code=404)
+
 @app.get("/admin")
 @app.get("/admin/")
 @app.get("/admin.html")
@@ -177,26 +193,22 @@ async def serve_admin(request: Request):
     token = request.cookies.get("auth_token")
     static_dir = overlord.get_static_path()
     
-    paths_to_check = [
-        os.path.join(static_dir, "admin", "admin.html"),
-        os.path.join(static_dir, "admin", "index.html"),
-        os.path.join(static_dir, "admin.html"),
-        os.path.join(static_dir, "index.html")
-    ]
-
+    # Если токен верный, ищем файл админки
     if token == overlord.session_token:
-        for p in paths_to_check:
-            if "admin" in p and os.path.exists(p):
-                return FileResponse(p)
+        paths = [
+            os.path.join(static_dir, "admin", "admin.html"),
+            os.path.join(static_dir, "admin", "index.html"),
+            os.path.join(static_dir, "admin.html")
+        ]
+        for p in paths:
+            if os.path.exists(p): return FileResponse(p)
         
-        log(f"WEB ERROR: Admin file not found. Checked: {paths_to_check}", "ERROR")
-        return JSONResponse({"detail": "Admin panel file missing", "checked": paths_to_check}, status_code=404)
+        log(f"WEB ERROR: Admin file missing in {static_dir}", "ERROR")
+        return JSONResponse({"detail": "Admin panel file missing"}, status_code=404)
 
+    # Если не авторизован, показываем главную (вход)
     index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    
-    return JSONResponse({"detail": "Index file not found"}, status_code=404)
+    return FileResponse(index_path) if os.path.exists(index_path) else JSONResponse({"detail": "Index not found"}, status_code=404)
 
 # --- API ENDPOINTS ---
 
@@ -242,7 +254,7 @@ async def save_config(request: Request):
         return {"status": "success"}
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
 
-# --- STATIC MOUNTING (Порядок важен!) ---
+# --- STATIC MOUNTING (Для картинок и стилей) ---
 
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
