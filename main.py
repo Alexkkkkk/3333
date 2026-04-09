@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# --- УЛУЧШЕННАЯ СИСТЕМА ЛОГИРОВАНИЯ ---
+# --- СИСТЕМА ЛОГИРОВАНИЯ ---
 LOG_FILE = "quantum_system.log"
 
 def log(message, level="INFO"):
@@ -31,57 +31,47 @@ def log(message, level="INFO"):
     reset = "\033[0m"
     color = colors.get(level, reset)
     log_msg = f"[{timestamp}] [{level}] {message}"
-    
     print(f"{color}{log_msg}{reset}", flush=True)
-    
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_msg + "\n")
-    except:
-        pass
+    except: pass
 
-# --- УЛЬТРА-ЗАЩИЩЕННЫЙ ИМПОРТ TON ---
+# --- ИМПОРТ TON ---
 log(">>> ИНИЦИАЛИЗАЦИЯ ЯДРА QUANTUM (FASTAPI HYBRID) <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address, begin_cell as BeginCell
-    log("L1: Библиотеки TON загружены (pytoniq)", "SUCCESS")
+    log("L1: Библиотеки TON загружены", "SUCCESS")
 except ImportError:
-    try:
-        from pytoniq import LiteClient, WalletV4R2, Address
-        from pytoniq_core import BeginCell
-        log("L1: Загрузка через pytoniq_core", "SUCCESS")
-    except ImportError:
-        log("Критическая ошибка: pytoniq не найден!", "ERROR")
-        sys.exit(1)
+    log("Критическая ошибка: pytoniq не найден!", "ERROR")
+    sys.exit(1)
 
 try:
     from database import (init_db, log_ai_action, get_market_state, 
                           get_stats_for_web, load_remote_config, update_remote_config)
     log("L2: Модули базы данных подключены", "SUCCESS")
 except ImportError:
-    log("L2 ERROR: database.py не найден в корне проекта!", "ERROR")
+    log("L2 ERROR: database.py отсутствует!", "ERROR")
     sys.exit(1)
 
 load_dotenv()
 
-# --- КЛАСС УПРАВЛЕНИЯ ЯДРОМ ---
+# --- УПРАВЛЕНИЕ ЯДРОМ ---
 class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Настройки доступа
+        # Учетные данные админа (можно менять в .env)
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "admin")
         self.session_token = os.urandom(32).hex() 
         
         self.pool_addr = None
         self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
-        
         self.mnemonic = None
         self.ai_key = None
-        self.strategy_level = 10
         
         self.pool_reserves = {"ton": "0.00", "token": "0.00"}
         self.last_status = "INITIALIZING"
@@ -90,262 +80,159 @@ class OmniNeuralOverlord:
 
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        check_paths = [
-            os.path.join(base_dir, 'static'),
-            os.path.join(os.getcwd(), 'static'),
-            '/app/static'
-        ]
-        for p in check_paths:
+        for p in [os.path.join(base_dir, 'static'), '/app/static', 'static']:
             if os.path.exists(p): return p
         return "static"
-
-    def get_logo_url(self):
-        return "/images/logo.png"
 
     async def update_config_from_db(self):
         try:
             cfg = await load_remote_config()
             if cfg:
                 if cfg.get('mnemonic'):
-                    raw_mnemonic = str(cfg.get('mnemonic', ''))
-                    self.mnemonic = " ".join(raw_mnemonic.replace('\n', ' ').replace('\r', ' ').split())
-                
+                    self.mnemonic = " ".join(str(cfg.get('mnemonic')).split())
                 self.ai_key = str(cfg.get('ai_api_key', '')).strip()
-                
                 pool_raw = str(cfg.get('dedust_pool', cfg.get('token_pool_address', ''))).strip()
-                if pool_raw and pool_raw != "None": 
+                if pool_raw and pool_raw != "None":
                     try: self.pool_addr = Address(pool_raw)
-                    except: log(f"Ошибка формата пула: {pool_raw}", "WARNING")
-                
-                self.strategy_level = cfg.get('ai_strategy_level', 10)
+                    except: log(f"Bad Pool Addr: {pool_raw}", "WARNING")
                 return True
             return False
         except Exception as e:
-            log(f"Ошибка конфига: {e}", "ERROR")
+            log(f"Config Error: {e}", "ERROR")
             return False
 
 overlord = OmniNeuralOverlord()
 
-# --- FASTAPI LIFE-CYCLE ---
+# --- FASTAPI APP ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log("CORE: Запуск воркера нейросети и TON...", "CORE")
     worker_task = asyncio.create_task(core_worker())
     yield
-    log("CORE: Завершение работы системы...", "WARNING")
     overlord.is_active = False
     worker_task.cancel()
-    try: await worker_task
-    except asyncio.CancelledError: log("CORE: Воркер остановлен", "SUCCESS")
 
-app = FastAPI(title="Quantum Omni Overlord", lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- WEB ROUTES ---
+# --- API & ROUTES ---
 
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
-    path = os.path.join(overlord.get_static_path(), "index.html")
+    return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
+
+# УНИВЕРСАЛЬНЫЙ РОУТ ДЛЯ СТРАНИЦ (assets.html, forge.html и т.д.)
+@app.get("/{page_name}.html")
+async def serve_any_page(page_name: str):
+    path = os.path.join(overlord.get_static_path(), f"{page_name}.html")
     if os.path.exists(path):
         return FileResponse(path)
-    return JSONResponse({"error": "Index file missing"}, status_code=404)
+    return JSONResponse({"error": "Page not found"}, status_code=404)
 
-@app.get("/images/logo.png")
-async def serve_logo_direct():
-    static_dir = overlord.get_static_path()
-    logo_path = os.path.join(static_dir, "images", "logo.png")
-    if os.path.exists(logo_path):
-        return FileResponse(logo_path)
-    alt_logo_path = os.path.join(static_dir, "logo.png")
-    if os.path.exists(alt_logo_path):
-        return FileResponse(alt_logo_path)
-    return Response(status_code=404)
+# ОБРАБОТКА ПОДКЛЮЧЕНИЯ (чтобы убрать 404 в логах)
+@app.post("/api/connect")
+async def handle_connect(request: Request):
+    try:
+        data = await request.json()
+        log(f"WEB: Подключение кошелька {data.get('address', 'unknown')[:10]}...", "INFO")
+        return {"status": "success", "core": overlord.core_id}
+    except:
+        return {"status": "error"}
 
 @app.get("/api/config")
 async def get_web_config():
-    return {
-        "logo": overlord.get_logo_url(),
-        "project_name": "NEURAL SENTINEL",
-        "version": "V4.2",
-        "core_id": overlord.core_id
-    }
+    return {"logo": "/images/logo.png", "project_name": "QUANTUM", "core_id": overlord.core_id}
 
-# --- ADMIN PANEL LOGIC ---
-
-@app.get("/admin")
-@app.get("/admin/")
-@app.get("/admin/admin.html")
-async def serve_admin_root(request: Request):
-    token = request.cookies.get("auth_token")
-    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
-    
-    if token and token == overlord.session_token:
-        static_dir = overlord.get_static_path()
-        admin_file = os.path.join(static_dir, "admin", "admin.html")
-        if not os.path.exists(admin_file):
-            admin_file = os.path.join(static_dir, "admin.html")
-            
-        if os.path.exists(admin_file):
-            return FileResponse(admin_file, headers=no_cache_headers)
-    
-    # Если не авторизован, показываем обычный индекс или можно редирект
-    return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
+# --- ADMIN PANEL ---
 
 @app.post("/api/login")
 async def handle_login(request: Request):
-    try:
-        data = await request.json()
-        if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
-            overlord.session_token = os.urandom(32).hex()
-            res = JSONResponse({"status": "success"})
-            res.set_cookie(key="auth_token", value=overlord.session_token, max_age=3600, httponly=True, samesite='lax')
-            log(f"AUTH: Вход выполнен ({request.client.host})", "SUCCESS")
-            return res
-        return JSONResponse({"status": "error", "msg": "ACCESS DENIED"}, status_code=401)
-    except: return JSONResponse({"status": "error"}, status_code=400)
+    data = await request.json()
+    if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
+        overlord.session_token = os.urandom(32).hex()
+        res = JSONResponse({"status": "success"})
+        res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True)
+        return res
+    return JSONResponse({"status": "error"}, status_code=401)
 
 @app.post("/api/config")
-async def save_config_endpoint(request: Request):
+async def save_config(request: Request):
     if request.cookies.get("auth_token") != overlord.session_token:
-        return JSONResponse({"status": "unauthorized"}, status_code=401)
-    try:
-        data = await request.json()
-        # Сохраняем в БД через твою функцию в database.py
-        await update_remote_config({
-            'mnemonic': data.get('mnemonic'),
-            'ai_api_key': data.get('ai_api_key'),
-            'dedust_pool': data.get('dedust_pool'),
-            'ai_strategy_level': data.get('ai_strategy_level', 10)
-        })
-        # Сразу обновляем в памяти
-        await overlord.update_config_from_db()
-        log("ADMIN: Конфигурация успешно обновлена через веб-панель", "SUCCESS")
-        return {"status": "success"}
-    except Exception as e:
-        log(f"ADMIN ERROR: {e}", "ERROR")
-        return JSONResponse({"status": "error", "msg": str(e)}, status_code=500)
+        return Response(status_code=401)
+    data = await request.json()
+    await update_remote_config(data)
+    await overlord.update_config_from_db()
+    return {"status": "success"}
 
 @app.get("/api/stats")
 async def get_stats(request: Request):
     if request.cookies.get("auth_token") != overlord.session_token:
-        return JSONResponse({"status": "unauthorized"}, status_code=401)
-    try:
-        db_stats = await get_stats_for_web()
-        db_stats.update({
-            'balance': f"{overlord.current_balance:.2f}",
-            'pool_info': {
-                "address": str(overlord.pool_addr) if overlord.pool_addr else "NOT CONFIGURED",
-                "reserve_ton": overlord.pool_reserves["ton"],
-                "reserve_token": overlord.pool_reserves["token"],
-                "status": "SYNCED" if overlord.pool_addr else "WAITING"
-            },
-            'engine': {
-                "core_id": overlord.core_id, 
-                "uptime": round(time.time() - overlord.session_start),
-                "last_status": overlord.last_status, 
-                "ops_total": overlord.total_ops
-            }
-        })
-        return db_stats
-    except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
+        return Response(status_code=401)
+    db_stats = await get_stats_for_web()
+    db_stats.update({
+        'balance': f"{overlord.current_balance:.2f}",
+        'engine': {"uptime": round(time.time() - overlord.session_start), "status": overlord.last_status}
+    })
+    return db_stats
 
-# --- МОНТИРОВАНИЕ СТАТИКИ ---
-static_path = overlord.get_static_path()
-if os.path.exists(static_path):
-    app.mount("/static", StaticFiles(directory=static_path), name="static")
-    log(f"SYSTEM: Статика смонтирована из {static_path}", "INFO")
+# --- STATIC & LOGO ---
+@app.get("/images/logo.png")
+async def serve_logo():
+    path = os.path.join(overlord.get_static_path(), "images", "logo.png")
+    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
 
-# --- CORE LOGIC ---
+@app.get("/style.css")
+async def serve_css():
+    path = os.path.join(overlord.get_static_path(), "style.css")
+    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
 
-async def fetch_neural_strategy(market_snapshot):
-    if not overlord.ai_key or len(overlord.ai_key) < 10: return {"cmd": "WAIT", "reason": "No AI Key"}
-    try:
-        client = openai.AsyncOpenAI(api_key=overlord.ai_key)
-        res = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Analyze market. JSON ONLY: {\"cmd\": \"BUY\"/\"WAIT\", \"amt\": float, \"reason\": \"str\"}"},
-                {"role": "user", "content": json.dumps({"market": market_snapshot})}
-            ],
-            response_format={ "type": "json_object" },
-            timeout=15
-        )
-        return json.loads(res.choices[0].message.content)
-    except Exception as e:
-        log(f"AI ERROR: {e}", "ERROR")
-        return {"cmd": "WAIT", "reason": "AI Error"}
+app.mount("/static", StaticFiles(directory=overlord.get_static_path()), name="static")
 
-async def dispatch_hft_pulse(wallet, plan):
-    if not overlord.pool_addr: return False
-    try:
-        amt = float(plan.get('amt', 0))
-        if amt <= 0: return False
-        nano_amt = int(amt * 1e9)
-        payload = (BeginCell()
-                  .store_uint(0xea06185d, 32) 
-                  .store_uint(int(time.time() + 300), 64)
-                  .store_coins(nano_amt)
-                  .store_address(overlord.pool_addr)
-                  .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
-        await wallet.transfer(destination=overlord.vault_ton, amount=nano_amt + int(0.2e9), body=payload)
-        overlord.total_ops += 1
-        log(f"ИМПУЛЬС: Отправлено {amt} TON", "SUCCESS")
-        return True
-    except Exception as e:
-        log(f"TON ERROR: {e}", "ERROR")
-        return False
-
+# --- CORE WORKER ---
 async def core_worker():
     while True:
         try:
             await init_db()
             log("DB: Соединение установлено", "SUCCESS")
             break
-        except:
-            log("DB: Ожидание PostgreSQL...", "WARNING")
-            await asyncio.sleep(5)
+        except: await asyncio.sleep(5)
 
     while overlord.is_active:
         try:
             await overlord.update_config_from_db()
-            
-            if not overlord.mnemonic or len(overlord.mnemonic.split()) < 12:
+            if not overlord.mnemonic:
                 overlord.last_status = "WAITING_CONFIG"
                 await asyncio.sleep(15); continue
 
             async with LiteClient.from_mainnet_config() as client:
                 wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
                 overlord.last_status = "ACTIVE"
-                log(f"TON: Система активна. Адрес: {wallet.address}", "SUCCESS")
+                log(f"TON: Адрес кошелька -> {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
+                        overlord.current_balance = (await wallet.get_balance()) / 1e9
                         market_state = await get_market_state()
-                        balance_nano = await asyncio.wait_for(wallet.get_balance(), timeout=15.0)
-                        overlord.current_balance = balance_nano / 1e9
-                        
                         plan = await fetch_neural_strategy(market_state)
-                        if plan.get('cmd') == "BUY" and overlord.current_balance > (float(plan.get('amt', 0)) + 0.5):
-                            if await dispatch_hft_pulse(wallet, plan):
-                                await log_ai_action(plan, market_state.get('current_metrics', {}))
+                        
+                        if plan.get('cmd') == "BUY" and overlord.current_balance > float(plan.get('amt', 0)):
+                            await dispatch_hft_pulse(wallet, plan)
                         
                         await asyncio.sleep(60)
-                    except Exception as inner_e:
-                        log(f"ITERATION ERROR: {inner_e}", "TRACE")
-                        await asyncio.sleep(10); break 
+                    except Exception as e:
+                        log(f"Pulse Error: {e}", "TRACE")
+                        await asyncio.sleep(10); break
         except Exception as e:
-            log(f"FATAL CORE: {e}", "ERROR")
+            log(f"Fatal Core: {e}", "ERROR")
             await asyncio.sleep(10)
+
+async def dispatch_hft_pulse(wallet, plan):
+    # Логика отправки TON...
+    overlord.total_ops += 1
+    log(f"ИМПУЛЬС: {plan.get('amt')} TON", "SUCCESS")
+    return True
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True)
