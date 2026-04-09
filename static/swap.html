@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANCORE | SWAP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    
+    <header class="p-6 flex justify-between items-center relative z-50">
+        <a href="index.html" class="flex items-center gap-2"><img src="images/logo.png" class="w-10"></a>
+        <div id="connectBtn"></div>
+    </header>
+
+    <main class="max-w-lg mx-auto px-4 pb-32">
+        <div class="glass-card p-6">
+            <h2 class="font-black italic text-white uppercase mb-6">SWAP TERMINAL</h2>
+            <div class="space-y-2">
+                <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
+                    <input type="number" id="swapInput" oninput="document.getElementById('swapOutput').value = (this.value * 450).toFixed(2)" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-white">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase">TON Amount</span>
+                </div>
+                <div class="flex justify-center -my-3 relative z-20">
+                    <div class="bg-cyan-500 p-2 rounded-full"><svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-width="3"/></svg></div>
+                </div>
+                <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
+                    <input type="number" id="swapOutput" readonly placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-full text-cyan-400">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase">QC Output</span>
+                </div>
+                <button onclick="alert('Confirm in Wallet')" class="w-full mt-6 btn-quantum py-4 rounded-2xl">EXECUTE SWAP</button>
+            </div>
+        </div>
+    </main>
+
+    <nav class="nav-bar">
+        <a href="index.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span>HOME</span></a>
+        <a href="swap.html" class="nav-item active"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg><span>SWAP</span></a>
+        <a href="forge.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg><span>FORGE</span></a>
+        <a href="assets.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg><span>DATA</span></a>
+    </nav>
+    <script src="script-common.js"></script>
+</body>
+</html>
