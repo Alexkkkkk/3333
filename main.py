@@ -100,7 +100,6 @@ class OmniNeuralOverlord:
         return "static"
 
     def get_logo_url(self):
-        # Исправлено: путь должен соответствовать точке монтирования app.mount("/static", ...)
         return "/static/images/logo.png"
 
     async def update_config_from_db(self):
@@ -155,6 +154,19 @@ async def serve_index():
         return FileResponse(path)
     return JSONResponse({"error": "Index file missing"}, status_code=404)
 
+# Динамический роут для всех страниц (swap.html, assets.html и т.д.)
+@app.get("/{page_name}.html")
+async def serve_any_page(page_name: str):
+    path = os.path.join(overlord.get_static_path(), f"{page_name}.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse({"error": "Page not found"}, status_code=404)
+
+# Прямой проброс для CSS (решает проблему 404 Not Found)
+@app.get("/style.css")
+async def serve_css():
+    return FileResponse(os.path.join(overlord.get_static_path(), "style.css"))
+
 @app.get("/api/config")
 async def get_web_config():
     return {
@@ -184,7 +196,6 @@ async def serve_admin_root(request: Request):
     
     if token and token == overlord.session_token:
         static_dir = overlord.get_static_path()
-        # Ищем admin.html внутри вложенной папки или корня статики
         admin_file = os.path.join(static_dir, "admin", "admin.html")
         if not os.path.exists(admin_file):
             admin_file = os.path.join(static_dir, "admin.html")
@@ -233,7 +244,6 @@ async def get_stats(request: Request):
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
 # --- МОНТИРОВАНИЕ СТАТИКИ ---
-# Должно быть после всех API роутов
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
     app.mount("/static", StaticFiles(directory=static_path), name="static")
@@ -282,7 +292,6 @@ async def dispatch_hft_pulse(wallet, plan):
         return False
 
 async def core_worker():
-    # 1. Ждем БД
     while True:
         try:
             await init_db()
@@ -292,7 +301,6 @@ async def core_worker():
             log("DB: Ожидание PostgreSQL...", "WARNING")
             await asyncio.sleep(5)
 
-    # 2. Основной цикл
     while overlord.is_active:
         try:
             if not await overlord.update_config_from_db():
@@ -328,6 +336,7 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
+    # Читаем порт из переменной окружения Bothost
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Старт Quantum Overlord на порту {port}", "CORE")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", proxy_headers=True)
