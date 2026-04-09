@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANCORE | ASSETS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <header class="p-6 flex justify-between items-center relative z-50">
+        <a href="index.html" class="flex items-center gap-2"><img src="images/logo.png" class="w-10"></a>
+        <div id="connectBtn"></div>
+    </header>
+
+    <main class="max-w-lg mx-auto px-4 pb-32">
+        <div class="glass-card mb-6">
+            <p class="text-[10px] text-cyan-400 font-black uppercase tracking-widest mb-1">Portfolio Value</p>
+            <h2 class="text-4xl font-black text-white italic">$1,240.55</h2>
+        </div>
+
+        <div class="space-y-3">
+            <div class="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center border border-cyan-500/30 text-cyan-400 font-bold">T</div>
+                    <div>
+                        <p class="font-bold text-white leading-none">TON</p>
+                        <p class="text-[10px] text-slate-500 uppercase mt-1">Native Token</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-bold text-white" id="asset-ton-bal">0.00</p>
+                    <p class="text-[10px] text-cyan-400">Mainnet</p>
+                </div>
+            </div>
+
+            <div class="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center border border-purple-500/30 text-purple-400 font-bold">Q</div>
+                    <div>
+                        <p class="font-bold text-white leading-none">QUAN</p>
+                        <p class="text-[10px] text-slate-500 uppercase mt-1">Utility Jetton</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-bold text-white">450,000</p>
+                    <p class="text-[10px] text-purple-400">Active</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="nav-bar">
+        <a href="index.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span>HOME</span></a>
+        <a href="swap.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg><span>SWAP</span></a>
+        <a href="forge.html" class="nav-item"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg><span>FORGE</span></a>
+        <a href="assets.html" class="nav-item active"><svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg><span>DATA</span></a>
+    </nav>
+
+    <script>
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.speed = Math.random() * 0.5 + 0.1;
+                    this.opacity = Math.random() * 0.3;
+                }
+                update() { this.y -= this.speed; if (this.y < 0) this.y = canvas.height; }
+                draw() { ctx.fillStyle = `rgba(0, 242, 255, ${this.opacity})`; ctx.fillRect(this.x, this.y, 1, 1); }
+            }
+            for(let i=0; i<60; i++) particles.push(new Particle());
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => { p.update(); p.draw(); });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+    </script>
+</body>
+</html>
