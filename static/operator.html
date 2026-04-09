@@ -3,104 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OPERATOR | LEDGER CONTROL</title>
+    <title>QUANCORE | OPERATOR LEDGER</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        :root { --neon: #06b6d4; --neural-bg: #010409; }
+        :root { 
+            --cyan: #06b6d4; 
+            --cyan-glow: rgba(6, 182, 212, 0.4); 
+            --glass: rgba(10, 20, 30, 0.6);
+        }
 
         body {
             font-family: 'Space Grotesk', sans-serif;
-            background: var(--neural-bg);
+            background: #010409;
             color: #f8fafc;
             overflow-x: hidden;
         }
 
+        /* Фоновая сетка для единства стиля */
+        .hologram-grid {
+            position: fixed; inset: 0;
+            background-image: 
+                linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(500px) rotateX(60deg);
+            transform-origin: center top;
+            opacity: 0.2; z-index: 1;
+        }
+
         .ledger-card {
-            background: rgba(15, 23, 42, 0.3);
+            background: var(--glass);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(6, 182, 212, 0.1);
+            position: relative;
+            overflow: hidden;
             transition: all 0.3s ease;
         }
 
         .ledger-card:hover {
-            border-color: rgba(6, 182, 212, 0.3);
-            background: rgba(15, 23, 42, 0.5);
+            border-color: var(--cyan);
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.1);
         }
 
-        #bg-glow {
-            position: fixed;
-            top: 0; left: 50%;
-            transform: translateX(-50%);
-            width: 100vw; height: 100vh;
-            background: radial-gradient(circle at 50% -20%, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
+        /* Сканирующий луч */
+        .scan-line {
+            position: absolute; width: 100%; height: 2px;
+            background: var(--cyan);
+            box-shadow: 0 0 15px var(--cyan);
+            top: -2px; left: 0; opacity: 0; pointer-events: none;
         }
-
-        .loading-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        .ledger-card:hover .scan-line {
+            animation: scan-loop 2s infinite linear;
+            opacity: 0.5;
         }
+        @keyframes scan-loop { 0% { top: 0%; } 100% { top: 100%; } }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .3; }
-        }
-
-        /* Кастомный скроллбар */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.2); border-radius: 10px; }
+        .cyan-glow { text-shadow: 0 0 10px var(--cyan); }
     </style>
 </head>
 <body class="antialiased">
-    <div id="bg-glow"></div>
+    <div class="hologram-grid"></div>
 
     <header class="p-6 flex justify-between items-center relative z-50 max-w-2xl mx-auto w-full">
-        <div class="flex items-center gap-3">
+        <a href="/static/index.html" class="flex items-center gap-3">
             <div class="w-10 h-10 border border-cyan-500/30 rounded-full flex items-center justify-center bg-cyan-500/5">
-                <img src="/images/logo.png" class="w-6 h-6 opacity-80" alt="L">
+                <img src="/images/logo.png" class="w-6 h-6" alt="L">
             </div>
             <h1 class="text-xl font-black tracking-tighter uppercase italic">Ledger_<span class="text-cyan-500">View</span></h1>
-        </div>
+        </a>
         <div id="connectBtn" class="scale-90"></div>
     </header>
 
     <main class="max-w-2xl mx-auto px-6 pb-40 relative z-10">
         
-        <div class="grid grid-cols-2 gap-4 mb-10">
-            <div class="ledger-card rounded-3xl p-5 border-t border-white/5">
-                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Asset Count</p>
-                <p class="text-2xl font-black italic value-glow" id="stat-count">--</p>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="ledger-card rounded-3xl p-6">
+                <div class="scan-line"></div>
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Asset Entities</p>
+                <p class="text-3xl font-black italic text-white mono" id="stat-count">00</p>
             </div>
-            <div class="ledger-card rounded-3xl p-5 border-t border-white/5">
-                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Network Status</p>
-                <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
-                    <p class="text-xs font-bold uppercase tracking-tight">Mainnet_Active</p>
+            <div class="ledger-card rounded-3xl p-6">
+                <div class="scan-line"></div>
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Network Access</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></span>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-green-400">Mainnet_Stable</p>
                 </div>
             </div>
         </div>
 
-        <div class="space-y-3" id="ledger-container">
-            <div class="p-20 text-center opacity-20">
-                <div class="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p class="text-xs font-black uppercase tracking-[0.5em]">Initializing Scan...</p>
+        <div class="space-y-4" id="ledger-container">
+            <div class="p-20 text-center opacity-40">
+                <div class="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-[8px] font-black uppercase tracking-[0.5em]">Syncing Neural Data...</p>
             </div>
         </div>
 
     </main>
 
-    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-black/60 backdrop-blur-2xl border border-white/5 p-3 rounded-[2.5rem] flex justify-between items-center z-50 shadow-2xl">
-        <a href="index.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
+    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-black/80 backdrop-blur-2xl border border-white/5 p-3 rounded-[2.5rem] flex justify-between items-center z-[100] shadow-2xl">
+        <a href="/static/index.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         </a>
-        <a href="operator.html" class="w-14 h-14 bg-cyan-500 text-black rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z"/><path d="M12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-        </a>
-        <a href="staking.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
+        <div class="w-14 h-14 bg-cyan-500 text-black rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)] relative">
+            <div class="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-20"></div>
+            <svg class="w-7 h-7 relative z-10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z"/><path d="M12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        </div>
+        <a href="/static/staking.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </a>
     </nav>
@@ -117,8 +129,8 @@
 
             if (!wallet) {
                 container.innerHTML = `
-                    <div class="ledger-card rounded-[2.5rem] p-12 text-center border-dashed border-2 border-white/5">
-                        <p class="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">Handshake Required</p>
+                    <div class="ledger-card rounded-[2.5rem] p-12 text-center border-dashed border-2 border-white/5 opacity-50">
+                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Awaiting Wallet Handshake</p>
                     </div>
                 `;
                 countDisplay.innerText = "00";
@@ -133,15 +145,15 @@
                 let html = '';
                 let totalAssets = 0;
 
-                // 1. Render TON (Native)
+                // 1. TON Native
                 const tonBalance = (wallet.account.balance / 1e9).toFixed(3);
                 html += renderCoinRow('TON', 'The Open Network', tonBalance, 'https://ton.org/download/ton_symbol.png');
                 totalAssets++;
 
-                // 2. Render Jettons
+                // 2. Jettons
                 jettons.forEach(j => {
                     const bal = (j.balance / Math.pow(10, j.jetton.decimals)).toFixed(2);
-                    if (bal > 0) {
+                    if (parseFloat(bal) > 0) {
                         html += renderCoinRow(j.jetton.symbol, j.jetton.name, bal, j.jetton.image);
                         totalAssets++;
                     }
@@ -151,34 +163,41 @@
                 countDisplay.innerText = totalAssets.toString().padStart(2, '0');
 
             } catch (e) {
-                container.innerHTML = `<p class="p-10 text-center text-red-500 font-mono text-xs uppercase">Terminal_Sync_Error</p>`;
+                container.innerHTML = `<div class="p-10 text-center text-red-400 font-mono text-[10px] uppercase">Quantum_Sync_Error: Check Connection</div>`;
             }
         }
 
         function renderCoinRow(symbol, name, balance, img) {
             return `
-                <div class="ledger-card rounded-3xl p-4 flex items-center justify-between group animate-[fadeIn_0.5s_ease-out]">
+                <div class="ledger-card rounded-3xl p-5 flex items-center justify-between group animate-fade-in">
+                    <div class="scan-line"></div>
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-2xl bg-black/40 border border-white/5 overflow-hidden flex-shrink-0">
-                            <img src="${img || '/images/logo.png'}" class="w-full h-full object-cover" onerror="this.src='/images/logo.png'">
+                        <div class="w-12 h-12 rounded-2xl bg-black/40 border border-white/10 p-1 overflow-hidden">
+                            <img src="${img || '/images/logo.png'}" class="w-full h-full object-contain rounded-lg" onerror="this.src='/images/logo.png'">
                         </div>
-                        <div class="overflow-hidden">
-                            <h3 class="text-white font-bold tracking-tight leading-none uppercase truncate w-24">${symbol}</h3>
-                            <p class="text-[9px] text-slate-500 font-bold uppercase mt-1 truncate w-32">${name}</p>
+                        <div>
+                            <h3 class="text-white font-black italic uppercase leading-none tracking-tight">${symbol}</h3>
+                            <p class="text-[8px] text-cyan-500/60 font-bold uppercase mt-1 tracking-widest">${name.substring(0, 15)}</p>
                         </div>
                     </div>
                     <div class="text-right">
-                        <p class="text-xl font-black italic text-white tracking-tighter">${balance}</p>
-                        <p class="text-[8px] text-cyan-500/50 font-black uppercase">Confirmed</p>
+                        <p class="text-2xl font-black italic text-white mono tracking-tighter">${balance}</p>
+                        <p class="text-[7px] text-green-500 font-black uppercase tracking-widest">Verified</p>
                     </div>
                 </div>
             `;
         }
 
         tonConnectUI.onStatusChange(wallet => updateLedger(wallet));
+
+        // Initial check if already connected
+        if(tonConnectUI.account) updateLedger(tonConnectUI);
     </script>
 
     <style>
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
