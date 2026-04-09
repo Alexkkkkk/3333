@@ -100,7 +100,7 @@ class OmniNeuralOverlord:
         return "static"
 
     def get_logo_url(self):
-        return "/images/logo.png"
+        return "/static/images/logo.png"
 
     async def update_config_from_db(self):
         try:
@@ -162,7 +162,6 @@ async def get_web_config():
 
 @app.post("/api/connect")
 async def handle_wallet_connect(request: Request):
-    """Эндпоинт для JS-скрипта (script.js) для синхронизации кошелька"""
     try:
         data = await request.json()
         address = data.get("address")
@@ -171,24 +170,21 @@ async def handle_wallet_connect(request: Request):
     except:
         return JSONResponse({"status": "error"}, status_code=400)
 
+# --- ADMIN PANEL LOGIC ---
+
 @app.get("/admin")
 @app.get("/admin/")
-@app.get("/admin/{path:path}")
-async def serve_admin(request: Request):
+async def serve_admin_root(request: Request):
     token = request.cookies.get("auth_token")
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
     
     if token and token == overlord.session_token:
-        static_dir = overlord.get_static_path()
-        check_files = [
-            os.path.join(static_dir, "admin", "admin.html"),
-            os.path.join(static_dir, "admin.html")
-        ]
-        for admin_path in check_files:
-            if os.path.exists(admin_path):
-                return FileResponse(admin_path, headers=no_cache_headers)
-        return JSONResponse({"error": "Admin file missing"}, status_code=404)
+        admin_path = os.path.join(overlord.get_static_path(), "admin", "admin.html")
+        if os.path.exists(admin_path):
+            return FileResponse(admin_path, headers=no_cache_headers)
+        return JSONResponse({"error": "Admin file missing in static/admin/"}, status_code=404)
             
+    # Если не авторизован, кидаем на главную (или можно сделать отдельный login.html)
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"), headers=no_cache_headers)
 
 @app.post("/api/login")
@@ -228,15 +224,10 @@ async def get_stats(request: Request):
         return db_stats
     except Exception as e: return JSONResponse({"status": "error", "msg": str(e)})
 
-# --- МОНТИРОВАНИЕ СТАТИКИ И КАРТИНОК ---
+# --- МОНТИРОВАНИЕ СТАТИКИ ---
 static_path = overlord.get_static_path()
 if os.path.exists(static_path):
-    # ПРИОРИТЕТ: Монтируем /images для прямого доступа к logo.png
-    images_dir = os.path.join(static_path, "images")
-    if os.path.exists(images_dir):
-        app.mount("/images", StaticFiles(directory=images_dir), name="images")
-        log(f"SYSTEM: Логотип и картинки доступны по пути /images/", "SUCCESS")
-    
+    # Монтируем всю папку static, чтобы были доступны и /static/style.css, и /static/admin/admin.html
     app.mount("/static", StaticFiles(directory=static_path), name="static")
     log(f"SYSTEM: Статика смонтирована из {static_path}", "INFO")
 
