@@ -1,0 +1,30 @@
+<nav class="fixed-bottom-nav">
+    <div class="nav-item active">
+        <a href="/index.html">
+            <i class="icon-home"></i>
+            <span>HOME</span>
+        </a>
+    </div>
+    <div class="nav-item">
+        <a href="/swap.html">
+            <i class="icon-swap"></i>
+            <span>SWAP</span>
+        </a>
+    </div>
+    <div class="nav-item">
+        <a href="/forge.html">
+            <i class="icon-plus"></i>
+            <span>FORGE</span>
+        </a>
+    </div>
+    <div class="nav-item">
+        <a href="/assets.html"> <i class="icon-chart"></i>
+            <span>DATA</span>
+        </a>
+    </div>
+    <div class="nav-item">
+        <a href="/admin"> <i class="icon-user"></i>
+            <span>OPERATOR</span>
+        </a>
+    </div>
+</nav>
