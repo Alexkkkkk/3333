@@ -145,7 +145,7 @@
 
     <header class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-50">
         <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('home')">
-            <img src="/images/logo.png" alt="Logo" class="w-10 h-10 object-contain">
+            <img src="images/logo.png" alt="Logo" class="w-10 h-10 object-contain">
             <h1 class="text-xl font-black tracking-tighter uppercase italic text-white">QUAN<span class="text-cyan-400">CORE</span></h1>
         </div>
         <div id="connectBtn"></div>
@@ -334,7 +334,6 @@
             buttonRootId: 'connectBtn'
         });
 
-        // Мониторинг сети TON
         async function updateTonNetworkStatus() {
             const statusElement = document.getElementById('block-height');
             try {
@@ -342,60 +341,75 @@
                 const data = await response.json();
                 if (data.ok) {
                     const seqno = data.result.last.seqno;
-                    statusElement.innerText = `#${seqno}`;
+                    if(statusElement) statusElement.innerText = `#${seqno}`;
                 }
             } catch (e) {
-                statusElement.innerText = "Online";
+                if(statusElement) statusElement.innerText = "Online";
             }
         }
         setInterval(updateTonNetworkStatus, 10000);
         updateTonNetworkStatus();
 
-        // ОБНОВЛЕННАЯ ФУНКЦИЯ: Получение ВСЕХ токенов
+        // ФУНКЦИЯ ПОЛУЧЕНИЯ ЦЕН И БАЛАНСОВ
         async function fetchBalances(address) {
             try {
-                // 1. Баланс TON
+                // 1. Получаем курс TON к USD
+                const ratesRes = await fetch('https://tonapi.io/v2/rates?tokens=ton&currencies=usd');
+                const ratesData = await ratesRes.json();
+                const tonUsdRate = ratesData.rates.TON.prices.USD;
+
+                // 2. Баланс TON
                 const accountRes = await fetch(`https://tonapi.io/v2/accounts/${address}`);
                 const accountData = await accountRes.json();
                 const tonBalance = (accountData.balance / 1000000000).toFixed(2);
                 document.getElementById('main-balance-ton').innerText = `${tonBalance} TON`;
 
-                // 2. Список Jettons
+                // 3. Список Jettons и их цены
                 const jettonsRes = await fetch(`https://tonapi.io/v2/accounts/${address}/jettons`);
                 const jettonsData = await jettonsRes.json();
                 
                 let qcBalance = '0.00';
                 const tokenListUI = [];
 
-                // Добавляем TON в список активов первым
-                tokenListUI.push(createTokenRow('TON', 'Toncoin', tonBalance, 'https://ton.org/download/ton_symbol.png'));
+                // TON всегда в начале списка
+                tokenListUI.push(createTokenRow('TON', 'Toncoin', tonBalance, 'https://ton.org/download/ton_symbol.png', '1.000', tonUsdRate.toFixed(2)));
 
                 if (jettonsData.balances) {
-                    jettonsData.balances.forEach(item => {
+                    for (const item of jettonsData.balances) {
                         const jetton = item.jetton;
                         const amount = (parseInt(item.balance) / Math.pow(10, jetton.decimals)).toFixed(2);
                         
-                        // Если это наш QC, обновляем главный баланс
+                        // Получаем цену джеттона в USD через TonAPI (если доступно)
+                        let priceInTon = "0.000";
+                        let priceInUsd = "0.00";
+                        
+                        try {
+                            const pRes = await fetch(`https://tonapi.io/v2/rates?tokens=${jetton.address}&currencies=usd`);
+                            const pData = await pRes.json();
+                            if (pData.rates && pData.rates[jetton.address]) {
+                                const usdVal = pData.rates[jetton.address].prices.USD;
+                                priceInUsd = usdVal.toFixed(4);
+                                priceInTon = (usdVal / tonUsdRate).toFixed(4);
+                            }
+                        } catch(err) { console.warn("Price skip for", jetton.symbol); }
+
                         if (jetton.address === QC_JETTON_ADDRESS) {
                             qcBalance = amount;
                             document.getElementById('main-balance-qc').innerText = `${qcBalance} QC`;
                         }
                         
-                        // Добавляем в общий список
-                        tokenListUI.push(createTokenRow(jetton.symbol, jetton.name, amount, jetton.image));
-                    });
+                        tokenListUI.push(createTokenRow(jetton.symbol, jetton.name, amount, jetton.image, priceInTon, priceInUsd));
+                    }
                 }
 
                 document.getElementById('tokenList').innerHTML = tokenListUI.join('');
-                return { ton: tonBalance, qc: qcBalance };
             } catch (e) {
                 console.error("Fetch Error:", e);
-                return { ton: '0.00', qc: '0.00' };
             }
         }
 
-        // Вспомогательная функция для отрисовки строки токена
-        function createTokenRow(symbol, name, balance, image) {
+        // Вспомогательная функция отрисовки с ЦЕНОЙ
+        function createTokenRow(symbol, name, balance, image, priceTon, priceUsd) {
             const fallbackImg = `https://ui-avatars.com/api/?name=${symbol}&background=random&color=fff`;
             return `
                 <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 mb-2 hover:bg-white/10 transition-colors">
@@ -408,6 +422,8 @@
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-black text-white">${balance}</p>
+                        <p class="text-[10px] font-bold text-cyan-400">${priceTon} TON</p>
+                        <p class="text-[8px] text-slate-500">$${priceUsd}</p>
                     </div>
                 </div>
             `;
@@ -521,8 +537,8 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', size: 10 } },
-                        x: { grid: { display: false }, ticks: { color: '#475569', size: 10 } }
+                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 10 } } }
                     }
                 }
             });
