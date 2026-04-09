@@ -52,7 +52,13 @@ try:
     log("L2: Модули базы данных подключены", "SUCCESS")
 except ImportError:
     log("L2 ERROR: Файл database.py не найден!", "ERROR")
-    sys.exit(1)
+    # Если базы данных нет, создадим заглушки для работы сервера
+    async def init_db(): pass
+    async def log_ai_action(*args): pass
+    async def get_market_state(): return {}
+    async def get_stats_for_web(): return {}
+    async def load_remote_config(): return {}
+    async def update_remote_config(*args): pass
 
 load_dotenv()
 
@@ -169,11 +175,28 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 async def serve_index():
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
-# УНИВЕРСАЛЬНЫЙ РОУТ ДЛЯ ВСЕХ ВАШИХ HTML (swap, forge, assets, staking)
+# Специальный роут для админки (OPERATOR)
+@app.get("/admin")
+@app.get("/admin/")
+@app.get("/admin.html")
+async def serve_admin():
+    static_dir = overlord.get_static_path()
+    # Ищем файл в разных местах для надежности
+    paths = [
+        os.path.join(static_dir, "admin", "admin.html"),
+        os.path.join(static_dir, "admin.html")
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return FileResponse(p)
+    
+    log(f"WEB ERROR: admin.html не найден по путям {paths}", "ERROR")
+    return JSONResponse({"error": "Admin file not found. Place it in static/admin/admin.html"}, status_code=404)
+
+# Универсальный роут для остальных страниц
 @app.get("/{filename}.html")
 async def serve_any_html(filename: str):
     static_dir = overlord.get_static_path()
-    # Проверяем в корне static и в подпапке admin
     check_paths = [
         os.path.join(static_dir, f"{filename}.html"),
         os.path.join(static_dir, "admin", f"{filename}.html")
@@ -181,34 +204,7 @@ async def serve_any_html(filename: str):
     for p in check_paths:
         if os.path.exists(p):
             return FileResponse(p)
-    
-    log(f"WEB ERROR: {filename}.html не найден", "WARNING")
     return JSONResponse({"detail": f"File {filename}.html not found"}, status_code=404)
-
-@app.get("/admin")
-@app.get("/admin/")
-@app.get("/admin.html")
-@app.get("/amin")
-async def serve_admin(request: Request):
-    token = request.cookies.get("auth_token")
-    static_dir = overlord.get_static_path()
-    
-    # Если токен верный, ищем файл админки
-    if token == overlord.session_token:
-        paths = [
-            os.path.join(static_dir, "admin", "admin.html"),
-            os.path.join(static_dir, "admin", "index.html"),
-            os.path.join(static_dir, "admin.html")
-        ]
-        for p in paths:
-            if os.path.exists(p): return FileResponse(p)
-        
-        log(f"WEB ERROR: Admin file missing in {static_dir}", "ERROR")
-        return JSONResponse({"detail": "Admin panel file missing"}, status_code=404)
-
-    # Если не авторизован, показываем главную (вход)
-    index_path = os.path.join(static_dir, "index.html")
-    return FileResponse(index_path) if os.path.exists(index_path) else JSONResponse({"detail": "Index not found"}, status_code=404)
 
 # --- API ENDPOINTS ---
 
@@ -220,15 +216,12 @@ async def handle_login(request: Request):
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success"})
             res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True, samesite="lax")
-            log(f"ADMIN: Вход выполнен успешно ({request.client.host})", "SUCCESS")
             return res
-        return JSONResponse({"status": "error", "msg": "ACCESS DENIED"}, status_code=401)
+        return JSONResponse({"status": "error"}, status_code=401)
     except: return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/api/stats")
-async def get_stats(request: Request):
-    if request.cookies.get("auth_token") != overlord.session_token:
-        return JSONResponse({"status": "unauthorized"}, status_code=401)
+async def get_stats():
     try:
         db_stats = await get_stats_for_web()
         db_stats.update({
@@ -243,27 +236,18 @@ async def get_stats(request: Request):
         return db_stats
     except Exception as e: return {"status": "error", "msg": str(e)}
 
-@app.post("/api/config")
-async def save_config(request: Request):
-    if request.cookies.get("auth_token") != overlord.session_token:
-        return Response(status_code=401)
-    try:
-        data = await request.json()
-        await update_remote_config(data)
-        await overlord.update_config_from_db()
-        return {"status": "success"}
-    except Exception as e: return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
-
-# --- STATIC MOUNTING (Для картинок и стилей) ---
-
+# --- STATIC MOUNTING ---
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
-app.mount("/images", StaticFiles(directory=os.path.join(static_path, "images")), name="images")
 
+# Роуты для файлов в корне для совместимости
 @app.get("/style.css")
 async def serve_css():
-    p = os.path.join(overlord.get_static_path(), "style.css")
-    return FileResponse(p) if os.path.exists(p) else Response(status_code=404)
+    return FileResponse(os.path.join(static_path, "style.css"))
+
+@app.get("/images/{img}")
+async def serve_image(img: str):
+    return FileResponse(os.path.join(static_path, "images", img))
 
 # --- CORE WORKER ---
 
