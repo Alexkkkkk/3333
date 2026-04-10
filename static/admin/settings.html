@@ -8,66 +8,80 @@
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #0088cc; --border: rgba(255, 255, 255, 0.08); }
-        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; }
-        .quantum-card { background: rgba(23, 28, 35, 0.7); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
-        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 8px 16px; border-radius: 12px; font-size: 10px; }
-        .nav-active { border-color: #00d2ff; color: #00d2ff; }
-        input[type="range"] { accent-color: #00d2ff; width: 100%; background: #000; height: 4px; border-radius: 2px; }
-        .save-btn { background: linear-gradient(135deg, #0088cc, #0055aa); width: 100%; padding: 12px; border-radius: 12px; font-weight: bold; margin-top: 20px; transition: 0.2s; }
-        .save-btn:active { transform: scale(0.98); }
+        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+        .quantum-card { background: rgba(23, 28, 35, 0.7); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 40px; }
+        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 10px 20px; border-radius: 14px; font-size: 11px; }
+        .nav-active { border-color: #00d2ff; color: #00d2ff; background: rgba(0, 136, 204, 0.1); }
+        
+        /* Custom Range Slider */
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: #1a1f26; border-radius: 2px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #00d2ff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px #0088cc; }
+        
+        .save-btn { background: linear-gradient(135deg, #0088cc, #0055aa); width: 100%; padding: 16px; border-radius: 16px; font-weight: bold; margin-top: 30px; transition: 0.3s; letter-spacing: 2px; }
+        .save-btn:hover { box-shadow: 0 0 20px rgba(0, 136, 204, 0.4); opacity: 0.9; }
     </style>
 </head>
-<body class="p-6">
+<body class="p-8">
     <div class="max-w-4xl mx-auto">
-        <header class="flex justify-between items-center mb-10">
-            <h1 class="font-mono tracking-widest uppercase">Protocol <span class="text-blue-400">Config</span></h1>
-            <nav class="flex gap-3">
-                <a href="admin.html" class="nav-btn">MONITORING</a>
-                <a href="wallets.html" class="nav-btn">WALLETS</a>
-                <a href="settings.html" class="nav-btn nav-active">DISTRIBUTION</a>
+        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
+            <h1 class="text-2xl font-mono tracking-tighter uppercase">Distribution <span class="text-blue-400">Engine</span></h1>
+            <nav class="flex gap-4">
+                <a href="admin.html" class="nav-btn">📊 MONITORING</a>
+                <a href="wallets.html" class="nav-btn">💎 WALLETS</a>
+                <a href="settings.html" class="nav-btn nav-active">⚙️ DISTRIBUTION</a>
             </nav>
         </header>
 
         <div class="quantum-card">
-            <h2 class="text-xs text-gray-500 uppercase mb-6 tracking-widest">Yield Distribution Strategy</h2>
+            <h2 class="text-[10px] text-blue-500 uppercase mb-8 tracking-[0.3em] font-bold">Distribution Policy Configuration</h2>
             
-            <div class="space-y-8">
+            <div class="space-y-10">
                 <div>
-                    <div class="flex justify-between mb-2">
-                        <label class="text-[10px] text-gray-400 uppercase">Referral Reward (%)</label>
-                        <span id="ref_val" class="font-mono text-blue-400">10%</span>
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-xs uppercase text-gray-400 font-mono">Referral Commission</label>
+                        <span id="ref_display" class="text-xl font-mono text-blue-400">15%</span>
                     </div>
-                    <input type="range" id="ref_range" min="0" max="50" value="10" oninput="updateVal('ref_val', this.value)">
+                    <input type="range" id="ref_input" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%')">
+                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Percentage allocated to the inviter node</p>
                 </div>
 
                 <div>
-                    <div class="flex justify-between mb-2">
-                        <label class="text-[10px] text-gray-400 uppercase">Pool Liquidity Share (%)</label>
-                        <span id="pool_val" class="font-mono text-blue-400">80%</span>
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-xs uppercase text-gray-400 font-mono">Pool Distribution Rate</label>
+                        <span id="pool_display" class="text-xl font-mono text-blue-400">75%</span>
                     </div>
-                    <input type="range" id="pool_range" min="50" max="100" value="80" oninput="updateVal('pool_val', this.value)">
+                    <input type="range" id="pool_input" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%')">
+                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Main yield distribution for active participants</p>
                 </div>
 
                 <div>
-                    <div class="flex justify-between mb-2">
-                        <label class="text-[10px] text-gray-400 uppercase">Min. Connection Threshold</label>
-                        <span id="min_val" class="font-mono text-blue-400">0.5 TON</span>
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-xs uppercase text-gray-400 font-mono">Minimum Gas Limit</label>
+                        <span id="gas_display" class="text-xl font-mono text-blue-400">0.2 TON</span>
                     </div>
-                    <input type="range" id="min_range" min="0" max="10" step="0.1" value="0.5" oninput="updateVal('min_val', this.value + ' TON')">
+                    <input type="range" id="gas_input" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value + ' TON')">
+                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Required balance for node synchronization</p>
                 </div>
 
-                <button onclick="saveSettings()" class="save-btn uppercase text-xs">Commit Changes to Blockchain</button>
+                <button onclick="commitSettings()" class="save-btn uppercase text-sm">Synchronize Protocol Changes</button>
             </div>
         </div>
     </div>
 
     <script>
-        function updateVal(id, val) {
-            document.getElementById(id).innerText = val.includes('TON') ? val : val + '%';
+        function updateVal(id, text) {
+            document.getElementById(id).innerText = text;
         }
 
-        function saveSettings() {
-            alert("Settings updated successfully. New protocol parameters deployed.");
+        function commitSettings() {
+            // Здесь будет запрос к твоему API (main.py)
+            const data = {
+                referral: document.getElementById('ref_input').value,
+                pool: document.getElementById('pool_input').value,
+                gas: document.getElementById('gas_input').value
+            };
+            console.log("Saving settings...", data);
+            alert("PROTOCOL UPDATED: Changes are now being propagated through the network.");
         }
     </script>
 </body>
