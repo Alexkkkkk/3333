@@ -68,19 +68,16 @@ class OmniNeuralOverlord:
         self.session_start = time.time()
         self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
         
-        # Настройки доступа
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(32).hex() 
         
-        # Состояние системы
         self.pool_addr = None
         self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
         self.mnemonic = None
         self.ai_key = None
         self.strategy_level = 10
         
-        self.pool_reserves = {"ton": "0.00", "token": "0.00"}
         self.last_status = "INITIALIZING"
         self.total_ops = 0
         self.current_balance = 0.0
@@ -133,28 +130,6 @@ class OmniNeuralOverlord:
             log(f"AI Neural Error: {e}", "ERROR")
             return {"cmd": "WAIT", "reason": "AI Error"}
 
-    async def dispatch_hft_pulse(self, wallet, plan):
-        if not self.pool_addr: return False
-        try:
-            amt = float(plan.get('amt', 0))
-            if amt <= 0: return False
-            nano_amt = int(amt * 1e9)
-            
-            swap_payload = (BeginCell()
-                            .store_uint(0xea06185d, 32) 
-                            .store_uint(int(time.time() + 300), 64) 
-                            .store_coins(nano_amt)
-                            .store_address(self.pool_addr)
-                            .store_uint(0, 1).store_coins(0).store_maybe_ref(None).end_cell())
-            
-            await wallet.transfer(destination=self.vault_ton, amount=nano_amt + int(0.2e9), body=swap_payload)
-            self.total_ops += 1
-            log(f"ИМПУЛЬС ОТПРАВЛЕН: {amt} TON -> {plan.get('reason')}", "SUCCESS")
-            return True
-        except Exception as e:
-            log(f"TON Pulse Error: {e}", "ERROR")
-            return False
-
 overlord = OmniNeuralOverlord()
 
 @asynccontextmanager
@@ -167,34 +142,49 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --- WEB ROUTES ---
+# --- WEB ROUTES С ГЛУБОКИМ ЛОГИРОВАНИЕМ ---
 
 @app.get("/")
 @app.get("/index.html")
-async def serve_index():
-    return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
+async def serve_index(request: Request):
+    path = os.path.join(overlord.get_static_path(), "index.html")
+    log(f"WEB: Запрос главной от {request.client.host}", "INFO")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse({"error": "Index not found"}, status_code=404)
 
-# Специальный роут для админки (Настроен под static/admin/admin.html)
 @app.get("/admin")
 @app.get("/admin/")
 @app.get("/admin.html")
-async def serve_admin():
+async def serve_admin(request: Request):
     static_dir = overlord.get_static_path()
-    # Приоритетный поиск в папке admin
+    # Целевой путь: static/admin/admin.html
     admin_path = os.path.join(static_dir, "admin", "admin.html")
     
+    log(f"WEB: Попытка доступа к АДМИНКЕ (IP: {request.client.host})", "CORE")
+    log(f"TRACE: Проверка пути: {admin_path}", "TRACE")
+    
     if os.path.exists(admin_path):
+        log(f"WEB SUCCESS: Файл найден, отправка...", "SUCCESS")
         return FileResponse(admin_path)
     
-    # Резервный поиск в корне static
-    fallback_path = os.path.join(static_dir, "admin.html")
-    if os.path.exists(fallback_path):
-        return FileResponse(fallback_path)
+    # Резервная проверка в корне static
+    fallback = os.path.join(static_dir, "admin.html")
+    log(f"TRACE: Файл не найден. Резервная проверка: {fallback}", "TRACE")
+    
+    if os.path.exists(fallback):
+        log(f"WEB SUCCESS: Файл найден в корне", "SUCCESS")
+        return FileResponse(fallback)
         
-    log(f"WEB ERROR: admin.html не найден. Ожидалось: {admin_path}", "ERROR")
-    return JSONResponse({"error": "Admin file not found. Place it in static/admin/admin.html"}, status_code=404)
+    log(f"WEB ERROR: Файл admin.html не обнаружен!", "ERROR")
+    return JSONResponse({
+        "status": "error",
+        "message": "Admin file not found",
+        "searched_in": [admin_path, fallback],
+        "cwd": os.getcwd()
+    }, status_code=404)
 
-# Универсальный роут для остальных страниц
+# Универсальный роут для .html
 @app.get("/{filename}.html")
 async def serve_any_html(filename: str):
     static_dir = overlord.get_static_path()
@@ -203,20 +193,20 @@ async def serve_any_html(filename: str):
         os.path.join(static_dir, "admin", f"{filename}.html")
     ]
     for p in check_paths:
-        if os.path.exists(p):
-            return FileResponse(p)
-    return JSONResponse({"detail": f"File {filename}.html not found"}, status_code=404)
+        if os.path.exists(p): return FileResponse(p)
+    return JSONResponse({"detail": "Not found"}, status_code=404)
 
-# --- API ENDPOINTS ---
+# --- API ---
 
 @app.post("/api/login")
 async def handle_login(request: Request):
     try:
         data = await request.json()
+        log(f"API: Login attempt -> {data.get('login')}", "INFO")
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success"})
-            res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True, samesite="lax")
+            res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True)
             return res
         return JSONResponse({"status": "error"}, status_code=401)
     except: return JSONResponse({"status": "error"}, status_code=400)
@@ -230,18 +220,16 @@ async def get_stats():
             'engine': {
                 "core_id": overlord.core_id,
                 "uptime": round(time.time() - overlord.session_start),
-                "ops_total": overlord.total_ops,
                 "status": overlord.last_status
             }
         })
         return db_stats
-    except Exception as e: return {"status": "error", "msg": str(e)}
+    except: return {"status": "error"}
 
-# --- STATIC MOUNTING ---
+# --- MOUNT & ASSETS ---
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-# Роуты для файлов в корне для совместимости
 @app.get("/style.css")
 async def serve_css():
     return FileResponse(os.path.join(static_path, "style.css"))
@@ -251,15 +239,13 @@ async def serve_image(img: str):
     return FileResponse(os.path.join(static_path, "images", img))
 
 # --- CORE WORKER ---
-
 async def core_worker():
     while True:
         try:
             await init_db()
-            log("DB: Соединение установлено", "SUCCESS")
+            log("DB: Connected", "SUCCESS")
             break
         except: 
-            log("DB: Ожидание PostgreSQL...", "WARNING")
             await asyncio.sleep(5)
 
     while overlord.is_active:
@@ -272,33 +258,23 @@ async def core_worker():
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
-                    log("КРИТИЧЕСКИЙ СБОЙ: Мнемоника!", "ERROR")
+                    log("MNEMONIC ERROR", "ERROR")
                     await asyncio.sleep(20); continue
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Wallet Linked -> {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
                         await client.reconnect()
                         overlord.current_balance = (await wallet.get_balance()) / 1e9
-                        market_state = await get_market_state()
-                        plan = await overlord.fetch_neural_strategy(market_state)
-                        
-                        if plan.get('cmd') == "BUY" and overlord.current_balance > (float(plan.get('amt', 0)) + 0.5):
-                            if await overlord.dispatch_hft_pulse(wallet, plan):
-                                await log_ai_action(plan, market_state.get('current_metrics', {}))
-                        
                         await asyncio.sleep(30)
-                    except Exception as e:
-                        log(f"Pulse Error: {e}", "TRACE")
-                        await asyncio.sleep(10); break
+                    except: break
         except Exception as e:
-            log(f"Fatal Core: {e}", "ERROR")
+            log(f"Worker Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Quantum Overlord запущен на порту {port}", "CORE")
-    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*", log_level="error")
+    log(f"SYSTEM: Запуск на порту {port}", "CORE")
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
