@@ -1,39 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | ADMIN PANEL</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            --accent: #0088cc;
-            --admin-red: #ef4444;
-            --bg: #0a0e12;
-            --panel: rgba(23, 28, 35, 0.7);
-            --border: rgba(255, 255, 255, 0.08);
-            --neon-blue: #00d2ff;
-        }
-
-        body { 
-            background: radial-gradient(circle at 50% 0%, #112233 0%, #0a0e12 100%);
-            color: #ffffff; 
-            font-family: 'Inter', sans-serif; 
-            margin: 0; 
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: " ";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 2px;
-            background: rgba(0, 210, 255, 0.1);
-            z-index: 9999;
-            pointer-events: none;
             animation: scanline 8s linear infinite;
         }
         @keyframes scanline { 0% { top: -5%; } 100% { top: 105%; } }
