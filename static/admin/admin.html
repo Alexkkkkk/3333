@@ -1,3 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM | ADMIN PANEL</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --accent: #0088cc;
+            --admin-red: #ef4444;
+            --bg: #0a0e12;
+            --panel: rgba(23, 28, 35, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --neon-blue: #00d2ff;
+        }
+
+        body { 
+            background: radial-gradient(circle at 50% 0%, #112233 0%, #0a0e12 100%);
+            color: #ffffff; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(0, 210, 255, 0.1);
+            z-index: 9999;
+            pointer-events: none;
             animation: scanline 8s linear infinite;
         }
         @keyframes scanline { 0% { top: -5%; } 100% { top: 105%; } }
@@ -84,6 +120,17 @@
         .btn-primary:hover { opacity: 0.9; }
         .btn-primary:active { transform: scale(0.98); }
 
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-radius: 8px;
+            font-size: 10px;
+            padding: 4px 8px;
+            text-transform: uppercase;
+        }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
+
         #log-container {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 16px;
@@ -116,6 +163,10 @@
         }
 
         .hidden { display: none !important; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -148,8 +199,11 @@
     <div id="main-content" class="container hidden">
         <header class="flex justify-between items-center py-8">
             <h1 class="text-2xl">QuanCore <span class="text-blue-500 text-sm">v4.1</span></h1>
-            <div class="text-[10px] bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400">
-                SYSTEM_v4.1_ONLINE
+            <div class="flex gap-4">
+                <button onclick="window.location.reload()" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-tighter">Reload_Interface</button>
+                <div class="text-[10px] bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400">
+                    SYSTEM_v4.1_ONLINE
+                </div>
             </div>
         </header>
         
@@ -237,8 +291,11 @@
                     <button onclick="saveConfig()" class="btn-primary mt-2">Sync Database</button>
                     
                     <div class="mt-6">
-                        <p class="text-[9px] text-gray-500 mb-2 uppercase tracking-widest">Sentinel Logs</p>
-                        <div id="log-container"></div>
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-[9px] text-gray-500 uppercase tracking-widest">Recent Activity</p>
+                            <button onclick="clearLogs()" class="text-[8px] text-blue-500 hover:text-white">CLEAR</button>
+                        </div>
+                        <div id="log-container" class="custom-scrollbar"></div>
                     </div>
                 </div>
             </div>
@@ -255,6 +312,28 @@
                     <canvas id="chartOps"></canvas>
                 </div>
             </div>
+
+            <div class="quantum-card lg:col-span-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h2>Connected Terminals (Wallets)</h2>
+                    <span class="text-[10px] text-gray-500">REAL-TIME MONITORING</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono text-[11px]">
+                        <thead>
+                            <tr class="text-gray-600 border-b border-white/5">
+                                <th class="pb-2">ADDRESS</th>
+                                <th class="pb-2">BALANCE</th>
+                                <th class="pb-2">LAST_ACT</th>
+                                <th class="pb-2">STATUS</th>
+                                <th class="pb-2 text-right">COMMAND</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wallet_table_body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <footer class="mt-12 text-center text-[9px] text-gray-600 tracking-[0.2em] uppercase">
@@ -269,10 +348,18 @@
         function addLog(msg, type = 'info') {
             const div = document.createElement('div');
             div.className = "mb-1 border-b border-white/5 pb-1";
-            const color = type === 'error' ? '#ef4444' : '#00d2ff';
+            let color = '#00d2ff';
+            if(type === 'error') color = '#ef4444';
+            if(type === 'success') color = '#22c55e';
+            
             div.innerHTML = `<span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span style="color: ${color}">${msg}</span>`;
             logBox.prepend(div);
-            if (logBox.children.length > 30) logBox.lastElementChild.remove();
+            if (logBox.children.length > 50) logBox.lastElementChild.remove();
+        }
+
+        function clearLogs() {
+            logBox.innerHTML = '';
+            addLog("Logs cleared.");
         }
 
         async function attemptLogin() {
@@ -287,7 +374,7 @@
                 if (res.ok) {
                     document.getElementById('auth-overlay').classList.add('hidden');
                     document.getElementById('main-content').classList.remove('hidden');
-                    addLog("Uplink Established.");
+                    addLog("Uplink Established.", "success");
                     startSystemMonitoring();
                 } else {
                     document.getElementById('auth_error').classList.remove('hidden');
@@ -312,11 +399,11 @@
                 document.getElementById('total_vol').innerText = data.balance || "0.00";
                 document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
                 
-                // Трафик (из data.stats)
+                // Трафик
                 document.getElementById('traffic_today').innerText = data.stats?.visitors_today || "0";
                 document.getElementById('traffic_total').innerText = data.stats?.visitors_total || "0";
 
-                // Кошельки (из data.stats)
+                // Кошельки
                 document.getElementById('wallets_count').innerText = data.stats?.wallets_connected || "0";
                 document.getElementById('wallets_value').innerText = (data.stats?.wallets_total_ton || "0.00") + " TON";
 
@@ -325,6 +412,20 @@
                     document.getElementById('pool_addr_display').innerText = data.pool_info.address.substring(0,16) + "...";
                     document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
                     document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
+                }
+
+                // Таблица кошельков
+                if (data.wallets) {
+                    const tableBody = document.getElementById('wallet_table_body');
+                    tableBody.innerHTML = data.wallets.map(w => `
+                        <tr class="border-b border-white/5 hover:bg-white/5">
+                            <td class="py-3 text-blue-400">${w.address.substring(0,8)}...${w.address.slice(-4)}</td>
+                            <td>${w.balance || '0.00'} TON</td>
+                            <td class="text-gray-500">${w.last_active || '---'}</td>
+                            <td><span class="text-green-500 text-[9px]">● LIVE</span></td>
+                            <td class="text-right"><button onclick="deleteWallet('${w.address}')" class="btn-danger">PRUNE</button></td>
+                        </tr>
+                    `).join('');
                 }
 
                 document.getElementById('ai_status').innerText = "SYSTEM_ACTIVE";
@@ -336,6 +437,17 @@
             } catch (e) { 
                 document.getElementById('ai_status').innerText = "LINK_LOST";
             }
+        }
+
+        async function deleteWallet(addr) {
+            if(!confirm("Удалить кошелек из базы?")) return;
+            try {
+                const res = await fetch(`/api/wallets/${addr}`, { method: 'DELETE' });
+                if(res.ok) {
+                    addLog(`Terminal ${addr.substring(0,6)} pruned.`, "error");
+                    refreshStats();
+                }
+            } catch (e) { addLog("Prune failed.", "error"); }
         }
 
         async function saveConfig() {
@@ -352,7 +464,7 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    addLog("Update Successful");
+                    addLog("Update Successful", "success");
                     alert("Конфигурация сохранена");
                 }
             } catch (e) { addLog("DB_Write_Error", "error"); }
@@ -374,11 +486,20 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     cutout: '85%',
-                    plugins: { legend: { position: 'right', labels: { color: '#8899aa', font: { size: 10, family: 'Share Tech Mono' } } } }
+                    plugins: { 
+                        legend: { 
+                            position: 'right', 
+                            labels: { 
+                                color: '#8899aa', 
+                                font: { size: 10, family: 'Share Tech Mono' } 
+                            } 
+                        } 
+                    }
                 }
             });
         }
 
+        // Авто-логин по куки
         if (document.cookie.includes('auth_token')) {
             document.getElementById('auth-overlay').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
