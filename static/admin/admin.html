@@ -27,7 +27,7 @@
             background-size: 30px 30px;
         }
 
-        /* Эффект сканирующей линии */
+        /* Эффект CRT монитора */
         body::after {
             content: "";
             position: fixed;
@@ -88,24 +88,26 @@
         #log-container::-webkit-scrollbar-thumb { background: var(--border); }
     </style>
 </head>
-<body class="p-4">
+<body class="p-4 md:p-8">
     <div class="max-w-[1600px] mx-auto">
-        <header class="flex justify-between items-center mb-6 border-b border-cyan-900 pb-4">
+        
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-cyan-900 pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tighter terminal-text">QUANCORE_OS_V4.1</h1>
-                <p class="text-[10px] opacity-50">LOCATION: DATA_CENTER_01 // SECURE_LINE</p>
+                <h1 class="text-3xl font-bold tracking-tighter terminal-text uppercase">QUANCORE_OS_V4.1</h1>
+                <p class="text-[10px] opacity-50 tracking-[2px]">LOCATION: DATA_CENTER_01 // SECURE_LINE_ACTIVE</p>
             </div>
             <nav class="flex gap-2">
-                <a href="admin.html" class="nav-btn nav-active">Monitoring</a>
-                <a href="wallets.html" class="nav-btn">Wallets</a>
-                <a href="settings.html" class="nav-btn">Core Settings</a>
+                <a href="admin.html" class="nav-btn nav-active">📊 Monitoring</a>
+                <a href="wallets.html" class="nav-btn">💎 Wallets</a>
+                <a href="settings.html" class="nav-btn">⚙️ Core Settings</a>
             </nav>
         </header>
 
         <div class="grid grid-cols-12 gap-4">
+            
             <div class="col-span-12 lg:col-span-3 space-y-4">
                 <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase">Uplink Status</h3>
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Uplink Status</h3>
                     <div class="flex justify-between items-end">
                         <span class="text-2xl font-bold text-green-500">ENCRYPTED</span>
                         <span class="status-pill animate-pulse">LIVE</span>
@@ -113,30 +115,30 @@
                 </div>
 
                 <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase">Active Connections</h3>
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Active Connections</h3>
                     <div class="flex justify-between items-end">
                         <span id="conn_val" class="text-3xl font-bold terminal-text">0</span>
-                        <canvas id="miniConnChart" width="80" height="30"></canvas>
+                        <div class="text-[10px] text-cyan-700">STABLE_LINK</div>
                     </div>
                 </div>
 
                 <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-4 uppercase">Resource Allocation</h3>
+                    <h3 class="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Resource Allocation</h3>
                     <div class="space-y-4">
                         <div>
-                            <div class="flex justify-between text-[10px] mb-1"><span>CPU_LOAD</span><span id="cpu_label">0%</span></div>
+                            <div class="flex justify-between text-[10px] mb-1"><span>CPU_LOAD</span><span id="cpu_label" class="text-cyan-400">0%</span></div>
                             <div class="w-full bg-cyan-900/30 h-1"><div id="cpu_bar" class="bg-cyan-400 h-full transition-all duration-500" style="width: 0%"></div></div>
                         </div>
                         <div>
-                            <div class="flex justify-between text-[10px] mb-1"><span>MEM_STACK</span><span id="ram_label">0%</span></div>
+                            <div class="flex justify-between text-[10px] mb-1"><span>MEM_STACK</span><span id="ram_label" class="text-purple-400">0%</span></div>
                             <div class="w-full bg-purple-900/30 h-1"><div id="ram_bar" class="bg-purple-500 h-full transition-all duration-500" style="width: 0%"></div></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="quantum-card p-4 h-[300px] flex flex-col">
+                <div class="quantum-card p-4 h-[350px] flex flex-col">
                     <h3 class="text-[10px] text-gray-500 mb-2 uppercase border-b border-cyan-900 pb-2">Kernel_Logs</h3>
-                    <div id="log-container" class="text-[9px] font-mono space-y-1 overflow-y-auto flex-1 text-cyan-700">
+                    <div id="log-container" class="text-[9px] font-mono space-y-1 overflow-y-auto flex-1 text-cyan-700 mt-2">
                         </div>
                 </div>
             </div>
@@ -144,22 +146,22 @@
             <div class="col-span-12 lg:col-span-6 space-y-4">
                 <div class="quantum-card p-6 h-[450px]">
                     <div class="flex justify-between items-start mb-4">
-                        <h2 class="text-xs terminal-text tracking-[4px]">GLOBAL_TRAFFIC_FEED</h2>
+                        <h2 class="text-xs terminal-text tracking-[4px] uppercase">Global_Traffic_Feed</h2>
                         <div class="text-right">
                             <div id="traffic_val" class="text-2xl font-bold">0.00 Mbps</div>
-                            <div class="text-[10px] text-gray-500">PEAK: 842.1 Mbps</div>
+                            <div class="text-[10px] text-gray-500">PEAK_FLOW: 842.1 Mbps</div>
                         </div>
                     </div>
                     <canvas id="trafficChart"></canvas>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="quantum-card p-4 h-[180px]">
-                        <h3 class="text-[10px] text-amber-500 mb-2 uppercase">Integrity Stream</h3>
+                    <div class="quantum-card p-4 h-[234px]">
+                        <h3 class="text-[10px] text-amber-500 mb-2 uppercase tracking-widest">Integrity Stream</h3>
                         <canvas id="integrityChart"></canvas>
                     </div>
-                    <div class="quantum-card p-4 h-[180px]">
-                        <h3 class="text-[10px] text-purple-500 mb-2 uppercase">Packet Response</h3>
+                    <div class="quantum-card p-4 h-[234px]">
+                        <h3 class="text-[10px] text-purple-500 mb-2 uppercase tracking-widest">Packet Response</h3>
                         <canvas id="responseChart"></canvas>
                     </div>
                 </div>
@@ -167,31 +169,32 @@
 
             <div class="col-span-12 lg:col-span-3 space-y-4">
                 <div class="quantum-card p-4">
-                    <h2 class="text-[10px] text-gray-500 mb-4 uppercase">Latency Visualizer</h2>
-                    <div class="h-[200px]">
+                    <h2 class="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Latency Visualizer</h2>
+                    <div class="h-[250px]">
                         <canvas id="latencyChart"></canvas>
                     </div>
-                    <div class="mt-4 text-center">
+                    <div class="mt-4 text-center border-t border-cyan-900 pt-4">
                         <span id="latency_val" class="text-4xl font-bold text-orange-500">0</span>
                         <span class="text-xs opacity-50 ml-1">MS</span>
                     </div>
                 </div>
 
-                <div class="quantum-card p-6 border-l-4 border-emerald-500">
-                    <h3 class="text-[10px] text-emerald-500 mb-2 uppercase">Stability Index</h3>
+                <div class="quantum-card p-6 border-l-4 border-emerald-500 bg-emerald-500/5">
+                    <h3 class="text-[10px] text-emerald-500 mb-2 uppercase tracking-widest">Stability Index</h3>
                     <div class="text-4xl font-bold">99.9%</div>
-                    <p class="text-[9px] text-gray-500 mt-2">All sectors nominal. No packet loss detected in last 24h.</p>
+                    <p class="text-[9px] text-gray-500 mt-2 leading-relaxed">System operational. No anomalies detected in current quantum session. All nodes reporting nominal values.</p>
                 </div>
             </div>
+
         </div>
     </div>
 
     <script>
-        // --- Core Configuration ---
+        // Конфигурация графиков
         Chart.defaults.color = 'rgba(0, 210, 255, 0.5)';
         Chart.defaults.font.family = "'Share Tech Mono'";
 
-        const createChart = (id, color, tension = 0.4) => {
+        const createLineChart = (id, color, tension = 0.4) => {
             const ctx = document.getElementById(id).getContext('2d');
             const grad = ctx.createLinearGradient(0, 0, 0, 400);
             grad.addColorStop(0, color.replace('1)', '0.3)'));
@@ -223,10 +226,11 @@
             });
         };
 
-        // Init Charts
-        const trafficChart = createChart('trafficChart', 'rgba(0, 210, 255, 1)');
-        const integrityChart = createChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
-        const responseChart = createChart('responseChart', 'rgba(168, 85, 247, 1)');
+        // Инициализация графиков
+        const trafficChart = createLineChart('trafficChart', 'rgba(0, 210, 255, 1)');
+        const integrityChart = createLineChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
+        const responseChart = createLineChart('responseChart', 'rgba(168, 85, 247, 1)');
+        
         const latencyChart = new Chart(document.getElementById('latencyChart').getContext('2d'), {
             type: 'radar',
             data: {
@@ -234,67 +238,79 @@
                 datasets: [{
                     data: [10, 20, 15, 25, 10, 30, 20, 10],
                     borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.2)'
+                    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                    borderWidth: 1,
+                    pointRadius: 2
                 }]
             },
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false, 
                 plugins: { legend: { display: false } },
-                scales: { r: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { display: false } } }
+                scales: { 
+                    r: { 
+                        angleLines: { color: 'rgba(0, 210, 255, 0.1)' },
+                        grid: { color: 'rgba(0, 210, 255, 0.1)' },
+                        ticks: { display: false },
+                        pointLabels: { color: 'rgba(0, 210, 255, 0.5)', font: { size: 8 } }
+                    } 
+                }
             }
         });
 
-        // --- System Simulation ---
-        function pushData(chart, value) {
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(value);
-            chart.update('none');
-        }
-
+        // Логика системы
         function addLog(msg) {
             const container = document.getElementById('log-container');
             const time = new Date().toLocaleTimeString();
             const log = document.createElement('div');
-            log.innerHTML = `<span class="opacity-30">[${time}]</span> > ${msg}`;
+            log.className = "mb-1 border-l border-cyan-900 pl-2";
+            log.innerHTML = `<span class="opacity-30 text-[8px]">[${time}]</span> <span class="text-cyan-400">SYS_MSG:</span> ${msg}`;
             container.prepend(log);
-            if(container.childNodes.length > 20) container.lastChild.remove();
+            if(container.childNodes.length > 25) container.lastChild.remove();
         }
 
-        function updateSystem() {
-            const traffic = (Math.random() * 200 + 300).toFixed(2);
-            const conns = Math.floor(Math.random() * 100 + 450);
-            const cpu = Math.floor(Math.random() * 40 + 20);
-            const ram = Math.floor(Math.random() * 10 + 65);
-            const ping = Math.floor(Math.random() * 15 + 10);
+        function updateData() {
+            const traffic = (Math.random() * 200 + 450).toFixed(2);
+            const conns = Math.floor(Math.random() * 50 + 820);
+            const cpu = Math.floor(Math.random() * 30 + 15);
+            const ram = Math.floor(Math.random() * 5 + 72);
+            const ping = Math.floor(Math.random() * 12 + 14);
 
-            // Update DOM
+            // Обновление DOM
             document.getElementById('traffic_val').innerText = traffic + " Mbps";
             document.getElementById('conn_val').innerText = conns;
             document.getElementById('latency_val').innerText = ping;
-            
             document.getElementById('cpu_bar').style.width = cpu + "%";
             document.getElementById('cpu_label').innerText = cpu + "%";
             document.getElementById('ram_bar').style.width = ram + "%";
             document.getElementById('ram_label').innerText = ram + "%";
 
-            // Update Charts
-            pushData(trafficChart, traffic);
-            pushData(integrityChart, Math.random() * 100);
-            pushData(responseChart, Math.random() * 50);
+            // Обновление линейных графиков
+            const charts = [trafficChart, integrityChart, responseChart];
+            const vals = [traffic, Math.random()*100, Math.random()*50];
             
-            latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(() => Math.random() * 30 + 10);
+            charts.forEach((chart, i) => {
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[0].data.push(vals[i]);
+                chart.update('none');
+            });
+
+            // Обновление радара
+            latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(() => Math.random() * 20 + 10);
             latencyChart.update('none');
 
-            // Random Logs
-            const events = ["Node handshake successful", "Packet rerouted via Node-7", "Buffer overflow avoided", "Security handshake: OK"];
-            if(Math.random() > 0.7) addLog(events[Math.floor(Math.random()*events.length)]);
+            // Случайные логи
+            const msgs = ["Handshake Node_0x4", "Buffer sweep complete", "Encrypted Tunnel Stabilized", "Packet relay optimized"];
+            if(Math.random() > 0.8) addLog(msgs[Math.floor(Math.random()*msgs.length)]);
         }
 
-        setInterval(updateSystem, 2000);
-        updateSystem();
-        addLog("QUANCORE SYSTEM INITIALIZED...");
-        addLog("LINK ESTABLISHED: 0.0.0.0");
+        setInterval(updateData, 2000);
+        updateData();
+        
+        // Начальные логи
+        setTimeout(() => addLog("NEURAL CORE INITIALIZED"), 500);
+        setTimeout(() => addLog("BOOTING SECURITY PROTOCOLS"), 1000);
+        setTimeout(() => addLog("CONNECTION SECURE"), 1500);
     </script>
 </body>
 </html>
