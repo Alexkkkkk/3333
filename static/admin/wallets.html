@@ -7,60 +7,69 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        :root { --panel: rgba(23, 28, 35, 0.7); --border: rgba(255, 255, 255, 0.08); --neon-green: #10b981; }
-        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; }
-        .quantum-card { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 20px; }
-        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 8px 16px; border-radius: 12px; font-size: 10px; }
-        .nav-active { border-color: #00d2ff; color: #00d2ff; }
-        table { width: 100%; font-family: 'Share Tech Mono', monospace; font-size: 12px; }
-        th { color: #556677; text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
-        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        :root { --panel: rgba(23, 28, 35, 0.8); --border: rgba(255, 255, 255, 0.08); }
+        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+        .quantum-card { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; }
+        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 10px 20px; border-radius: 14px; font-size: 11px; }
+        .nav-active { border-color: #00d2ff; color: #00d2ff; background: rgba(0, 136, 204, 0.1); }
+        table { width: 100%; font-family: 'Share Tech Mono', monospace; }
+        th { color: #556677; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; padding: 20px; text-align: left; border-bottom: 1px solid var(--border); }
+        td { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 13px; }
+        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 9px; text-transform: uppercase; }
     </style>
 </head>
-<body class="p-6">
+<body class="p-8">
     <div class="max-w-7xl mx-auto">
-        <header class="flex justify-between items-center mb-10">
-            <h1 class="font-mono tracking-widest uppercase">Nodes <span class="text-green-500">Database</span></h1>
-            <nav class="flex gap-3">
-                <a href="admin.html" class="nav-btn">MONITORING</a>
-                <a href="wallets.html" class="nav-btn nav-active">WALLETS</a>
-                <a href="settings.html" class="nav-btn">DISTRIBUTION</a>
+        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
+            <h1 class="text-2xl font-mono tracking-tighter uppercase">Quantum <span class="text-green-500 italic">Wallets</span></h1>
+            <nav class="flex gap-4">
+                <a href="admin.html" class="nav-btn">📊 MONITORING</a>
+                <a href="wallets.html" class="nav-btn nav-active">💎 WALLETS</a>
+                <a href="settings.html" class="nav-btn">⚙️ DISTRIBUTION</a>
             </nav>
         </header>
 
         <div class="quantum-card overflow-hidden">
-            <table>
+            <div class="p-6 border-bottom border-white/5 bg-white/5 flex justify-between items-center">
+                <span class="text-xs uppercase text-gray-400">Database Synchronization: <span class="text-green-500">Active</span></span>
+                <button class="text-[10px] bg-blue-600 px-4 py-1 rounded-full uppercase hover:bg-blue-500 transition">Export CSV</button>
+            </div>
+            <table id="walletTable">
                 <thead>
                     <tr>
-                        <th>Address</th>
+                        <th>Node ID / Address</th>
+                        <th>Network</th>
                         <th>Balance (TON)</th>
+                        <th>Equity (USD)</th>
                         <th>Status</th>
-                        <th>Last Sync</th>
                     </tr>
                 </thead>
-                <tbody id="wallet-list">
+                <tbody id="wallet-rows">
                     </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        const wallets = [
-            { addr: 'EQC...f2G', balance: '45.20', status: 'SYNCHRONIZED', time: '2m ago' },
-            { addr: 'EQD...k9L', balance: '120.05', status: 'SYNCHRONIZED', time: '5m ago' },
-            { addr: 'EQA...z1X', balance: '0.00', status: 'PENDING', time: 'Just now' }
+        const mockWallets = [
+            { id: 'EQC...f2G', net: 'TON MAINNET', bal: '842.10', usd: '$4,210.50', status: 'ACTIVE' },
+            { id: 'EQD...k9L', net: 'TON MAINNET', bal: '12.05', usd: '$60.25', status: 'ACTIVE' },
+            { id: 'EQA...z1X', net: 'TON MAINNET', bal: '1,200.00', usd: '$6,000.00', status: 'SYNCING' },
+            { id: 'EQB...m7P', net: 'TON MAINNET', bal: '0.45', usd: '$2.25', status: 'INACTIVE' }
         ];
 
-        const list = document.getElementById('wallet-list');
-        wallets.forEach(w => {
-            list.innerHTML += `
-                <tr>
-                    <td class="text-blue-300">${w.addr}</td>
-                    <td class="text-white">${w.balance}</td>
-                    <td class="text-green-500 text-[10px]">${w.status}</td>
-                    <td class="text-gray-500 text-[10px]">${w.time}</td>
+        const tbody = document.getElementById('wallet-rows');
+        mockWallets.forEach(w => {
+            const row = `
+                <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="text-blue-400">${w.id}</td>
+                    <td class="text-gray-500">${w.net}</td>
+                    <td class="text-white font-bold">${w.bal}</td>
+                    <td class="text-gray-300 font-mono">${w.usd}</td>
+                    <td><span class="status-badge ${w.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20 text-gray-500'}">${w.status}</span></td>
                 </tr>
             `;
+            tbody.innerHTML += row;
         });
     </script>
 </body>
