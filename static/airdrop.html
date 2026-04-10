@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QUANCORE | TERMINAL V3</title>
+    <title>QUANCORE | AIRDROP V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
@@ -26,7 +26,6 @@
         #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Унифицированная сетка */
         .hologram-grid {
             position: fixed; inset: 0;
             background-image: 
@@ -40,11 +39,10 @@
             pointer-events: none;
         }
 
-        /* Глобальный стиль карточек */
         .quantum-card {
             background: var(--glass);
             border: 1px solid rgba(6, 182, 212, 0.15);
-            backdrop-blur: 25px;
+            backdrop-filter: blur(25px);
             position: relative;
             transform-style: preserve-3d;
             transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
@@ -56,7 +54,6 @@
             box-shadow: 0 0 30px rgba(6, 182, 212, 0.2);
         }
 
-        /* Универсальный сканер */
         .scan-line {
             position: absolute; inset: 0;
             background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.1), transparent);
@@ -68,19 +65,6 @@
         }
         @keyframes scan-loop { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
 
-        /* Поток данных */
-        .flow-line {
-            height: 1px; background: rgba(255,255,255,0.05);
-            position: relative; overflow: hidden;
-        }
-        .flow-line::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-            animation: flow-anim 1.5s infinite;
-        }
-        @keyframes flow-anim { 100% { left: 100%; } }
-
-        /* Кнопки в стиле всего интерфейса */
         .btn-core {
             position: relative;
             background: white;
@@ -91,6 +75,7 @@
             letter-spacing: 0.2em;
             transition: all 0.3s;
             overflow: hidden;
+            text-align: center;
         }
         .btn-core:hover {
             background: var(--cyan);
@@ -103,20 +88,18 @@
             border: 1px solid rgba(255,255,255,0.1);
             color: white;
         }
-        .btn-outline:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: var(--cyan);
-        }
 
         .cyan-glow { text-shadow: 0 0 10px var(--cyan); }
 
-        /* Анимация тикера */
         .ticker-wrap {
             position: fixed; bottom: 100px; width: 100%;
             background: rgba(0,0,0,0.8);
-            border-y: 1px solid rgba(6, 182, 212, 0.1);
+            border-top: 1px solid rgba(6, 182, 212, 0.1);
+            border-bottom: 1px solid rgba(6, 182, 212, 0.1);
             padding: 6px 0; z-index: 50;
         }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .animate-marquee { display: inline-block; animation: marquee 30s linear infinite; }
     </style>
 </head>
 <body class="selection:bg-cyan-500/30">
@@ -128,7 +111,7 @@
             <div class="flex items-center gap-4">
                 <span class="flex items-center gap-2">
                     <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
-                    CORE_v3.0_ONLINE
+                    AIRDROP_SYNC_ACTIVE
                 </span>
                 <span class="opacity-30">|</span>
                 <span>PING: <span id="ping">18</span>ms</span>
@@ -138,14 +121,14 @@
     </div>
 
     <header class="p-8 flex justify-between items-center relative z-50">
-        <div class="flex items-center gap-4 group cursor-pointer">
+        <div class="flex items-center gap-4 group cursor-pointer" onclick="location.href='index.html'">
             <div class="w-14 h-14 relative flex items-center justify-center">
                 <div class="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl animate-pulse"></div>
-                <img src="/images/logo.png" alt="Logo" class="w-12 h-12 relative z-10 brightness-110">
+                <img src="/images/logo.png" alt="Logo" class="w-12 h-12 relative z-10 brightness-110" onerror="this.src='https://cdn-icons-png.flaticon.com/512/7038/7038131.png'">
             </div>
             <div>
-                <h1 class="text-2xl font-black italic tracking-tighter uppercase">QUAN<span class="text-cyan-400 cyan-glow">POOLS</span></h1>
-                <p class="text-[6px] font-bold tracking-[0.7em] text-cyan-500/40 uppercase">Liquidity Interface</p>
+                <h1 class="text-2xl font-black italic tracking-tighter uppercase">QUAN<span class="text-cyan-400 cyan-glow">DROP</span></h1>
+                <p class="text-[6px] font-bold tracking-[0.7em] text-cyan-500/40 uppercase">Reward Terminal</p>
             </div>
         </div>
         <div id="connectBtn" class="scale-90"></div>
@@ -155,72 +138,72 @@
         
         <div class="quantum-card rounded-[2.5rem] p-10 mb-8" id="card-main">
             <div class="scan-line"></div>
-            <div class="relative z-10">
-                <div class="flex justify-between items-start mb-10">
-                    <div>
-                        <p class="text-[8px] text-slate-500 font-black uppercase tracking-[0.4em] mb-2">Total Pool Value</p>
-                        <h2 class="text-5xl font-black italic mono tracking-tighter" id="balance-val">$0.<span class="text-2xl text-cyan-500/40">00</span></h2>
+            <div class="relative z-10 text-center">
+                <p class="text-[8px] text-slate-500 font-black uppercase tracking-[0.4em] mb-2">Your Quantum Points</p>
+                <h2 class="text-6xl font-black italic mono tracking-tighter mb-6" id="points-val">000<span class="text-2xl text-cyan-500/40">.QP</span></h2>
+                
+                <div class="bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4 flex justify-between items-center mb-6">
+                    <div class="text-left">
+                        <p class="text-[7px] text-cyan-400 font-bold uppercase">Rank Status</p>
+                        <p class="text-[10px] font-black uppercase italic">Unverified Initiate</p>
                     </div>
-                    <div class="w-24 h-12 opacity-50">
-                        <canvas id="miniChart"></canvas>
+                    <div class="text-right">
+                        <p class="text-[7px] text-slate-500 font-bold uppercase">Next Tier</p>
+                        <p class="text-[10px] font-black uppercase italic">500 QP</p>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <button class="btn-core py-4 rounded-2xl shadow-lg">Add Assets</button>
-                    <button class="btn-core btn-outline py-4 rounded-2xl">Remove</button>
-                </div>
+                <button onclick="claim()" class="btn-core w-full py-4 rounded-2xl shadow-lg">Claim Rewards</button>
             </div>
         </div>
 
         <div class="space-y-4">
             <div class="flex items-center gap-4 mb-6">
                 <div class="h-px flex-1 bg-cyan-500/20"></div>
-                <h3 class="text-[8px] font-black uppercase tracking-[0.6em] text-slate-600">Active Channels</h3>
+                <h3 class="text-[8px] font-black uppercase tracking-[0.6em] text-slate-600">Mining Missions</h3>
                 <div class="h-px flex-1 bg-cyan-500/20"></div>
             </div>
 
-            <div class="quantum-card rounded-[2rem] p-6 group" id="card-pool-1">
+            <div class="quantum-card rounded-[2rem] p-6 group" id="task-1">
                 <div class="scan-line"></div>
-                <div class="flex justify-between items-center mb-6">
+                <div class="flex justify-between items-center">
                     <div class="flex items-center gap-4">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-black text-[9px] z-10 shadow-lg">QC</div>
-                            <div class="w-8 flow-line"></div>
-                            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-[9px] z-10 shadow-lg">TON</div>
+                        <div class="w-12 h-12 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-cyan-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                         </div>
                         <div>
-                            <p class="text-[10px] font-black italic uppercase">QC / TON</p>
-                            <p class="text-[7px] text-cyan-400 font-bold tracking-widest uppercase">Auto-Compound</p>
+                            <p class="text-[10px] font-black italic uppercase">Neural Network Invite</p>
+                            <p class="text-[7px] text-cyan-500/60 font-bold tracking-widest uppercase">+100 QP per Node</p>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[7px] text-slate-500 font-black uppercase mb-1">APY Live</p>
-                        <p class="text-2xl font-black text-green-400 mono italic" id="apr-val">142.50%</p>
-                    </div>
+                    <button class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Start</button>
                 </div>
+            </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-6 text-center">
-                    <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                        <p class="text-[6px] text-slate-500 uppercase mb-1">Volume 24h</p>
-                        <p class="text-[10px] font-bold mono">$245.8K</p>
+            <div class="quantum-card rounded-[2rem] p-6 group" id="task-2">
+                <div class="scan-line"></div>
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center text-cyan-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black italic uppercase">Social Sync</p>
+                            <p class="text-[7px] text-cyan-500/60 font-bold tracking-widest uppercase">+50 QP / Global Auth</p>
+                        </div>
                     </div>
-                    <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                        <p class="text-[6px] text-slate-500 uppercase mb-1">My Stake</p>
-                        <p class="text-[10px] font-bold mono">$0.00</p>
-                    </div>
+                    <button class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Link</button>
                 </div>
-
-                <button onclick="stake('QC_TON')" class="btn-core w-full py-3 rounded-xl bg-white text-black hover:bg-cyan-500">Initialize Node</button>
             </div>
 
             <div class="quantum-card rounded-[2rem] p-6 opacity-25 grayscale">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center text-[8px] font-bold italic">???</div>
-                        <p class="text-[10px] font-black uppercase tracking-widest italic">Waiting Data...</p>
+                        <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        </div>
+                        <p class="text-[10px] font-black uppercase tracking-widest italic text-slate-400">Locked Task...</p>
                     </div>
-                    <span class="text-[7px] border border-white/20 px-2 py-1 rounded mono">V4_RESTRICTED</span>
+                    <span class="text-[7px] border border-white/20 px-2 py-1 rounded mono">V4_ONLY</span>
                 </div>
             </div>
         </div>
@@ -229,7 +212,7 @@
     <div class="ticker-wrap">
         <div class="max-w-xl mx-auto overflow-hidden whitespace-nowrap">
             <div class="inline-block animate-marquee mono text-[7px] text-slate-500 uppercase tracking-widest">
-                [SYSTEM]: CALIBRATING NODES... [TX]: USER_882 STAKED 500 TON... [EVENT]: POOL_YIELD_INCREASED BY 2.4%... [NODE]: AMSTERDAM_SYNC_COMPLETE... [TX]: NEW_LIQUIDITY_FOUND... 
+                [SYSTEM]: AIRDROP PHASE 1 ACTIVE... [NOTICE]: 1,000,000 QP POOL REMAINING... [SECURE]: ALL DATA ENCRYPTED... [EVENT]: NEW USER REGISTERED: ID_9921... [TX]: QP_REWARD_DISTRIBUTED...
             </div>
         </div>
     </div>
@@ -239,90 +222,60 @@
             <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span class="text-[7px] font-black uppercase">Home</span>
         </a>
-        <a href="airdrop.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
-            <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-            <span class="text-[7px] font-black uppercase">Drop</span>
-        </a>
         <div class="flex-1 flex flex-col items-center py-4 text-cyan-400 relative">
             <div class="absolute inset-x-1 inset-y-1 bg-cyan-500/10 rounded-3xl"></div>
-            <svg class="w-6 h-6 mb-1 relative z-10 filter drop-shadow-[0_0_5px_cyan]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            <span class="text-[7px] font-black uppercase relative z-10">Pools</span>
+            <svg class="w-6 h-6 mb-1 relative z-10 filter drop-shadow-[0_0_5px_cyan]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span class="text-[7px] font-black uppercase relative z-10">Drop</span>
         </div>
+        <a href="pools.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
+            <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span class="text-[7px] font-black uppercase">Pools</span>
+        </a>
         <a href="operator.html" class="flex-1 flex flex-col items-center py-4 text-slate-500 hover:text-cyan-400 transition-all">
             <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             <span class="text-[7px] font-black uppercase">Data</span>
         </a>
     </nav>
 
-    <style>
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { display: inline-block; animation: marquee 30s linear infinite; }
-    </style>
-
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
-        // Часы и Пинг
+        // UI Logic
         setInterval(() => {
             const now = new Date();
             const ms = Math.floor(now.getMilliseconds() / 10).toString().padStart(2, '0');
             document.getElementById('sys-clock').innerText = now.toLocaleTimeString() + ':' + ms;
-            document.getElementById('ping').innerText = Math.floor(Math.random() * 10 + 15);
-            
-            const apr = document.getElementById('apr-val');
-            const current = parseFloat(apr.innerText);
-            apr.innerText = (current + (Math.random() - 0.5) * 0.05).toFixed(2) + '%';
+            document.getElementById('ping').innerText = Math.floor(Math.random() * 5 + 12);
         }, 50);
 
-        // Tilt эффект
         function tilt(id) {
             const el = document.getElementById(id);
+            if(!el) return;
             el.addEventListener('mousemove', (e) => {
                 const rect = el.getBoundingClientRect();
                 const x = (e.clientX - rect.left) / rect.width - 0.5;
                 const y = (e.clientY - rect.top) / rect.height - 0.5;
-                el.style.transform = `rotateY(${x * 15}deg) rotateX(${y * -15}deg) scale(1.02)`;
+                el.style.transform = `rotateY(${x * 10}deg) rotateX(${y * -10}deg) scale(1.01)`;
             });
             el.addEventListener('mouseleave', () => el.style.transform = 'none');
         }
         tilt('card-main');
-        tilt('card-pool-1');
+        tilt('task-1');
+        tilt('task-2');
 
-        // Живой мини-график
-        function drawMiniChart() {
-            const c = document.getElementById('miniChart');
-            const ctx = c.getContext('2d');
-            c.width = 100; c.height = 50;
-            let pts = Array.from({length: 15}, () => Math.random() * 40 + 5);
-            
-            function render() {
-                ctx.clearRect(0,0,100,50);
-                ctx.beginPath();
-                ctx.strokeStyle = '#06b6d4';
-                ctx.lineWidth = 2;
-                pts.shift(); pts.push(Math.random() * 40 + 5);
-                pts.forEach((p, i) => ctx.lineTo(i * 7, p));
-                ctx.stroke();
-                requestAnimationFrame(() => setTimeout(render, 200));
-            }
-            render();
-        }
-        drawMiniChart();
-
-        // Фоновые частицы
+        // Background particles
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let parts = [];
         function res() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.onresize = res; res();
-
-        for(let i=0; i<30; i++) parts.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, v: Math.random()*0.4});
+        for(let i=0; i<40; i++) parts.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, v: Math.random()*0.5 + 0.1});
         function anim() {
             ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
             parts.forEach(p => {
                 p.y -= p.v; if(p.y < 0) p.y = canvas.height;
                 ctx.beginPath(); ctx.arc(p.x, p.y, 1, 0, Math.PI*2); ctx.fill();
@@ -331,9 +284,12 @@
         }
         anim();
 
-        function stake(id) {
-            if (!tonConnectUI.connected) { alert("ACCESS DENIED: CONNECT WALLET"); return; }
-            alert("Инициализация квантового канала " + id + "...");
+        function claim() {
+            if (!tonConnectUI.connected) { 
+                tonConnectUI.openModal();
+                return; 
+            }
+            alert("ACCESS DENIED: Insufficient QP balance for gas verification.");
         }
     </script>
 </body>
