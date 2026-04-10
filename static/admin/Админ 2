@@ -1,1 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM | ADMIN PANEL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #0088cc; 
+            --admin-red: #ef4444;
+            --bg: #0a0e12;
+            --panel: rgba(23, 28, 35, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+        }
 
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(0, 136, 204, 0.15), transparent 40%),
+                radial-gradient(circle at 0% 100%, rgba(188, 0, 255, 0.05), transparent 30%);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        .admin-badge {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--admin-red);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+
+        .dedust-panel {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .dedust-panel:hover { border-color: rgba(0, 136, 204, 0.3); }
+
+        .swap-input-group {
+            background: rgba(13, 18, 23, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .swap-input-group:focus-within { border-color: var(--accent); }
+
+        .action-btn {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            border-radius: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.2);
+        }
+
+        .action-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .secondary-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: background 0.2s;
+        }
+
+        .secondary-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+        .nav-link {
+            color: #94a3b8;
+            font-weight: 500;
+            position: relative;
+            padding: 8px 12px;
+            transition: color 0.2s;
+        }
+
+        .nav-link.nav-active { color: #fff; }
+
+        .nav-link.nav-active::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    </style>
+</head>
+<body class="p-4">
+    <header class="max-w-6xl mx-auto flex justify-between items-center py-6 mb-8">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('home')">
+            <div class="w-10 h-10 bg-[#0088cc] rounded-xl flex items-center justify-center shadow-lg">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="flex flex-col">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold tracking-tight">QUANTUM</span>
+                    <span class="admin-badge">ADMIN</span>
+                </div>
+                <span id="display-core-id" class="text-[10px] text-slate-500 font-medium tracking-widest uppercase">System Loading...</span>
+            </div>
+        </div>
+
+        <nav class="flex gap-4">
+            <button class="nav-link nav-active" data-tab="home" onclick="switchTab('home')">Обзор</button>
+            <button class="nav-link" data-tab="swap" onclick="switchTab('swap')">Своп</button>
+            <button class="nav-link" data-tab="analytics" onclick="switchTab('analytics')">Пулы</button>
+        </nav>
+
+        <div class="flex items-center gap-4">
+            <div class="text-right hidden sm:block">
+                <p class="text-[10px] text-slate-500 uppercase font-bold">Engine Status</p>
+                <p id="statusDisplay" class="text-xs text-yellow-400 flex items-center gap-1 justify-end">
+                    <span id="statusIcon" class="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span> <span id="statusText">Connecting</span>
+                </p>
+            </div>
+            <button class="secondary-btn px-4 py-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onclick="logout()">Выйти</button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto">
+        <section id="home" class="tab-content active">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="dedust-panel p-10 relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h2 class="text-4xl font-bold mb-4 italic uppercase tracking-tighter">Neural Pulse Protocol</h2>
+                            <p class="text-slate-400 text-lg max-w-lg mb-8">
+                                Контрольная панель ядра V3.0. Управление ликвидностью и мониторинг высокочастотных импульсов в реальном времени.
+                            </p>
+                            <div class="flex gap-4">
+                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3 uppercase text-xs font-black">Управление свопами</button>
+                                <button class="secondary-btn px-8 py-3 uppercase text-xs font-black" onclick="alert('Uptime: ' + lastUptime + 's')">Инфо Ядра</button>
+                            </div>
+                        </div>
+                        <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="dedust-panel p-6">
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1 tracking-wider">Current Wallet Balance</p>
+                            <p class="text-3xl font-black text-cyan-400" id="display-balance">0.00 TON</p>
+                            <span class="text-slate-500 text-[10px] font-medium uppercase">Адрес кошелька активен</span>
+                        </div>
+                        <div class="dedust-panel p-6">
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1 tracking-wider">Total Operations</p>
+                            <p class="text-3xl font-black text-white" id="display-ops">0</p>
+                            <span class="text-blue-400 text-[10px] font-medium uppercase">Импульсов за сессию</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dedust-panel p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold mb-4 flex justify-between items-center text-sm uppercase tracking-widest">
+                            Мониторинг TON
+                            <span class="text-[10px] text-green-400">Live</span>
+                        </h3>
+                        <div class="space-y-5">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-[10px]">TON</div>
+                                    <div>
+                                        <p class="font-bold text-sm leading-none">The Open Network</p>
+                                        <p class="text-[11px] text-slate-500">Native Asset</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-black">$5.24</p>
+                                    <p class="text-[10px] text-green-400">+1.2%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-white/5">
+                        <canvas id="miniChart" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="swap" class="tab-content max-w-md mx-auto mt-10">
+            <div class="dedust-panel p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold uppercase italic">Тестовый своп</h2>
+                    <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-500">ADMIN MODE</span>
+                </div>
+                <div class="space-y-1 relative">
+                    <div class="swap-input-group">
+                        <div class="flex justify-between text-[10px] text-slate-500 mb-2 font-black uppercase">
+                            <span>Вы отдаете</span>
+                            <span>Доступно: <span id="userBalanceDisplay">--</span> TON</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount" oninput="calculateSwap()">
+                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 border-cyan-500/20">
+                                <div id="fromIcon" class="w-5 h-5 bg-blue-500 rounded-full"></div>
+                                <span id="fromSymbol" class="font-bold text-sm">TON</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                        <button onclick="reverseSwap()" class="w-10 h-10 bg-[#1e252e] border border-white/10 rounded-xl flex items-center justify-center hover:border-blue-500 transition shadow-xl">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M7 10l5 5 5-5"></path></svg>
+                        </button>
+                    </div>
+                    <div class="swap-input-group">
+                        <div class="flex justify-between text-[10px] text-slate-500 mb-2 font-black uppercase">
+                            <span>Вы получаете</span>
+                            <span id="usdValue">~ $0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <input type="number" readonly placeholder="0.0" id="outputAmount" class="bg-transparent text-3xl font-bold outline-none w-2/3 text-slate-400">
+                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2">
+                                <div id="toIcon" class="w-5 h-5 bg-purple-500 rounded-full"></div>
+                                <span id="toSymbol" class="font-bold text-sm">QUAN</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button class="w-full mt-4 action-btn py-4 text-sm font-black uppercase italic tracking-widest" onclick="handleSwapAction()">Выполнить админ-обмен</button>
+            </div>
+        </section>
+
+        <section id="analytics" class="tab-content">
+            <div class="dedust-panel p-8">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold uppercase italic">Аналитика пулов</h2>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Протокольная ликвидность</p>
+                    </div>
+                    <div class="flex bg-black/20 p-1 rounded-xl">
+                        <button class="px-4 py-1.5 text-[10px] font-black uppercase bg-white/10 rounded-lg">Ликвидность</button>
+                        <button class="px-4 py-1.5 text-[10px] font-black uppercase text-slate-500">Объем 24ч</button>
+                    </div>
+                </div>
+                <div class="h-[400px]">
+                    <canvas id="bigChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const EXCHANGE_RATE = 42.12; 
+        const TON_PRICE_USD = 5.24;
+        let isReversed = false;
+        let lastUptime = 0;
+
+        // --- ИНТЕГРАЦИЯ С ТВОИМ API (/api/stats) ---
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/stats');
+                if (response.status === 401) {
+                    window.location.href = '/'; 
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Обновляем баланс
+                if (data.balance) {
+                    const cleanBalance = parseFloat(data.balance).toFixed(2);
+                    document.getElementById('display-balance').innerText = cleanBalance + " TON";
+                    document.getElementById('userBalanceDisplay').innerText = cleanBalance;
+                }
+
+                // Обновляем данные движка
+                if (data.engine) {
+                    document.getElementById('display-core-id').innerText = "ID: " + data.engine.core_id;
+                    document.getElementById('display-ops').innerText = data.engine.ops_total;
+                    lastUptime = data.engine.uptime;
+
+                    const statusIcon = document.getElementById('statusIcon');
+                    const statusText = document.getElementById('statusText');
+                    
+                    if (data.engine.status === "ACTIVE") {
+                        statusIcon.className = "w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse";
+                        statusText.innerText = "Online";
+                        statusText.className = "text-green-400";
+                    } else {
+                        statusIcon.className = "w-1.5 h-1.5 bg-yellow-400 rounded-full";
+                        statusText.innerText = data.engine.status;
+                        statusText.className = "text-yellow-400";
+                    }
+                }
+
+            } catch (err) {
+                console.warn("Backend Sync Lost...");
+            }
+        }
+
+        async function logout() {
+            if(confirm("Завершить сессию администратора?")) {
+                window.location.href = '/';
+            }
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
+            
+            document.getElementById(id).classList.add('active');
+            const btn = document.querySelector(`[data-tab="${id}"]`);
+            if(btn) btn.classList.add('nav-active');
+            
+            if(id === 'analytics') setTimeout(renderBigChart, 100);
+        }
+
+        function calculateSwap() {
+            const input = document.getElementById('inputAmount');
+            const output = document.getElementById('outputAmount');
+            const usdDisplay = document.getElementById('usdValue');
+            const val = parseFloat(input.value) || 0;
+            
+            if (!isReversed) {
+                output.value = (val * EXCHANGE_RATE).toFixed(2);
+                usdDisplay.innerText = `~ $${(val * TON_PRICE_USD).toFixed(2)}`;
+            } else {
+                output.value = (val / EXCHANGE_RATE).toFixed(4);
+                usdDisplay.innerText = `~ $${((val / EXCHANGE_RATE) * TON_PRICE_USD).toFixed(2)}`;
+            }
+        }
+
+        function reverseSwap() {
+            isReversed = !isReversed;
+            const fromSym = document.getElementById('fromSymbol');
+            const toSym = document.getElementById('toSymbol');
+            const fromIcon = document.getElementById('fromIcon');
+            const toIcon = document.getElementById('toIcon');
+
+            if (isReversed) {
+                fromSym.innerText = 'QUAN';
+                toSym.innerText = 'TON';
+                fromIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
+                toIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
+            } else {
+                fromSym.innerText = 'TON';
+                toSym.innerText = 'QUAN';
+                fromIcon.className = 'w-5 h-5 bg-blue-500 rounded-full';
+                toIcon.className = 'w-5 h-5 bg-purple-500 rounded-full';
+            }
+            calculateSwap();
+        }
+
+        function handleSwapAction() {
+            const amount = document.getElementById('inputAmount').value;
+            if(!amount || amount <= 0) return alert("ADMIN: Укажите сумму");
+            alert(`ADMIN: Сигнал на транзакцию ${amount} TON принят в обработку.`);
+        }
+
+        // --- ГРАФИКИ (Chart.js) ---
+        function renderMiniChart() {
+            const miniCtx = document.getElementById('miniChart').getContext('2d');
+            new Chart(miniCtx, {
+                type: 'line',
+                data: {
+                    labels: [1,2,3,4,5,6,7,8],
+                    datasets: [{
+                        data: [5.1, 5.2, 5.15, 5.3, 5.28, 5.4, 5.35, 5.24],
+                        borderColor: '#0088cc',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: 'rgba(0, 136, 204, 0.1)'
+                    }]
+                },
+                options: { 
+                    plugins: { legend: { display: false } }, 
+                    scales: { x: { display: false }, y: { display: false } },
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function renderBigChart() {
+            const bigCtx = document.getElementById('bigChart').getContext('2d');
+            if (window.myBigChart) window.myBigChart.destroy();
+            window.myBigChart = new Chart(bigCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['TON/USDT', 'TON/QUAN', 'TON/DOGE', 'TON/NOT', 'QUAN/USDT'],
+                    datasets: [{
+                        data: [450, 120, 80, 350, 50],
+                        backgroundColor: '#0088cc',
+                        borderRadius: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { weight: 'bold' } } },
+                        x: { ticks: { color: '#fff', font: { weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        // Инициализация
+        window.onload = () => {
+            loadDashboardData();
+            setInterval(loadDashboardData, 5000);
+            renderMiniChart();
+        };
+    </script>
+</body>
+</html>
