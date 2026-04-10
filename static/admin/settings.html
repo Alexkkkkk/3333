@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM | SETTINGS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #0088cc; --border: rgba(255, 255, 255, 0.08); }
+        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; }
+        .quantum-card { background: rgba(23, 28, 35, 0.7); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
+        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 8px 16px; border-radius: 12px; font-size: 10px; }
+        .nav-active { border-color: #00d2ff; color: #00d2ff; }
+        input[type="range"] { accent-color: #00d2ff; width: 100%; background: #000; height: 4px; border-radius: 2px; }
+        .save-btn { background: linear-gradient(135deg, #0088cc, #0055aa); width: 100%; padding: 12px; border-radius: 12px; font-weight: bold; margin-top: 20px; transition: 0.2s; }
+        .save-btn:active { transform: scale(0.98); }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-4xl mx-auto">
+        <header class="flex justify-between items-center mb-10">
+            <h1 class="font-mono tracking-widest uppercase">Protocol <span class="text-blue-400">Config</span></h1>
+            <nav class="flex gap-3">
+                <a href="admin.html" class="nav-btn">MONITORING</a>
+                <a href="wallets.html" class="nav-btn">WALLETS</a>
+                <a href="settings.html" class="nav-btn nav-active">DISTRIBUTION</a>
+            </nav>
+        </header>
+
+        <div class="quantum-card">
+            <h2 class="text-xs text-gray-500 uppercase mb-6 tracking-widest">Yield Distribution Strategy</h2>
+            
+            <div class="space-y-8">
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-[10px] text-gray-400 uppercase">Referral Reward (%)</label>
+                        <span id="ref_val" class="font-mono text-blue-400">10%</span>
+                    </div>
+                    <input type="range" id="ref_range" min="0" max="50" value="10" oninput="updateVal('ref_val', this.value)">
+                </div>
+
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-[10px] text-gray-400 uppercase">Pool Liquidity Share (%)</label>
+                        <span id="pool_val" class="font-mono text-blue-400">80%</span>
+                    </div>
+                    <input type="range" id="pool_range" min="50" max="100" value="80" oninput="updateVal('pool_val', this.value)">
+                </div>
+
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-[10px] text-gray-400 uppercase">Min. Connection Threshold</label>
+                        <span id="min_val" class="font-mono text-blue-400">0.5 TON</span>
+                    </div>
+                    <input type="range" id="min_range" min="0" max="10" step="0.1" value="0.5" oninput="updateVal('min_val', this.value + ' TON')">
+                </div>
+
+                <button onclick="saveSettings()" class="save-btn uppercase text-xs">Commit Changes to Blockchain</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateVal(id, val) {
+            document.getElementById(id).innerText = val.includes('TON') ? val : val + '%';
+        }
+
+        function saveSettings() {
+            alert("Settings updated successfully. New protocol parameters deployed.");
+        }
+    </script>
+</body>
+</html>
