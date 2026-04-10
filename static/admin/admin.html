@@ -3,129 +3,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | MONITORING</title>
+    <title>QUANTUM | NEURAL MONITOR V4</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --accent: #0088cc; 
-            --bg: #0a0e12; 
-            --panel: rgba(23, 28, 35, 0.7); 
-            --border: rgba(255, 255, 255, 0.08); 
-            --neon-blue: #00d2ff; 
+            --accent: #00d2ff; 
+            --bg: #05080a; 
+            --panel: rgba(10, 15, 20, 0.8); 
+            --border: rgba(0, 210, 255, 0.2); 
         }
+        
         body { 
-            background: radial-gradient(circle at 50% 0%, #112233 0%, #0a0e12 100%); 
+            background: var(--bg); 
             color: #fff; 
-            font-family: 'Inter', sans-serif; 
+            font-family: 'Share Tech Mono', monospace; 
             min-height: 100vh; 
             overflow-x: hidden;
+            background-image: 
+                linear-gradient(rgba(0, 210, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 210, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
+
+        /* Эффект сканирующей линии */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         .quantum-card { 
             background: var(--panel); 
-            backdrop-filter: blur(20px); 
+            backdrop-filter: blur(10px); 
             border: 1px solid var(--border); 
-            border-radius: 24px; 
-            padding: 24px; 
-            transition: 0.3s;
+            border-radius: 4px; 
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.05);
+            position: relative;
+            overflow: hidden;
         }
+
+        .quantum-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 2px; height: 100%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
         .nav-btn { 
-            background: rgba(255,255,255,0.05); 
             border: 1px solid var(--border); 
-            padding: 10px 20px; 
-            border-radius: 14px; 
-            font-size: 11px; 
-            font-family: 'Share Tech Mono', monospace;
-            transition: 0.3s; 
-            letter-spacing: 1px;
+            padding: 8px 16px; 
+            text-transform: uppercase;
+            font-size: 12px;
+            transition: 0.3s;
+            background: rgba(0, 210, 255, 0.05);
         }
-        .nav-btn:hover { background: var(--accent); border-color: var(--neon-blue); }
-        .nav-active { border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0, 136, 204, 0.1); }
-        h1 { font-family: 'Share Tech Mono', monospace; letter-spacing: 3px; text-transform: uppercase; }
+        .nav-btn:hover, .nav-active { 
+            background: var(--accent); 
+            color: #000; 
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .status-pill {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            color: #10b981;
+            padding: 2px 8px;
+            font-size: 10px;
+            border-radius: 2px;
+        }
+
+        .terminal-text {
+            color: var(--accent);
+            text-shadow: 0 0 5px var(--accent);
+        }
+
+        #log-container::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-thumb { background: var(--border); }
     </style>
 </head>
-<body>
-    <div class="max-w-7xl mx-auto p-6">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-            <h1 class="text-2xl">QuanCore <span class="text-blue-500 text-xs">v4.1 [MONITOR]</span></h1>
-            <nav class="flex gap-4">
-                <a href="admin.html" class="nav-btn nav-active">📊 MONITORING</a>
-                <a href="wallets.html" class="nav-btn">💎 WALLETS</a>
-                <a href="settings.html" class="nav-btn">⚙️ DISTRIBUTION</a>
+<body class="p-4">
+    <div class="max-w-[1600px] mx-auto">
+        <header class="flex justify-between items-center mb-6 border-b border-cyan-900 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter terminal-text">QUANCORE_OS_V4.1</h1>
+                <p class="text-[10px] opacity-50">LOCATION: DATA_CENTER_01 // SECURE_LINE</p>
+            </div>
+            <nav class="flex gap-2">
+                <a href="admin.html" class="nav-btn nav-active">Monitoring</a>
+                <a href="wallets.html" class="nav-btn">Wallets</a>
+                <a href="settings.html" class="nav-btn">Core Settings</a>
             </nav>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="quantum-card">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Network Status</p>
-                <div id="ai_status" class="text-xl font-mono text-green-400 mt-2 animate-pulse">ONLINE</div>
-            </div>
-            <div class="quantum-card">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Active Nodes</p>
-                <div id="nodes_val" class="text-xl font-mono text-blue-400 mt-2">0</div>
-            </div>
-            <div class="quantum-card">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Total Traffic</p>
-                <div id="traffic_val" class="text-xl font-mono text-white mt-2">0</div>
-            </div>
-            <div class="quantum-card">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Uptime</p>
-                <div class="text-xl font-mono text-gray-400 mt-2">99.98%</div>
-            </div>
-        </div>
+        <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 lg:col-span-3 space-y-4">
+                <div class="quantum-card p-4">
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase">Uplink Status</h3>
+                    <div class="flex justify-between items-end">
+                        <span class="text-2xl font-bold text-green-500">ENCRYPTED</span>
+                        <span class="status-pill animate-pulse">LIVE</span>
+                    </div>
+                </div>
 
-        <div class="quantum-card h-[450px]">
-            <h2 class="text-xs font-mono text-gray-500 mb-6 uppercase">Real-time Data Stream</h2>
-            <canvas id="monitorChart"></canvas>
+                <div class="quantum-card p-4">
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase">Active Connections</h3>
+                    <div class="flex justify-between items-end">
+                        <span id="conn_val" class="text-3xl font-bold terminal-text">0</span>
+                        <canvas id="miniConnChart" width="80" height="30"></canvas>
+                    </div>
+                </div>
+
+                <div class="quantum-card p-4">
+                    <h3 class="text-[10px] text-gray-500 mb-4 uppercase">Resource Allocation</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1"><span>CPU_LOAD</span><span id="cpu_label">0%</span></div>
+                            <div class="w-full bg-cyan-900/30 h-1"><div id="cpu_bar" class="bg-cyan-400 h-full transition-all duration-500" style="width: 0%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1"><span>MEM_STACK</span><span id="ram_label">0%</span></div>
+                            <div class="w-full bg-purple-900/30 h-1"><div id="ram_bar" class="bg-purple-500 h-full transition-all duration-500" style="width: 0%"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quantum-card p-4 h-[300px] flex flex-col">
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase border-b border-cyan-900 pb-2">Kernel_Logs</h3>
+                    <div id="log-container" class="text-[9px] font-mono space-y-1 overflow-y-auto flex-1 text-cyan-700">
+                        </div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-6 space-y-4">
+                <div class="quantum-card p-6 h-[450px]">
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-xs terminal-text tracking-[4px]">GLOBAL_TRAFFIC_FEED</h2>
+                        <div class="text-right">
+                            <div id="traffic_val" class="text-2xl font-bold">0.00 Mbps</div>
+                            <div class="text-[10px] text-gray-500">PEAK: 842.1 Mbps</div>
+                        </div>
+                    </div>
+                    <canvas id="trafficChart"></canvas>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="quantum-card p-4 h-[180px]">
+                        <h3 class="text-[10px] text-amber-500 mb-2 uppercase">Integrity Stream</h3>
+                        <canvas id="integrityChart"></canvas>
+                    </div>
+                    <div class="quantum-card p-4 h-[180px]">
+                        <h3 class="text-[10px] text-purple-500 mb-2 uppercase">Packet Response</h3>
+                        <canvas id="responseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-3 space-y-4">
+                <div class="quantum-card p-4">
+                    <h2 class="text-[10px] text-gray-500 mb-4 uppercase">Latency Visualizer</h2>
+                    <div class="h-[200px]">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <span id="latency_val" class="text-4xl font-bold text-orange-500">0</span>
+                        <span class="text-xs opacity-50 ml-1">MS</span>
+                    </div>
+                </div>
+
+                <div class="quantum-card p-6 border-l-4 border-emerald-500">
+                    <h3 class="text-[10px] text-emerald-500 mb-2 uppercase">Stability Index</h3>
+                    <div class="text-4xl font-bold">99.9%</div>
+                    <p class="text-[9px] text-gray-500 mt-2">All sectors nominal. No packet loss detected in last 24h.</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const ctx = document.getElementById('monitorChart').getContext('2d');
-        const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
-        blueGrad.addColorStop(0, 'rgba(0, 210, 255, 0.2)');
-        blueGrad.addColorStop(1, 'rgba(0, 210, 255, 0)');
+        // --- Core Configuration ---
+        Chart.defaults.color = 'rgba(0, 210, 255, 0.5)';
+        Chart.defaults.font.family = "'Share Tech Mono'";
 
-        let chart = new Chart(ctx, {
-            type: 'line',
+        const createChart = (id, color, tension = 0.4) => {
+            const ctx = document.getElementById(id).getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 400);
+            grad.addColorStop(0, color.replace('1)', '0.3)'));
+            grad.addColorStop(1, color.replace('1)', '0)'));
+
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(30).fill(''),
+                    datasets: [{
+                        data: Array(30).fill(0),
+                        borderColor: color,
+                        borderWidth: 2,
+                        fill: true,
+                        backgroundColor: grad,
+                        tension: tension,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(0, 210, 255, 0.05)' }, ticks: { display: false } },
+                        x: { display: false }
+                    }
+                }
+            });
+        };
+
+        // Init Charts
+        const trafficChart = createChart('trafficChart', 'rgba(0, 210, 255, 1)');
+        const integrityChart = createChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
+        const responseChart = createChart('responseChart', 'rgba(168, 85, 247, 1)');
+        const latencyChart = new Chart(document.getElementById('latencyChart').getContext('2d'), {
+            type: 'radar',
             data: {
-                labels: Array(30).fill(''),
+                labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
                 datasets: [{
-                    data: Array(30).fill(0).map(() => Math.floor(Math.random() * 40 + 10)),
-                    borderColor: '#00d2ff',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true,
-                    backgroundColor: blueGrad,
-                    pointRadius: 0
+                    data: [10, 20, 15, 25, 10, 30, 20, 10],
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.2)'
                 }]
             },
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false, 
                 plugins: { legend: { display: false } },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.02)' }, ticks: { color: '#445566' } },
-                    x: { display: false }
-                }
+                scales: { r: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { display: false } } }
             }
         });
 
-        function updateLiveStats() {
-            const traffic = Math.floor(Math.random() * 100 + 200);
-            const nodes = Math.floor(Math.random() * 10 + 45);
-            
-            document.getElementById('traffic_val').innerText = traffic;
-            document.getElementById('nodes_val').innerText = nodes;
-
+        // --- System Simulation ---
+        function pushData(chart, value) {
             chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(traffic / 5);
+            chart.data.datasets[0].data.push(value);
             chart.update('none');
         }
 
-        setInterval(updateLiveStats, 2500);
-        updateLiveStats();
+        function addLog(msg) {
+            const container = document.getElementById('log-container');
+            const time = new Date().toLocaleTimeString();
+            const log = document.createElement('div');
+            log.innerHTML = `<span class="opacity-30">[${time}]</span> > ${msg}`;
+            container.prepend(log);
+            if(container.childNodes.length > 20) container.lastChild.remove();
+        }
+
+        function updateSystem() {
+            const traffic = (Math.random() * 200 + 300).toFixed(2);
+            const conns = Math.floor(Math.random() * 100 + 450);
+            const cpu = Math.floor(Math.random() * 40 + 20);
+            const ram = Math.floor(Math.random() * 10 + 65);
+            const ping = Math.floor(Math.random() * 15 + 10);
+
+            // Update DOM
+            document.getElementById('traffic_val').innerText = traffic + " Mbps";
+            document.getElementById('conn_val').innerText = conns;
+            document.getElementById('latency_val').innerText = ping;
+            
+            document.getElementById('cpu_bar').style.width = cpu + "%";
+            document.getElementById('cpu_label').innerText = cpu + "%";
+            document.getElementById('ram_bar').style.width = ram + "%";
+            document.getElementById('ram_label').innerText = ram + "%";
+
+            // Update Charts
+            pushData(trafficChart, traffic);
+            pushData(integrityChart, Math.random() * 100);
+            pushData(responseChart, Math.random() * 50);
+            
+            latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(() => Math.random() * 30 + 10);
+            latencyChart.update('none');
+
+            // Random Logs
+            const events = ["Node handshake successful", "Packet rerouted via Node-7", "Buffer overflow avoided", "Security handshake: OK"];
+            if(Math.random() > 0.7) addLog(events[Math.floor(Math.random()*events.length)]);
+        }
+
+        setInterval(updateSystem, 2000);
+        updateSystem();
+        addLog("QUANCORE SYSTEM INITIALIZED...");
+        addLog("LINK ESTABLISHED: 0.0.0.0");
     </script>
 </body>
 </html>
