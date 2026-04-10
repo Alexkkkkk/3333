@@ -3,25 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | WALLETS</title>
+    <title>QUANTUM | WALLET INTELLIGENCE</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --panel: rgba(23, 28, 35, 0.8); --border: rgba(255, 255, 255, 0.08); }
-        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
-        .quantum-card { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; }
-        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 10px 20px; border-radius: 14px; font-size: 11px; }
-        .nav-active { border-color: #00d2ff; color: #00d2ff; background: rgba(0, 136, 204, 0.1); }
-        table { width: 100%; font-family: 'Share Tech Mono', monospace; }
-        th { color: #556677; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; padding: 20px; text-align: left; border-bottom: 1px solid var(--border); }
-        td { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 13px; }
-        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 9px; text-transform: uppercase; }
+        :root { 
+            --panel: rgba(13, 17, 23, 0.85); 
+            --border: rgba(0, 210, 255, 0.15); 
+            --neon-blue: #00d2ff;
+            --neon-green: #10b981;
+        }
+        body { 
+            background: #05080a; 
+            color: #e2e8f0; 
+            font-family: 'Inter', sans-serif; 
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 50%, #0a1622 0%, #05080a 100%);
+        }
+        
+        .quantum-card { 
+            background: var(--panel); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid var(--border); 
+            border-radius: 24px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Анимированная сетка на фоне */
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+            opacity: 0.1;
+        }
+
+        .nav-btn { 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid var(--border); 
+            padding: 10px 22px; 
+            border-radius: 12px; 
+            font-size: 11px; 
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 1px;
+        }
+        .nav-btn:hover { border-color: var(--neon-blue); background: rgba(0, 210, 255, 0.08); transform: translateY(-1px); }
+        .nav-active { border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0, 136, 204, 0.12); box-shadow: 0 0 20px rgba(0, 210, 255, 0.15); }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th { 
+            color: #64748b; 
+            text-transform: uppercase; 
+            font-size: 10px; 
+            letter-spacing: 2px; 
+            padding: 20px; 
+            text-align: left; 
+            border-bottom: 1px solid var(--border);
+            font-family: 'Orbitron', sans-serif;
+        }
+        td { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 13px; font-family: 'Share Tech Mono', monospace; }
+        
+        .status-badge { padding: 3px 10px; border-radius: 6px; font-size: 9px; font-weight: bold; border: 1px solid transparent; }
+        
+        .stat-value { font-family: 'Orbitron', sans-serif; font-weight: 700; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
     </style>
 </head>
-<body class="p-8">
+<body class="p-4 md:p-8">
+    <div class="grid-bg"></div>
+    
     <div class="max-w-7xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-            <h1 class="text-2xl font-mono tracking-tighter uppercase">Quantum <span class="text-green-500 italic">Wallets</span></h1>
+        <header class="flex flex-col lg:flex-row justify-between items-center mb-10 gap-6">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <span class="text-white font-bold text-2xl font-['Orbitron']">Q</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-[0.2em] uppercase font-['Orbitron']">Quantum <span class="text-green-500">Wallets</span></h1>
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-[0.2em]">Database Ledger v4.1 // Secure Uplink</p>
+                </div>
+            </div>
             <nav class="flex gap-4">
                 <a href="admin.html" class="nav-btn">📊 MONITORING</a>
                 <a href="wallets.html" class="nav-btn nav-active">💎 WALLETS</a>
@@ -29,48 +94,176 @@
             </nav>
         </header>
 
-        <div class="quantum-card overflow-hidden">
-            <div class="p-6 border-bottom border-white/5 bg-white/5 flex justify-between items-center">
-                <span class="text-xs uppercase text-gray-400">Database Synchronization: <span class="text-green-500">Active</span></span>
-                <button class="text-[10px] bg-blue-600 px-4 py-1 rounded-full uppercase hover:bg-blue-500 transition">Export CSV</button>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="quantum-card p-6 border-l-4 border-blue-500">
+                <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Total Node Database</p>
+                <div class="flex items-baseline gap-2">
+                    <span id="stat_wallets" class="text-3xl stat-value text-white">4,281</span>
+                    <span class="text-[10px] text-blue-400 font-mono tracking-tighter">WALLETS</span>
+                </div>
             </div>
-            <table id="walletTable">
-                <thead>
-                    <tr>
-                        <th>Node ID / Address</th>
-                        <th>Network</th>
-                        <th>Balance (TON)</th>
-                        <th>Equity (USD)</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="wallet-rows">
-                    </tbody>
-            </table>
+            <div class="quantum-card p-6 border-l-4 border-green-500">
+                <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Quantum Coins (QC) Circulating</p>
+                <div class="flex items-baseline gap-2">
+                    <span id="stat_qc" class="text-3xl stat-value text-green-400">892,105</span>
+                    <span class="text-[10px] text-green-600 font-mono">QC</span>
+                </div>
+            </div>
+            <div class="quantum-card p-6 border-l-4 border-purple-500">
+                <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Active Protocol Users</p>
+                <div class="flex items-baseline gap-2">
+                    <span id="stat_users" class="text-3xl stat-value text-purple-400">1,104</span>
+                    <span class="flex h-2 w-2 rounded-full bg-purple-500 animate-pulse"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="quantum-card p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xs font-['Orbitron'] text-blue-400 uppercase tracking-widest">Growth Analytics</h3>
+                        <span class="text-[9px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded">LIVE</span>
+                    </div>
+                    <div class="h-[250px]">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="quantum-card p-4 bg-black/40">
+                    <p class="text-[9px] text-gray-600 font-mono mb-3 uppercase tracking-widest border-b border-white/5 pb-2">Network_Events</p>
+                    <div id="event-log" class="space-y-2 h-32 overflow-hidden font-mono text-[10px]">
+                        </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8">
+                <div class="quantum-card overflow-hidden h-full">
+                    <div class="p-6 border-b border-white/5 bg-white/[0.02] flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span class="text-[10px] uppercase text-gray-400 font-mono tracking-widest">Database Sync: <span class="text-green-500">Active</span></span>
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <input type="text" placeholder="Search Address..." class="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[11px] font-mono focus:outline-none focus:border-blue-500/50 w-full sm:w-64 transition-all">
+                            <button class="text-[10px] bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-bold transition-all uppercase tracking-tighter">Export</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table id="walletTable">
+                            <thead>
+                                <tr>
+                                    <th>Address / Node</th>
+                                    <th>Balance (TON)</th>
+                                    <th>Equity (QC)</th>
+                                    <th>Network</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wallet-rows">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const mockWallets = [
-            { id: 'EQC...f2G', net: 'TON MAINNET', bal: '842.10', usd: '$4,210.50', status: 'ACTIVE' },
-            { id: 'EQD...k9L', net: 'TON MAINNET', bal: '12.05', usd: '$60.25', status: 'ACTIVE' },
-            { id: 'EQA...z1X', net: 'TON MAINNET', bal: '1,200.00', usd: '$6,000.00', status: 'SYNCING' },
-            { id: 'EQB...m7P', net: 'TON MAINNET', bal: '0.45', usd: '$2.25', status: 'INACTIVE' }
+        // Mock Data
+        const wallets = [
+            { id: 'EQC...f2G', ton: '842.10', qc: '12,400', net: 'Mainnet', status: 'ACTIVE' },
+            { id: 'EQD...k9L', ton: '12.05', qc: '450', net: 'Mainnet', status: 'ACTIVE' },
+            { id: 'EQA...z1X', ton: '1,200.00', qc: '18,201', net: 'Mainnet', status: 'SYNCING' },
+            { id: 'EQB...m7P', ton: '0.45', qc: '0', net: 'Testnet', status: 'INACTIVE' },
+            { id: 'EQK...98Q', ton: '56.30', qc: '1,120', net: 'Mainnet', status: 'ACTIVE' }
         ];
 
-        const tbody = document.getElementById('wallet-rows');
-        mockWallets.forEach(w => {
-            const row = `
-                <tr class="hover:bg-white/[0.02] transition-colors">
-                    <td class="text-blue-400">${w.id}</td>
-                    <td class="text-gray-500">${w.net}</td>
-                    <td class="text-white font-bold">${w.bal}</td>
-                    <td class="text-gray-300 font-mono">${w.usd}</td>
-                    <td><span class="status-badge ${w.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20 text-gray-500'}">${w.status}</span></td>
+        // Init Table
+        const renderTable = () => {
+            const tbody = document.getElementById('wallet-rows');
+            tbody.innerHTML = wallets.map(w => `
+                <tr class="hover:bg-white/[0.03] transition-colors">
+                    <td class="text-blue-400 font-bold">${w.id}</td>
+                    <td class="text-white">${w.ton}</td>
+                    <td class="text-green-400 font-bold">${w.qc} QC</td>
+                    <td class="text-gray-500 text-[11px]">${w.net}</td>
+                    <td><span class="status-badge ${w.status === 'ACTIVE' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-gray-500/10 text-gray-500 border-gray-500/20'}">${w.status}</span></td>
                 </tr>
-            `;
-            tbody.innerHTML += row;
-        });
+            `).join('');
+        };
+
+        // Init Chart
+        let growthChart;
+        function initChart() {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 250);
+            grad.addColorStop(0, 'rgba(0, 210, 255, 0.3)');
+            grad.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+            growthChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
+                    datasets: [{
+                        data: [65, 78, 72, 95, 88, 110, 124],
+                        borderColor: '#00d2ff',
+                        borderWidth: 2,
+                        fill: true,
+                        backgroundColor: grad,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566', font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { color: '#445566', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // Live Simulation
+        function runSimulation() {
+            setInterval(() => {
+                // Update Wallets
+                const walletEl = document.getElementById('stat_wallets');
+                const currentW = parseInt(walletEl.innerText.replace(',', ''));
+                if(Math.random() > 0.7) walletEl.innerText = (currentW + 1).toLocaleString();
+
+                // Update QC
+                const qcEl = document.getElementById('stat_qc');
+                const currentQC = parseInt(qcEl.innerText.replace(',', ''));
+                qcEl.innerText = (currentQC + Math.floor(Math.random() * 10)).toLocaleString();
+
+                // Add Log
+                const logs = document.getElementById('event-log');
+                const time = new Date().toLocaleTimeString([], { hour12: false });
+                const newLog = document.createElement('div');
+                newLog.className = 'text-blue-300 opacity-0 transition-opacity duration-500';
+                newLog.innerHTML = `<span class="text-gray-600">[${time}]</span> Node EQA...${Math.floor(Math.random()*999)} linked.`;
+                logs.prepend(newLog);
+                setTimeout(() => newLog.classList.remove('opacity-0'), 10);
+                if(logs.childNodes.length > 6) logs.lastChild.remove();
+
+                // Update Chart
+                if(growthChart) {
+                    growthChart.data.datasets[0].data.shift();
+                    growthChart.data.datasets[0].data.push(110 + Math.random() * 20);
+                    growthChart.update('none');
+                }
+            }, 3000);
+        }
+
+        window.onload = () => {
+            renderTable();
+            initChart();
+            runSimulation();
+        };
     </script>
 </body>
 </html>
