@@ -151,7 +151,6 @@ async def serve_index(request: Request):
     log(f"WEB: Запрос главной от {request.client.host}", "INFO")
     if os.path.exists(path):
         return FileResponse(path)
-    log(f"WEB ERROR: index.html не найден по пути {path}", "ERROR")
     return JSONResponse({"error": "Index not found"}, status_code=404)
 
 @app.get("/admin")
@@ -159,31 +158,22 @@ async def serve_index(request: Request):
 @app.get("/admin.html")
 async def serve_admin(request: Request):
     static_dir = overlord.get_static_path()
+    # Приоритет 1: static/admin/admin.html
     admin_path = os.path.join(static_dir, "admin", "admin.html")
     
     log(f"WEB: Попытка входа в админку (IP: {request.client.host})", "CORE")
-    log(f"TRACE: Проверка пути 1: {admin_path}", "TRACE")
     
     if os.path.exists(admin_path):
-        log(f"WEB SUCCESS: Файл найден в static/admin/admin.html", "SUCCESS")
-        return FileResponse(admin_path)
+        log(f"TRACE: Отдаю файл: {admin_path}", "SUCCESS")
+        return FileResponse(admin_path, headers={"Cache-Control": "no-store"})
     
+    # Приоритет 2: static/admin.html
     fallback = os.path.join(static_dir, "admin.html")
-    log(f"TRACE: Путь 1 не найден. Проверка пути 2: {fallback}", "TRACE")
-    
     if os.path.exists(fallback):
-        log(f"WEB SUCCESS: Файл найден в корне static", "SUCCESS")
-        return FileResponse(fallback)
+        return FileResponse(fallback, headers={"Cache-Control": "no-store"})
         
     log(f"WEB ERROR: admin.html ОТСУТСТВУЕТ!", "ERROR")
-    return JSONResponse({
-        "status": "error",
-        "message": "Admin file not found",
-        "debug_info": {
-            "searched_paths": [admin_path, fallback],
-            "cwd": os.getcwd()
-        }
-    }, status_code=404)
+    return JSONResponse({"status": "error", "message": "Admin file not found"}, status_code=404)
 
 @app.get("/{filename}.html")
 async def serve_any_html(filename: str, request: Request):
@@ -192,7 +182,6 @@ async def serve_any_html(filename: str, request: Request):
         os.path.join(static_dir, f"{filename}.html"),
         os.path.join(static_dir, "admin", f"{filename}.html")
     ]
-    log(f"WEB: Запрос файла {filename}.html от {request.client.host}", "INFO")
     for p in check_paths:
         if os.path.exists(p):
             return FileResponse(p)
@@ -204,18 +193,13 @@ async def serve_any_html(filename: str, request: Request):
 async def handle_login(request: Request):
     try:
         data = await request.json()
-        log(f"API: Login attempt -> {data.get('login')}", "INFO")
         if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success"})
             res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True)
-            log("API SUCCESS: Авторизация успешна", "SUCCESS")
             return res
-        log("API WARNING: Неверный логин или пароль", "WARNING")
         return JSONResponse({"status": "error"}, status_code=401)
-    except Exception as e:
-        log(f"API ERROR: Login process failed: {e}", "ERROR")
-        return JSONResponse({"status": "error"}, status_code=400)
+    except: return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/api/stats")
 async def get_stats():
@@ -252,7 +236,6 @@ async def core_worker():
             log("DB: Connected", "SUCCESS")
             break
         except: 
-            log("DB: Waiting connection...", "WARNING")
             await asyncio.sleep(5)
 
     while overlord.is_active:
@@ -265,12 +248,12 @@ async def core_worker():
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
-                    log("КРИТИЧЕСКИЙ СБОЙ МНЕМОНИКИ", "ERROR")
+                    log("MNEMONIC FAIL", "ERROR")
                     await asyncio.sleep(20); continue
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Кошелек готов -> {wallet.address}", "SUCCESS")
+                log(f"CORE READY: {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
@@ -279,7 +262,7 @@ async def core_worker():
                         await asyncio.sleep(30)
                     except: break
         except Exception as e:
-            log(f"Core Loop Error: {e}", "ERROR")
+            log(f"Loop Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
