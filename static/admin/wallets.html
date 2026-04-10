@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM | WALLETS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { --panel: rgba(23, 28, 35, 0.7); --border: rgba(255, 255, 255, 0.08); --neon-green: #10b981; }
+        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; }
+        .quantum-card { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 20px; }
+        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 8px 16px; border-radius: 12px; font-size: 10px; }
+        .nav-active { border-color: #00d2ff; color: #00d2ff; }
+        table { width: 100%; font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+        th { color: #556677; text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-10">
+            <h1 class="font-mono tracking-widest uppercase">Nodes <span class="text-green-500">Database</span></h1>
+            <nav class="flex gap-3">
+                <a href="admin.html" class="nav-btn">MONITORING</a>
+                <a href="wallets.html" class="nav-btn nav-active">WALLETS</a>
+                <a href="settings.html" class="nav-btn">DISTRIBUTION</a>
+            </nav>
+        </header>
+
+        <div class="quantum-card overflow-hidden">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Balance (TON)</th>
+                        <th>Status</th>
+                        <th>Last Sync</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-list">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const wallets = [
+            { addr: 'EQC...f2G', balance: '45.20', status: 'SYNCHRONIZED', time: '2m ago' },
+            { addr: 'EQD...k9L', balance: '120.05', status: 'SYNCHRONIZED', time: '5m ago' },
+            { addr: 'EQA...z1X', balance: '0.00', status: 'PENDING', time: 'Just now' }
+        ];
+
+        const list = document.getElementById('wallet-list');
+        wallets.forEach(w => {
+            list.innerHTML += `
+                <tr>
+                    <td class="text-blue-300">${w.addr}</td>
+                    <td class="text-white">${w.balance}</td>
+                    <td class="text-green-500 text-[10px]">${w.status}</td>
+                    <td class="text-gray-500 text-[10px]">${w.time}</td>
+                </tr>
+            `;
+        });
+    </script>
+</body>
+</html>
