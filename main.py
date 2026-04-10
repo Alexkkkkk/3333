@@ -4,9 +4,6 @@ import json
 import time
 import openai
 import sys
-import random
-import numpy as np
-import traceback
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -151,6 +148,7 @@ async def serve_index(request: Request):
     log(f"WEB: Запрос главной от {request.client.host}", "INFO")
     if os.path.exists(path):
         return FileResponse(path)
+    log(f"WEB ERROR: index.html не найден по пути {path}", "ERROR")
     return JSONResponse({"error": "Index not found"}, status_code=404)
 
 @app.get("/admin")
@@ -158,42 +156,44 @@ async def serve_index(request: Request):
 @app.get("/admin.html")
 async def serve_admin(request: Request):
     static_dir = overlord.get_static_path()
-    # Целевой путь: static/admin/admin.html
     admin_path = os.path.join(static_dir, "admin", "admin.html")
     
-    log(f"WEB: Попытка доступа к АДМИНКЕ (IP: {request.client.host})", "CORE")
-    log(f"TRACE: Проверка пути: {admin_path}", "TRACE")
+    log(f"WEB: Попытка входа в админку (IP: {request.client.host})", "CORE")
+    log(f"TRACE: Проверка пути 1: {admin_path}", "TRACE")
     
     if os.path.exists(admin_path):
-        log(f"WEB SUCCESS: Файл найден, отправка...", "SUCCESS")
+        log(f"WEB SUCCESS: Файл найден в static/admin/admin.html", "SUCCESS")
         return FileResponse(admin_path)
     
-    # Резервная проверка в корне static
     fallback = os.path.join(static_dir, "admin.html")
-    log(f"TRACE: Файл не найден. Резервная проверка: {fallback}", "TRACE")
+    log(f"TRACE: Путь 1 не найден. Проверка пути 2: {fallback}", "TRACE")
     
     if os.path.exists(fallback):
-        log(f"WEB SUCCESS: Файл найден в корне", "SUCCESS")
+        log(f"WEB SUCCESS: Файл найден в корне static", "SUCCESS")
         return FileResponse(fallback)
         
-    log(f"WEB ERROR: Файл admin.html не обнаружен!", "ERROR")
+    log(f"WEB ERROR: admin.html ОТСУТСТВУЕТ!", "ERROR")
     return JSONResponse({
         "status": "error",
         "message": "Admin file not found",
-        "searched_in": [admin_path, fallback],
-        "cwd": os.getcwd()
+        "debug_info": {
+            "searched_paths": [admin_path, fallback],
+            "cwd": os.getcwd(),
+            "static_dir_exists": os.path.exists(static_dir)
+        }
     }, status_code=404)
 
-# Универсальный роут для .html
 @app.get("/{filename}.html")
-async def serve_any_html(filename: str):
+async def serve_any_html(filename: str, request: Request):
     static_dir = overlord.get_static_path()
     check_paths = [
         os.path.join(static_dir, f"{filename}.html"),
         os.path.join(static_dir, "admin", f"{filename}.html")
     ]
+    log(f"WEB: Запрос файла {filename}.html от {request.client.host}", "INFO")
     for p in check_paths:
-        if os.path.exists(p): return FileResponse(p)
+        if os.path.exists(p):
+            return FileResponse(p)
     return JSONResponse({"detail": "Not found"}, status_code=404)
 
 # --- API ---
@@ -207,9 +207,13 @@ async def handle_login(request: Request):
             overlord.session_token = os.urandom(32).hex()
             res = JSONResponse({"status": "success"})
             res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True)
+            log("API SUCCESS: Авторизация успешна", "SUCCESS")
             return res
+        log("API WARNING: Неверный логин или пароль", "WARNING")
         return JSONResponse({"status": "error"}, status_code=401)
-    except: return JSONResponse({"status": "error"}, status_code=400)
+    except Exception as e:
+        log(f"API ERROR: Login process failed: {e}", "ERROR")
+        return JSONResponse({"status": "error"}, status_code=400)
 
 @app.get("/api/stats")
 async def get_stats():
@@ -226,7 +230,7 @@ async def get_stats():
         return db_stats
     except: return {"status": "error"}
 
-# --- MOUNT & ASSETS ---
+# --- STATIC MOUNTING ---
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
@@ -246,6 +250,7 @@ async def core_worker():
             log("DB: Connected", "SUCCESS")
             break
         except: 
+            log("DB: Waiting connection...", "WARNING")
             await asyncio.sleep(5)
 
     while overlord.is_active:
@@ -258,11 +263,12 @@ async def core_worker():
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
-                    log("MNEMONIC ERROR", "ERROR")
+                    log("КРИТИЧЕСКИЙ СБОЙ МНЕМОНИКИ", "ERROR")
                     await asyncio.sleep(20); continue
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
+                log(f"CORE: Кошелек готов -> {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
@@ -271,10 +277,10 @@ async def core_worker():
                         await asyncio.sleep(30)
                     except: break
         except Exception as e:
-            log(f"Worker Error: {e}", "ERROR")
+            log(f"Core Loop Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Запуск на порту {port}", "CORE")
+    log(f"SYSTEM: Quantum Overlord запущен на порту {port}", "CORE")
     uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
