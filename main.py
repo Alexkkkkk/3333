@@ -4,6 +4,9 @@ import json
 import time
 import openai
 import sys
+import random
+import numpy as np
+import traceback
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -139,7 +142,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --- WEB ROUTES С ГЛУБОКИМ ЛОГИРОВАНИЕМ ---
+# --- WEB ROUTES ---
 
 @app.get("/")
 @app.get("/index.html")
@@ -178,8 +181,7 @@ async def serve_admin(request: Request):
         "message": "Admin file not found",
         "debug_info": {
             "searched_paths": [admin_path, fallback],
-            "cwd": os.getcwd(),
-            "static_dir_exists": os.path.exists(static_dir)
+            "cwd": os.getcwd()
         }
     }, status_code=404)
 
@@ -230,7 +232,7 @@ async def get_stats():
         return db_stats
     except: return {"status": "error"}
 
-# --- STATIC MOUNTING ---
+# --- MOUNT & ASSETS ---
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
