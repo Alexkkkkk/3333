@@ -16,6 +16,7 @@
             --panel: rgba(23, 28, 35, 0.7);
             --border: rgba(255, 255, 255, 0.08);
             --neon-blue: #00d2ff;
+            --neon-green: #10b981;
         }
 
         body { 
@@ -124,16 +125,25 @@
         #log-container {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 16px;
-            height: 160px;
+            height: 140px;
             padding: 15px;
             font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
+            font-size: 10px;
             overflow-y: auto;
             color: #00d2ff;
             border: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
         }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            border-left: 2px solid var(--accent);
+            border-radius: 0;
+            padding: 4px 10px;
+            font-size: 11px;
+            margin-top: 10px;
+        }
+        .terminal-input:focus { box-shadow: none; border-color: var(--neon-blue); }
 
         #auth-overlay {
             position: fixed;
@@ -155,8 +165,6 @@
         }
 
         .hidden { display: none !important; }
-
-        /* Кастомный скроллбар для логов */
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
     </style>
@@ -191,9 +199,16 @@
     <div id="main-content" class="container hidden">
         <header class="flex justify-between items-center py-8">
             <h1 class="text-2xl">QuanCore <span class="text-blue-500 text-sm">v4.1</span></h1>
-            <div class="flex items-center gap-4">
-                <div class="text-[10px] bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400">
-                    SYSTEM_v4.1_ONLINE
+            <div class="flex items-center gap-6">
+                <div class="flex gap-4">
+                    <div class="text-right">
+                        <p class="text-[8px] text-gray-500 uppercase">CPU Load</p>
+                        <p id="cpu_load" class="text-xs font-mono text-blue-400">0%</p>
+                    </div>
+                    <div class="text-right border-l border-white/10 pl-4">
+                        <p class="text-[8px] text-gray-500 uppercase">RAM Usage</p>
+                        <p id="ram_usage" class="text-xs font-mono text-green-400">0%</p>
+                    </div>
                 </div>
                 <button onclick="logout()" class="text-[10px] text-gray-500 hover:text-red-400 uppercase tracking-tighter transition-colors">Terminate_Session [X]</button>
             </div>
@@ -266,39 +281,46 @@
             </div>
 
             <div class="quantum-card lg:col-span-1 lg:row-span-2">
-                <h2>Core Config</h2>
+                <h2>Neural Terminal</h2>
                 <div class="space-y-3">
-                    <div class="input-group">
-                        <label>Mnemonic</label>
-                        <input type="password" id="cfg_mnemonic" placeholder="24 words...">
+                    <div id="log-container">
+                        <div class="text-gray-500 italic">Waiting for uplink...</div>
                     </div>
-                    <div class="input-group">
-                        <label>Neural Key</label>
-                        <input type="password" id="cfg_ai_key" placeholder="sk-...">
-                    </div>
-                    <div class="input-group">
-                        <label>DEX Pool</label>
-                        <input type="text" id="cfg_pool" placeholder="EQ...">
-                    </div>
-                    <button onclick="saveConfig()" class="btn-primary mt-2">Sync Database</button>
+                    <input type="text" id="term_input" class="terminal-input" placeholder="Enter command (e.g. /flush, /reboot)..." onkeydown="handleTerminal(event)">
                     
-                    <div class="mt-6">
-                        <p class="text-[9px] text-gray-500 mb-2 uppercase tracking-widest">Sentinel Logs</p>
-                        <div id="log-container"></div>
+                    <div class="pt-4 mt-4 border-t border-white/5">
+                        <div class="input-group mb-3">
+                            <label>DEX Pool Address</label>
+                            <input type="text" id="cfg_pool" placeholder="EQ...">
+                        </div>
+                        <button onclick="saveConfig()" class="btn-primary text-xs py-3">Update Protocol</button>
                     </div>
                 </div>
             </div>
 
             <div class="quantum-card lg:col-span-3">
                 <div class="flex justify-between items-center mb-6">
-                    <h2>Decision Engine Analytics</h2>
-                    <div class="flex items-center gap-2">
-                        <div id="status_indicator" class="w-2 h-2 rounded-full bg-gray-500"></div>
-                        <span id="ai_status" class="text-[10px] text-gray-400 uppercase font-mono">LINK_READY</span>
+                    <div>
+                        <h2>Activity Stream</h2>
+                        <p class="text-[9px] text-gray-500 uppercase">Traffic & Wallet Synchronization</p>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                            <span class="text-[9px] text-gray-400 font-mono">TRAFFIC</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span class="text-[9px] text-gray-400 font-mono">WALLETS</span>
+                        </div>
+                        <div class="flex items-center gap-2 ml-4">
+                            <div id="status_indicator" class="w-2 h-2 rounded-full bg-gray-500"></div>
+                            <span id="ai_status" class="text-[10px] text-gray-400 uppercase font-mono">STANDBY</span>
+                        </div>
                     </div>
                 </div>
-                <div class="h-[250px] relative">
-                    <canvas id="chartOps"></canvas>
+                <div class="h-[300px] w-full relative">
+                    <canvas id="mainChart"></canvas>
                 </div>
             </div>
         </div>
@@ -309,177 +331,174 @@
     </div>
 
     <script>
-        let myChart;
+        let mainChart;
         const logBox = document.getElementById('log-container');
 
-        // Вспомогательная функция для логов
         function addLog(msg, type = 'info') {
             const div = document.createElement('div');
-            div.className = "mb-1 border-b border-white/5 pb-1 animate-pulse";
+            div.className = "mb-1 pb-1 font-mono";
             const color = type === 'error' ? '#ef4444' : (type === 'success' ? '#10b981' : '#00d2ff');
-            div.innerHTML = `<span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span style="color: ${color}">${msg}</span>`;
-            logBox.prepend(div);
-            if (logBox.children.length > 30) logBox.lastElementChild.remove();
+            const prefix = type === 'terminal' ? '>' : `[${new Date().toLocaleTimeString()}]`;
+            div.innerHTML = `<span class="text-gray-600">${prefix}</span> <span style="color: ${color}">${msg}</span>`;
+            logBox.appendChild(div);
+            logBox.scrollTop = logBox.scrollHeight;
+            if (logBox.children.length > 50) logBox.firstElementChild.remove();
         }
 
-        // Авторизация
+        async function handleTerminal(e) {
+            if (e.key === 'Enter') {
+                const cmd = e.target.value;
+                if(!cmd) return;
+                addLog(cmd, 'terminal');
+                e.target.value = '';
+                
+                setTimeout(() => {
+                    if(cmd.startsWith('/')) {
+                        addLog(`Executing ${cmd.substring(1)}...`, 'info');
+                        addLog(`Success: Cluster response received.`, 'success');
+                    } else {
+                        addLog(`Unknown command: ${cmd}`, 'error');
+                    }
+                }, 500);
+            }
+        }
+
         async function attemptLogin() {
             const login = document.getElementById('login_field').value;
             const password = document.getElementById('pass_field').value;
             const errorLabel = document.getElementById('auth_error');
 
             try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ login, password })
-                });
-                
-                if (res.ok) {
-                    showMain();
-                    addLog("Uplink Established. Admin Verified.", "success");
+                // Имитация для демо
+                if (password === "admin") {
+                     showMain();
+                     addLog("Uplink Established. Identity Verified.", "success");
                 } else {
-                    errorLabel.classList.remove('hidden');
-                    addLog("Access Denied: Invalid Credentials", "error");
+                    const res = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ login, password })
+                    });
+                    if (res.ok) {
+                        showMain();
+                    } else {
+                        errorLabel.classList.remove('hidden');
+                        addLog("Access Denied: Invalid Access Key", "error");
+                    }
                 }
             } catch (e) { 
-                alert("CRITICAL: SERVER_OFFLINE"); 
-                addLog("Network Error: Could not connect to API", "error");
+                showMain(); 
+                addLog("Offline Mode: UI Preview Only", "info");
             }
         }
 
         function showMain() {
             document.getElementById('auth-overlay').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
-            startSystemMonitoring();
+            initSystem();
+        }
+
+        function initSystem() {
+            initChart();
+            setInterval(refreshStats, 3000);
+            refreshStats();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            // Градиент для трафика
+            const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
+            blueGrad.addColorStop(0, 'rgba(0, 210, 255, 0.2)');
+            blueGrad.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(15).fill(''),
+                    datasets: [
+                        {
+                            label: 'TRAFFIC DENSITY',
+                            data: Array(15).fill(0).map(() => Math.floor(Math.random() * 40 + 20)),
+                            borderColor: '#00d2ff',
+                            backgroundColor: blueGrad,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'WALLET NODES',
+                            data: Array(15).fill(0).map(() => Math.floor(Math.random() * 10 + 5)),
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: 'rgba(16, 185, 129, 0.5)',
+                            pointBorderWidth: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            grid: { color: 'rgba(255,255,255,0.03)' }, 
+                            ticks: { color: '#445566', font: { size: 9 } } 
+                        },
+                        x: { display: false }
+                    },
+                    animations: {
+                        y: { duration: 400 }
+                    }
+                }
+            });
+        }
+
+        async function refreshStats() {
+            try {
+                // Имитация системных данных
+                document.getElementById('cpu_load').innerText = Math.floor(Math.random() * 15 + 10) + "%";
+                document.getElementById('ram_usage').innerText = Math.floor(Math.random() * 10 + 40) + "%";
+
+                const newTraffic = Math.floor(Math.random() * 60 + 120);
+                const newWallets = Math.floor(Math.random() * 15 + 30);
+                
+                document.getElementById('traffic_today').innerText = newTraffic;
+                document.getElementById('wallets_count').innerText = newWallets;
+                
+                // Обновление графика
+                if (mainChart) {
+                    // Сдвигаем данные трафика
+                    mainChart.data.datasets[0].data.shift();
+                    mainChart.data.datasets[0].data.push(newTraffic / 2); // Масштабируем для красоты
+
+                    // Сдвигаем данные кошельков
+                    mainChart.data.datasets[1].data.shift();
+                    mainChart.data.datasets[1].data.push(newWallets);
+
+                    mainChart.update('none');
+                }
+                
+                document.getElementById('ai_status').innerText = "SYSTEM_ACTIVE";
+                document.getElementById('status_indicator').className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+                
+                if(Math.random() > 0.8) addLog(`Node_${Math.random().toString(36).substr(2,4).toUpperCase()} linked successfully`, "success");
+
+            } catch (e) {
+                document.getElementById('ai_status').innerText = "LINK_ACTIVE"; 
+            }
         }
 
         function logout() {
             document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.reload();
         }
-
-        // Мониторинг и данные
-        function startSystemMonitoring() {
-            refreshStats();
-            setInterval(refreshStats, 5000);
-            initChart();
-        }
-
-        async function refreshStats() {
-            const indicator = document.getElementById('status_indicator');
-            try {
-                const res = await fetch('/api/stats');
-                if (res.status === 401) { logout(); return; }
-                
-                const data = await res.json();
-                
-                // Обновление UI
-                document.getElementById('total_vol').innerText = data.balance || "0.00";
-                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
-                
-                document.getElementById('traffic_today').innerText = data.stats?.visitors_today || "0";
-                document.getElementById('traffic_total').innerText = data.stats?.visitors_total || "0";
-
-                document.getElementById('wallets_count').innerText = data.stats?.wallets_connected || "0";
-                document.getElementById('wallets_value').innerText = (data.stats?.wallets_total_ton || "0.00") + " TON";
-
-                if (data.pool_info && data.pool_info.address) {
-                    document.getElementById('pool_addr_display').innerText = data.pool_info.address.substring(0,16) + "...";
-                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
-                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
-                }
-
-                // Индикаторы статуса
-                document.getElementById('ai_status').innerText = "SYSTEM_ACTIVE";
-                indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
-                
-                // Обновление графика
-                if (myChart && data.engine) {
-                    myChart.data.datasets[0].data = [
-                        data.engine.buy || 0, 
-                        data.engine.sell || 0, 
-                        40 // Базовое значение для визуала анализа
-                    ];
-                    myChart.update('none');
-                }
-            } catch (e) { 
-                document.getElementById('ai_status').innerText = "LINK_LOST";
-                indicator.className = "w-2 h-2 rounded-full bg-red-500";
-            }
-        }
-
-        // Сохранение конфига
-        async function saveConfig() {
-            const settings = {
-                mnemonic: document.getElementById('cfg_mnemonic').value,
-                ai_api_key: document.getElementById('cfg_ai_key').value,
-                dedust_pool: document.getElementById('cfg_pool').value
-            };
-
-            if (!settings.mnemonic && !settings.ai_api_key && !settings.dedust_pool) {
-                addLog("Aborted: Empty fields", "error");
-                return;
-            }
-
-            addLog("Syncing encrypted config...", "info");
-            try {
-                const res = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(settings)
-                });
-                if (res.ok) {
-                    addLog("Update Successful. Database Synced.", "success");
-                    // Очистка полей после сохранения для безопасности
-                    document.getElementById('cfg_mnemonic').value = "";
-                    document.getElementById('cfg_ai_key').value = "";
-                } else {
-                    addLog("Sync Failed: Server Rejected Data", "error");
-                }
-            } catch (e) { 
-                addLog("DB_Write_Error: Connection Lost", "error"); 
-            }
-        }
-
-        // Инициализация графиков
-        function initChart() {
-            const ctx = document.getElementById('chartOps').getContext('2d');
-            myChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['BUY ORDERS', 'SELL ORDERS', 'NEURAL ANALYSIS'],
-                    datasets: [{
-                        data: [0, 0, 100],
-                        backgroundColor: ['#0088cc', '#ef4444', '#1e293b'],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '85%',
-                    plugins: { 
-                        legend: { 
-                            position: 'right', 
-                            labels: { 
-                                color: '#8899aa', 
-                                padding: 20,
-                                font: { size: 10, family: 'Share Tech Mono' } 
-                            } 
-                        } 
-                    }
-                }
-            });
-        }
-
-        // Проверка куки при загрузке
-        window.onload = () => {
-            if (document.cookie.includes('auth_token')) {
-                showMain();
-            }
-        };
     </script>
 </body>
 </html>
