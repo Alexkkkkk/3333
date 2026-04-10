@@ -41,7 +41,7 @@
             overflow: hidden;
         }
 
-        /* Линия сканирования при наведении */
+        /* Линия сканирования */
         .scan-line {
             position: absolute; width: 100%; height: 2px;
             background: var(--cyan);
@@ -106,7 +106,7 @@
     <header class="p-6 flex justify-between items-center relative z-50 max-w-2xl mx-auto w-full">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 border border-cyan-500/30 rounded-full flex items-center justify-center bg-cyan-500/5">
-                <img src="/images/logo.png" class="w-6 h-6" alt="L">
+                <img src="/images/logo.png" class="w-6 h-6" alt="L" onerror="this.style.display='none'">
             </div>
             <h1 class="text-xl font-black tracking-tighter uppercase italic">Ledger_<span class="text-cyan-500">View</span></h1>
         </div>
@@ -174,7 +174,7 @@
 
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -189,19 +189,24 @@
             }
 
             try {
-                const response = await fetch(`https://tonapi.io/v2/accounts/${wallet.account.address}/jettons`);
-                const data = await response.json();
-                const jettons = data.balances || [];
+                // 1. Получаем основной баланс TON
+                const accRes = await fetch(`https://tonapi.io/v2/accounts/${wallet.account.address}`);
+                const accData = await accRes.json();
+                const tonBalance = (accData.balance / 1e9).toFixed(2);
+
+                // 2. Получаем жетоны
+                const jettonRes = await fetch(`https://tonapi.io/v2/accounts/${wallet.account.address}/jettons`);
+                const jettonData = await jettonRes.json();
+                const jettons = jettonData.balances || [];
                 
                 let html = '';
                 let totalAssets = 0;
 
-                // TON Native (баланс берется из объекта wallet)
-                const tonBalance = (wallet.account.balance / 1e9).toFixed(2);
+                // Рендерим TON
                 html += renderCoinRow('TON', 'Native Token', tonBalance, 'https://ton.org/download/ton_symbol.png');
                 totalAssets++;
 
-                // Jettons
+                // Рендерим Жетоны
                 jettons.forEach(j => {
                     const bal = (j.balance / Math.pow(10, j.jetton.decimals)).toFixed(2);
                     if (parseFloat(bal) > 0) {
@@ -239,7 +244,7 @@
 
         tonConnectUI.onStatusChange(wallet => updateLedger(wallet));
         
-        // Первичная проверка при загрузке
+        // Первичная проверка
         if(tonConnectUI.account) {
             updateLedger({ account: tonConnectUI.account });
         } else {
