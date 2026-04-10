@@ -21,6 +21,7 @@
             overflow-x: hidden;
         }
 
+        /* Голографическая сетка фона */
         .hologram-grid {
             position: fixed; inset: 0;
             background-image: 
@@ -40,6 +41,7 @@
             overflow: hidden;
         }
 
+        /* Линия сканирования при наведении */
         .scan-line {
             position: absolute; width: 100%; height: 2px;
             background: var(--cyan);
@@ -51,6 +53,51 @@
             opacity: 0.5;
         }
         @keyframes scan-loop { 0% { top: 0%; } 100% { top: 100%; } }
+
+        /* Навигационная панель */
+        .fixed-bottom-nav {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 92%;
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 2rem;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            z-index: 1000;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .nav-item a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #64748b;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .nav-item span {
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .nav-item.active a {
+            color: var(--cyan);
+            filter: drop-shadow(0 0 8px var(--cyan));
+        }
+
+        .nav-icon { width: 22px; height: 22px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body class="antialiased">
@@ -90,19 +137,39 @@
                 <p class="text-[8px] font-black uppercase tracking-[0.5em]">Scanning Blockchain...</p>
             </div>
         </div>
-
     </main>
 
-    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-black/80 backdrop-blur-2xl border border-white/5 p-3 rounded-[2.5rem] flex justify-between items-center z-[100] shadow-2xl">
-        <a href="index.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-        </a>
-        <div class="w-14 h-14 bg-cyan-500 text-black rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z"/><path d="M12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+    <nav class="fixed-bottom-nav">
+        <div class="nav-item">
+            <a href="/index.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <span>HOME</span>
+            </a>
         </div>
-        <a href="staking.html" class="w-12 h-12 flex items-center justify-center text-slate-500 hover:text-cyan-400 transition-all">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        </a>
+        <div class="nav-item">
+            <a href="/swap.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                <span>SWAP</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="/staking.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>FORGE</span>
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="/assets.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span>DATA</span>
+            </a>
+        </div>
+        <div class="nav-item active">
+            <a href="/operator.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span>OPERATOR</span>
+            </a>
+        </div>
     </nav>
 
     <script>
@@ -115,7 +182,7 @@
             const container = document.getElementById('ledger-container');
             const countDisplay = document.getElementById('stat-count');
 
-            if (!wallet) {
+            if (!wallet || !wallet.account) {
                 container.innerHTML = `<div class="ledger-card rounded-3xl p-10 text-center opacity-50 font-bold uppercase text-[10px]">Awaiting Handshake</div>`;
                 countDisplay.innerText = "00";
                 return;
@@ -129,7 +196,7 @@
                 let html = '';
                 let totalAssets = 0;
 
-                // TON Native
+                // TON Native (баланс берется из объекта wallet)
                 const tonBalance = (wallet.account.balance / 1e9).toFixed(2);
                 html += renderCoinRow('TON', 'Native Token', tonBalance, 'https://ton.org/download/ton_symbol.png');
                 totalAssets++;
@@ -146,13 +213,14 @@
                 container.innerHTML = html;
                 countDisplay.innerText = totalAssets.toString().padStart(2, '0');
             } catch (e) {
+                console.error(e);
                 container.innerHTML = `<div class="p-10 text-center text-red-500 text-[10px] uppercase">Connection Error</div>`;
             }
         }
 
         function renderCoinRow(symbol, name, balance, img) {
             return `
-                <div class="ledger-card rounded-3xl p-5 flex items-center justify-between animate-fade-in">
+                <div class="ledger-card rounded-3xl p-5 flex items-center justify-between animate-fade-in mb-3">
                     <div class="scan-line"></div>
                     <div class="flex items-center gap-4">
                         <img src="${img || '/images/logo.png'}" class="w-10 h-10 rounded-full bg-black/20" onerror="this.src='/images/logo.png'">
@@ -170,12 +238,13 @@
         }
 
         tonConnectUI.onStatusChange(wallet => updateLedger(wallet));
-        if(tonConnectUI.account) updateLedger(tonConnectUI);
+        
+        // Первичная проверка при загрузке
+        if(tonConnectUI.account) {
+            updateLedger({ account: tonConnectUI.account });
+        } else {
+            updateLedger(null);
+        }
     </script>
-
-    <style>
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-    </style>
 </body>
 </html>
