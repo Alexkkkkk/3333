@@ -21,10 +21,10 @@
             font-family: 'Share Tech Mono', monospace; 
             min-height: 100vh; 
             overflow-x: hidden;
+            background-size: 30px 30px;
             background-image: 
                 linear-gradient(rgba(0, 210, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 210, 255, 0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
         }
 
         /* Эффект CRT монитора */
@@ -32,7 +32,8 @@
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
             background-size: 100% 2px, 3px 100%;
             pointer-events: none;
             z-index: 100;
@@ -94,7 +95,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-cyan-900 pb-4 gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tighter terminal-text uppercase">QUANCORE_OS_V4.1</h1>
-                <p class="text-[10px] opacity-50 tracking-[2px]">LOCATION: DATA_CENTER_01 // SECURE_LINE_ACTIVE</p>
+                <p class="text-[10px] opacity-50 tracking-[2px]">CORE_ID: <span id="core_id_display">LOADING...</span> // SECURE_LINE_ACTIVE</p>
             </div>
             <nav class="flex gap-2">
                 <a href="admin.html" class="nav-btn nav-active">📊 Monitoring</a>
@@ -107,9 +108,9 @@
             
             <div class="col-span-12 lg:col-span-3 space-y-4">
                 <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Uplink Status</h3>
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">System Status</h3>
                     <div class="flex justify-between items-end">
-                        <span class="text-2xl font-bold text-green-500">ENCRYPTED</span>
+                        <span id="system_status" class="text-2xl font-bold text-green-500">INITIALIZING</span>
                         <span class="status-pill animate-pulse">LIVE</span>
                     </div>
                 </div>
@@ -139,7 +140,7 @@
                 <div class="quantum-card p-4 h-[350px] flex flex-col">
                     <h3 class="text-[10px] text-gray-500 mb-2 uppercase border-b border-cyan-900 pb-2">Kernel_Logs</h3>
                     <div id="log-container" class="text-[9px] font-mono space-y-1 overflow-y-auto flex-1 text-cyan-700 mt-2">
-                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -149,7 +150,7 @@
                         <h2 class="text-xs terminal-text tracking-[4px] uppercase">Global_Traffic_Feed</h2>
                         <div class="text-right">
                             <div id="traffic_val" class="text-2xl font-bold">0.00 Mbps</div>
-                            <div class="text-[10px] text-gray-500">PEAK_FLOW: 842.1 Mbps</div>
+                            <div class="text-[10px] text-gray-500">WALLET_BAL: <span id="balance_val" class="text-emerald-400">0.00</span> TON</div>
                         </div>
                     </div>
                     <canvas id="trafficChart"></canvas>
@@ -181,8 +182,8 @@
 
                 <div class="quantum-card p-6 border-l-4 border-emerald-500 bg-emerald-500/5">
                     <h3 class="text-[10px] text-emerald-500 mb-2 uppercase tracking-widest">Stability Index</h3>
-                    <div class="text-4xl font-bold">99.9%</div>
-                    <p class="text-[9px] text-gray-500 mt-2 leading-relaxed">System operational. No anomalies detected in current quantum session. All nodes reporting nominal values.</p>
+                    <div id="stability_val" class="text-4xl font-bold">99.9%</div>
+                    <p class="text-[9px] text-gray-500 mt-2 leading-relaxed">System operational. No anomalies detected. All nodes reporting nominal values via Pytoniq Core.</p>
                 </div>
             </div>
 
@@ -190,7 +191,6 @@
     </div>
 
     <script>
-        // Конфигурация графиков
         Chart.defaults.color = 'rgba(0, 210, 255, 0.5)';
         Chart.defaults.font.family = "'Share Tech Mono'";
 
@@ -226,7 +226,6 @@
             });
         };
 
-        // Инициализация графиков
         const trafficChart = createLineChart('trafficChart', 'rgba(0, 210, 255, 1)');
         const integrityChart = createLineChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
         const responseChart = createLineChart('responseChart', 'rgba(168, 85, 247, 1)');
@@ -258,59 +257,78 @@
             }
         });
 
-        // Логика системы
-        function addLog(msg) {
+        function addLog(msg, type = "SYS_MSG") {
             const container = document.getElementById('log-container');
             const time = new Date().toLocaleTimeString();
             const log = document.createElement('div');
-            log.className = "mb-1 border-l border-cyan-900 pl-2";
-            log.innerHTML = `<span class="opacity-30 text-[8px]">[${time}]</span> <span class="text-cyan-400">SYS_MSG:</span> ${msg}`;
+            log.className = "mb-1 border-l border-cyan-900 pl-2 animate-pulse";
+            log.innerHTML = `<span class="opacity-30 text-[8px]">[${time}]</span> <span class="text-cyan-400">${type}:</span> ${msg}`;
             container.prepend(log);
             if(container.childNodes.length > 25) container.lastChild.remove();
         }
 
-        function updateData() {
-            const traffic = (Math.random() * 200 + 450).toFixed(2);
-            const conns = Math.floor(Math.random() * 50 + 820);
-            const cpu = Math.floor(Math.random() * 30 + 15);
-            const ram = Math.floor(Math.random() * 5 + 72);
-            const ping = Math.floor(Math.random() * 12 + 14);
+        // Основная функция запроса данных из бэкенда
+        async function fetchSystemData() {
+            try {
+                const response = await fetch('/api/stats');
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.json();
 
-            // Обновление DOM
-            document.getElementById('traffic_val').innerText = traffic + " Mbps";
-            document.getElementById('conn_val').innerText = conns;
-            document.getElementById('latency_val').innerText = ping;
-            document.getElementById('cpu_bar').style.width = cpu + "%";
-            document.getElementById('cpu_label').innerText = cpu + "%";
-            document.getElementById('ram_bar').style.width = ram + "%";
-            document.getElementById('ram_label').innerText = ram + "%";
+                // 1. Обновление текстовых полей
+                document.getElementById('core_id_display').innerText = data.engine?.core_id || "UNKNOWN";
+                document.getElementById('system_status').innerText = data.engine?.status || "OFFLINE";
+                document.getElementById('conn_val').innerText = data.connections || 0;
+                document.getElementById('balance_val').innerText = data.balance || "0.00";
+                document.getElementById('traffic_val').innerText = (data.traffic || 0) + " Mbps";
+                document.getElementById('latency_val').innerText = data.ping || 0;
 
-            // Обновление линейных графиков
-            const charts = [trafficChart, integrityChart, responseChart];
-            const vals = [traffic, Math.random()*100, Math.random()*50];
-            
-            charts.forEach((chart, i) => {
-                chart.data.datasets[0].data.shift();
-                chart.data.datasets[0].data.push(vals[i]);
-                chart.update('none');
-            });
+                // 2. Обновление прогресс-баров
+                const cpu = data.cpu || 0;
+                const ram = data.ram || 0;
+                document.getElementById('cpu_bar').style.width = cpu + "%";
+                document.getElementById('cpu_label').innerText = cpu + "%";
+                document.getElementById('ram_bar').style.width = ram + "%";
+                document.getElementById('ram_label').innerText = ram + "%";
 
-            // Обновление радара
-            latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(() => Math.random() * 20 + 10);
-            latencyChart.update('none');
+                // 3. Обновление графиков
+                const updateChart = (chart, val) => {
+                    chart.data.datasets[0].data.shift();
+                    chart.data.datasets[0].data.push(val);
+                    chart.update('none');
+                };
 
-            // Случайные логи
-            const msgs = ["Handshake Node_0x4", "Buffer sweep complete", "Encrypted Tunnel Stabilized", "Packet relay optimized"];
-            if(Math.random() > 0.8) addLog(msgs[Math.floor(Math.random()*msgs.length)]);
+                updateChart(trafficChart, data.traffic);
+                updateChart(integrityChart, cpu);
+                updateChart(responseChart, ram);
+
+                // 4. Обновление радара задержки
+                latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
+                    Math.max(10, v + (Math.random() * 4 - 2))
+                );
+                latencyChart.update('none');
+
+                // Случайные логи на основе статуса
+                if(Math.random() > 0.85) {
+                    const logs = ["Packet burst handled", "Pytoniq node synced", "Encryption keys rotated", "Neural buffer cleared"];
+                    addLog(logs[Math.floor(Math.random() * logs.length)]);
+                }
+
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                document.getElementById('system_status').innerText = "CONNECTION_LOST";
+                document.getElementById('system_status').className = "text-2xl font-bold text-red-500";
+            }
         }
 
-        setInterval(updateData, 2000);
-        updateData();
+        // Запуск цикла обновления
+        setInterval(fetchSystemData, 2000);
         
         // Начальные логи
-        setTimeout(() => addLog("NEURAL CORE INITIALIZED"), 500);
-        setTimeout(() => addLog("BOOTING SECURITY PROTOCOLS"), 1000);
-        setTimeout(() => addLog("CONNECTION SECURE"), 1500);
+        addLog("PYTONIQ ENGINE V4.1 LOADED", "CORE");
+        setTimeout(() => addLog("ESTABLISHING SECURE TUNNEL...", "NET"), 800);
+        setTimeout(() => addLog("QUANTUM SHIELD ACTIVE", "SEC"), 1600);
+        
+        fetchSystemData();
     </script>
 </body>
 </html>
