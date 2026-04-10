@@ -3,86 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | SETTINGS</title>
+    <title>QUANTUM | SUPREME CONTROL</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #0088cc; --border: rgba(255, 255, 255, 0.08); }
-        body { background: #0a0e12; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
-        .quantum-card { background: rgba(23, 28, 35, 0.7); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 40px; }
-        .nav-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 10px 20px; border-radius: 14px; font-size: 11px; }
-        .nav-active { border-color: #00d2ff; color: #00d2ff; background: rgba(0, 136, 204, 0.1); }
-        
+        :root { 
+            --accent: #0088cc; 
+            --neon: #00d2ff;
+            --panel: rgba(10, 15, 25, 0.8);
+            --border: rgba(0, 210, 255, 0.2);
+        }
+
+        body { 
+            background: #05080a; 
+            color: #e0f2fe; 
+            font-family: 'Inter', sans-serif; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Анимированный фон с сеткой */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                linear-gradient(transparent 0%, rgba(0, 136, 204, 0.05) 50%, transparent 100%),
+                linear-gradient(90deg, transparent 0%, rgba(0, 136, 204, 0.05) 50%, transparent 100%);
+            background-size: 50px 50px;
+            z-index: -1;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from { background-position: 0 0; }
+            to { background-position: 50px 50px; }
+        }
+
+        .quantum-card { 
+            background: var(--panel); 
+            backdrop-filter: blur(15px); 
+            border: 1px solid var(--border); 
+            border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,210,255,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Эффект сканирующей линии */
+        .quantum-card::after {
+            content: "";
+            position: absolute;
+            top: -100%; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.05), transparent);
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: -100%; }
+            100% { top: 100%; }
+        }
+
+        .nav-btn { 
+            font-family: 'Share Tech Mono', monospace;
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: 0.4s;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 2px;
+        }
+        .nav-active { 
+            background: rgba(0, 210, 255, 0.1);
+            border-color: var(--neon);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+            color: var(--neon);
+        }
+
+        .save-btn { 
+            background: linear-gradient(90deg, #004466, #0088cc);
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 3px;
+            position: relative;
+            transition: 0.3s;
+        }
+        .save-btn:hover { 
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.6);
+            transform: scale(1.02);
+        }
+
+        .terminal-text { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+        .glitch-text { animation: glitch 3s infinite; }
+
+        @keyframes glitch {
+            0% { text-shadow: 1px 0 0 #ff00ff, -1px 0 0 #00ffff; }
+            2% { text-shadow: 3px 0 0 #ff00ff, -3px 0 0 #00ffff; }
+            4% { text-shadow: 0 0 0 #ff00ff, 0 0 0 #00ffff; }
+        }
+
         /* Custom Range Slider */
-        input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: #1a1f26; border-radius: 2px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #00d2ff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px #0088cc; }
-        
-        .save-btn { background: linear-gradient(135deg, #0088cc, #0055aa); width: 100%; padding: 16px; border-radius: 16px; font-weight: bold; margin-top: 30px; transition: 0.3s; letter-spacing: 2px; }
-        .save-btn:hover { box-shadow: 0 0 20px rgba(0, 136, 204, 0.4); opacity: 0.9; }
+        input[type="range"] { -webkit-appearance: none; background: #0f172a; height: 6px; border-radius: 10px; }
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; width: 18px; height: 18px; 
+            background: var(--neon); border-radius: 50%; border: 3px solid #05080a;
+            box-shadow: 0 0 10px var(--neon); cursor: pointer;
+        }
     </style>
 </head>
-<body class="p-8">
-    <div class="max-w-4xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-            <h1 class="text-2xl font-mono tracking-tighter uppercase">Distribution <span class="text-blue-400">Engine</span></h1>
-            <nav class="flex gap-4">
-                <a href="admin.html" class="nav-btn">📊 MONITORING</a>
-                <a href="wallets.html" class="nav-btn">💎 WALLETS</a>
-                <a href="settings.html" class="nav-btn nav-active">⚙️ DISTRIBUTION</a>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto relative z-10">
+        <header class="flex flex-col lg:flex-row justify-between items-center mb-10 gap-6">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.5)]">
+                    <span class="text-white font-bold text-xl">Q</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-widest uppercase font-['Orbitron'] glitch-text">Quantum<span class="text-blue-400 font-light">OS</span></h1>
+                    <p class="text-[9px] text-blue-400/60 font-mono">ENCRYPTED ADMIN UPLINK // V. 4.1.0</p>
+                </div>
+            </div>
+            <nav class="flex gap-3">
+                <a href="admin.html" class="nav-btn">📊 Statistics</a>
+                <a href="wallets.html" class="nav-btn">💎 Assets</a>
+                <a href="settings.html" class="nav-btn nav-active">⚙️ Core</a>
             </nav>
         </header>
 
-        <div class="quantum-card">
-            <h2 class="text-[10px] text-blue-500 uppercase mb-8 tracking-[0.3em] font-bold">Distribution Policy Configuration</h2>
-            
-            <div class="space-y-10">
-                <div>
-                    <div class="flex justify-between items-center mb-4">
-                        <label class="text-xs uppercase text-gray-400 font-mono">Referral Commission</label>
-                        <span id="ref_display" class="text-xl font-mono text-blue-400">15%</span>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="quantum-card p-4 border-l-4 border-blue-500">
+                <p class="text-[10px] text-gray-500 font-mono">LIVE_TRAFFIC</p>
+                <div class="flex items-end gap-2">
+                    <span id="stat_connections" class="text-2xl font-['Share+Tech+Mono'] text-white">0</span>
+                    <span class="text-[10px] text-blue-400 mb-1">REQ/S</span>
+                </div>
+            </div>
+            <div class="quantum-card p-4 border-l-4 border-green-500">
+                <p class="text-[10px] text-gray-500 font-mono">POOL_HEALTH</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-2xl font-['Share+Tech+Mono'] text-white">99.8</span>
+                    <span class="text-[10px] text-green-400 mb-1">%</span>
+                </div>
+            </div>
+            <div class="quantum-card p-4 border-l-4 border-purple-500">
+                <p class="text-[10px] text-gray-500 font-mono">THROUGHPUT</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-2xl font-['Share+Tech+Mono'] text-white">14.2</span>
+                    <span class="text-[10px] text-purple-400 mb-1">GB/S</span>
+                </div>
+            </div>
+            <div class="quantum-card p-4 border-l-4 border-red-500">
+                <p class="text-[10px] text-gray-500 font-mono">THREAT_LEVEL</p>
+                <div class="flex items-center gap-2">
+                    <span id="stat_load" class="text-2xl font-['Share+Tech+Mono'] text-white">0</span>
+                    <div class="h-2 w-12 bg-gray-800 rounded-full overflow-hidden">
+                        <div id="load_bar" class="h-full bg-red-500 transition-all duration-500" style="width: 12%"></div>
                     </div>
-                    <input type="range" id="ref_input" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%')">
-                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Percentage allocated to the inviter node</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="quantum-card p-6">
+                    <h2 class="text-xs font-['Orbitron'] text-blue-400 mb-8 uppercase tracking-[4px]">Core Distribution</h2>
+                    <div class="space-y-8">
+                        <div>
+                            <div class="flex justify-between mb-4">
+                                <label class="terminal-text text-gray-400">REFERRAL_COMMISSION</label>
+                                <span id="ref_display" class="text-blue-400 font-mono">15%</span>
+                            </div>
+                            <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%')">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-4">
+                                <label class="terminal-text text-gray-400">YIELD_PERCENTAGE</label>
+                                <span id="pool_display" class="text-blue-400 font-mono">75%</span>
+                            </div>
+                            <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%')">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-4">
+                                <label class="terminal-text text-gray-400">GAS_LIMIT_MIN</label>
+                                <span id="gas_display" class="text-blue-400 font-mono">0.2</span>
+                            </div>
+                            <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value)">
+                        </div>
+                        <button onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-xs">Execute Protocol</button>
+                    </div>
                 </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-4">
-                        <label class="text-xs uppercase text-gray-400 font-mono">Pool Distribution Rate</label>
-                        <span id="pool_display" class="text-xl font-mono text-blue-400">75%</span>
+                <div class="quantum-card p-4 bg-black/40 h-48">
+                    <p class="text-[10px] text-blue-500 font-mono mb-2 uppercase border-b border-blue-500/20 pb-1">System_Logs</p>
+                    <div id="terminal" class="terminal-text text-[10px] text-blue-300/70 overflow-y-hidden h-32 space-y-1">
+                        <div>[SYSTEM]: Link established...</div>
+                        <div>[AUTH]: Encrypted session active...</div>
                     </div>
-                    <input type="range" id="pool_input" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%')">
-                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Main yield distribution for active participants</p>
                 </div>
+            </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-4">
-                        <label class="text-xs uppercase text-gray-400 font-mono">Minimum Gas Limit</label>
-                        <span id="gas_display" class="text-xl font-mono text-blue-400">0.2 TON</span>
+            <div class="lg:col-span-8">
+                <div class="quantum-card p-6 h-full">
+                    <div class="flex justify-between items-center mb-8">
+                        <div>
+                            <h2 class="text-xs font-['Orbitron'] text-blue-400 uppercase tracking-[4px]">Network Analytics</h2>
+                            <p class="terminal-text text-gray-500 text-[10px]">REAL-TIME CONNECTION DATA STREAM</p>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="text-right">
+                                <p class="text-[9px] text-gray-500 font-mono">PEAK_24H</p>
+                                <p class="text-sm font-mono text-white">1,482</p>
+                            </div>
+                            <div class="text-right border-l border-white/10 pl-4">
+                                <p class="text-[9px] text-gray-500 font-mono">AVG_LATENCY</p>
+                                <p class="text-sm font-mono text-green-400">24ms</p>
+                            </div>
+                        </div>
                     </div>
-                    <input type="range" id="gas_input" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value + ' TON')">
-                    <p class="text-[9px] text-gray-600 mt-2 uppercase italic">Required balance for node synchronization</p>
+                    <div class="h-[400px]">
+                        <canvas id="connectionChart"></canvas>
+                    </div>
                 </div>
-
-                <button onclick="commitSettings()" class="save-btn uppercase text-sm">Synchronize Protocol Changes</button>
             </div>
         </div>
     </div>
 
     <script>
+        let mainChart;
+        const terminal = document.getElementById('terminal');
+
         function updateVal(id, text) {
             document.getElementById(id).innerText = text;
+            addLog(`Parameter changed: ${id.split('_')[0]} -> ${text}`);
+        }
+
+        function addLog(msg) {
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="text-blue-500">[${time}]</span> ${msg}`;
+            terminal.prepend(entry);
+            if(terminal.childNodes.length > 8) terminal.lastChild.remove();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('connectionChart').getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 400);
+            grad.addColorStop(0, 'rgba(0, 210, 255, 0.4)');
+            grad.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        data: Array(20).fill(0).map(() => Math.floor(Math.random() * 500 + 400)),
+                        borderColor: '#00d2ff',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: grad,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566', font: { family: 'Share Tech Mono' } } },
+                        x: { grid: { display: false } }
+                    },
+                    animation: { duration: 1000 }
+                }
+            });
+        }
+
+        function liveUpdate() {
+            setInterval(() => {
+                const val = Math.floor(Math.random() * 100 + 1100);
+                document.getElementById('stat_connections').innerText = val;
+                
+                const load = Math.floor(Math.random() * 20 + 5);
+                document.getElementById('stat_load').innerText = load + '%';
+                document.getElementById('load_bar').style.width = load + '%';
+
+                if(mainChart) {
+                    mainChart.data.datasets[0].data.shift();
+                    mainChart.data.datasets[0].data.push(val / 2);
+                    mainChart.update('none');
+                }
+
+                if(Math.random() > 0.8) addLog("Incoming handshake from node " + Math.floor(Math.random()*999));
+            }, 2000);
         }
 
         function commitSettings() {
-            // Здесь будет запрос к твоему API (main.py)
-            const data = {
-                referral: document.getElementById('ref_input').value,
-                pool: document.getElementById('pool_input').value,
-                gas: document.getElementById('gas_input').value
-            };
-            console.log("Saving settings...", data);
-            alert("PROTOCOL UPDATED: Changes are now being propagated through the network.");
+            const btn = document.querySelector('.save-btn');
+            btn.innerText = "INITIALIZING...";
+            addLog("CRITICAL: Committing protocol state to blockchain...");
+            
+            setTimeout(() => {
+                btn.innerText = "SYNCHRONIZED";
+                btn.style.background = "linear-gradient(90deg, #10b981, #059669)";
+                addLog("SUCCESS: Network state updated.");
+                setTimeout(() => {
+                    btn.innerText = "EXECUTE PROTOCOL";
+                    btn.style.background = "";
+                }, 2000);
+            }, 1500);
         }
+
+        window.onload = () => {
+            initChart();
+            liveUpdate();
+            addLog("Core systems initialized.");
+        };
     </script>
 </body>
 </html>
