@@ -52,7 +52,6 @@ try:
     log("L2: Модули базы данных подключены", "SUCCESS")
 except ImportError:
     log("L2 ERROR: Файл database.py не найден!", "ERROR")
-    # Если базы данных нет, создадим заглушки для работы сервера
     async def init_db(): pass
     async def log_ai_action(*args): pass
     async def get_market_state(): return {}
@@ -175,22 +174,24 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 async def serve_index():
     return FileResponse(os.path.join(overlord.get_static_path(), "index.html"))
 
-# Специальный роут для админки (OPERATOR)
+# Специальный роут для админки (Настроен под static/admin/admin.html)
 @app.get("/admin")
 @app.get("/admin/")
 @app.get("/admin.html")
 async def serve_admin():
     static_dir = overlord.get_static_path()
-    # Ищем файл в разных местах для надежности
-    paths = [
-        os.path.join(static_dir, "admin", "admin.html"),
-        os.path.join(static_dir, "admin.html")
-    ]
-    for p in paths:
-        if os.path.exists(p):
-            return FileResponse(p)
+    # Приоритетный поиск в папке admin
+    admin_path = os.path.join(static_dir, "admin", "admin.html")
     
-    log(f"WEB ERROR: admin.html не найден по путям {paths}", "ERROR")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    
+    # Резервный поиск в корне static
+    fallback_path = os.path.join(static_dir, "admin.html")
+    if os.path.exists(fallback_path):
+        return FileResponse(fallback_path)
+        
+    log(f"WEB ERROR: admin.html не найден. Ожидалось: {admin_path}", "ERROR")
     return JSONResponse({"error": "Admin file not found. Place it in static/admin/admin.html"}, status_code=404)
 
 # Универсальный роут для остальных страниц
