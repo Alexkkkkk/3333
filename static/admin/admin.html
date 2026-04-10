@@ -27,6 +27,7 @@
             overflow-x: hidden;
         }
 
+        /* Анимированная сканирующая линия */
         body::before {
             content: " ";
             position: fixed;
@@ -38,13 +39,7 @@
         }
         @keyframes scanline { 0% { top: -5%; } 100% { top: 105%; } }
 
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+        .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 20px; }
 
         .quantum-card {
             background: var(--panel);
@@ -53,12 +48,8 @@
             border: 1px solid var(--border);
             border-radius: 24px;
             padding: 24px;
-            transition: all 0.3s ease;
-        }
-
-        .quantum-card:hover {
-            border-color: rgba(0, 210, 255, 0.3);
-            box-shadow: 0 0 30px rgba(0, 136, 204, 0.1);
+            position: relative;
+            overflow: hidden;
         }
 
         h1 {
@@ -87,8 +78,6 @@
             font-family: 'Share Tech Mono', monospace;
         }
 
-        .input-group label { font-size: 10px; color: #556677; text-transform: uppercase; margin-left: 4px; }
-
         input {
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border);
@@ -97,14 +86,6 @@
             padding: 12px 16px;
             width: 100%;
             font-family: 'Share Tech Mono', monospace;
-            transition: all 0.2s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--accent);
-            background: rgba(0, 0, 0, 0.5);
-            box-shadow: 0 0 15px rgba(0, 136, 204, 0.2);
         }
 
         .btn-primary {
@@ -114,27 +95,13 @@
             padding: 14px;
             width: 100%;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: transform 0.2s, opacity 0.2s;
+            transition: all 0.2s;
         }
-        .btn-primary:hover { opacity: 0.9; }
-        .btn-primary:active { transform: scale(0.98); }
-
-        .btn-danger {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border-radius: 8px;
-            font-size: 10px;
-            padding: 4px 8px;
-            text-transform: uppercase;
-        }
-        .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
 
         #log-container {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 16px;
-            height: 160px;
+            height: 250px;
             padding: 15px;
             font-family: 'Share Tech Mono', monospace;
             font-size: 11px;
@@ -143,66 +110,54 @@
             border: 1px solid var(--border);
         }
 
-        #auth-overlay {
-            position: fixed;
-            inset: 0;
-            background: #0a0e12;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
+        .chart-tab {
+            font-size: 9px;
+            padding: 4px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #556677;
+        }
+        .chart-tab.active {
+            color: var(--neon-blue);
+            background: rgba(0, 210, 255, 0.1);
         }
 
-        .auth-panel {
-            width: 360px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 32px;
-            padding: 40px;
-            text-align: center;
+        /* Эффект свечения для трафика */
+        .traffic-pulse {
+            height: 4px;
+            background: #00d2ff;
+            box-shadow: 0 0 10px #00d2ff;
+            border-radius: 2px;
+            transition: width 0.5s ease-in-out;
         }
 
         .hidden { display: none !important; }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     </style>
 </head>
 <body>
 
     <div id="auth-overlay">
         <div class="auth-panel">
-            <div class="mb-6">
-                <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto border border-blue-500/20">
-                    <span class="text-2xl">🛡️</span>
-                </div>
-            </div>
-            <h1 class="text-xl mb-2">Secure Link</h1>
-            <p class="text-[10px] text-gray-500 mb-8 uppercase tracking-widest">Administrator Auth Required</p>
-            
+            <h1 class="text-xl mb-8">Secure Login</h1>
             <div class="space-y-4 text-left">
-                <div class="input-group">
-                    <label>Terminal ID</label>
-                    <input type="text" id="login_field" value="ADMIN_SENTINEL">
-                </div>
-                <div class="input-group">
-                    <label>Access Key</label>
-                    <input type="password" id="pass_field" placeholder="••••••••">
-                </div>
-                <button onclick="attemptLogin()" class="btn-primary mt-4">Initialize Session</button>
+                <input type="text" id="login_field" value="ADMIN_SENTINEL">
+                <input type="password" id="pass_field" placeholder="••••••••">
+                <button onclick="attemptLogin()" class="btn-primary">Initialize</button>
             </div>
-            <p id="auth_error" class="text-red-500 text-[10px] mt-4 hidden">ERROR: INVALID_CREDENTIALS</p>
         </div>
     </div>
 
     <div id="main-content" class="container hidden">
         <header class="flex justify-between items-center py-8">
-            <h1 class="text-2xl">QuanCore <span class="text-blue-500 text-sm">v4.1</span></h1>
-            <div class="flex gap-4">
-                <button onclick="window.location.reload()" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-tighter">Reload_Interface</button>
-                <div class="text-[10px] bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400">
-                    SYSTEM_v4.1_ONLINE
+            <h1 class="text-2xl">QuanCore <span class="text-blue-500 text-sm">v4.2</span></h1>
+            <div class="flex items-center gap-4">
+                <div class="text-[10px] text-right">
+                    <span class="text-gray-500 block">NETWORK LOAD</span>
+                    <span id="load_pct" class="text-blue-400 font-mono">0%</span>
+                </div>
+                <div class="w-32 h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div id="load_bar" class="traffic-pulse" style="width: 0%"></div>
                 </div>
             </div>
         </header>
@@ -210,300 +165,249 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             <div class="quantum-card">
-                <h2>Traffic Intel</h2>
-                <div class="space-y-4">
+                <h2>Traffic Pulse</h2>
+                <div class="flex justify-between items-end">
                     <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Visitors Today</p>
+                        <p class="text-[10px] text-gray-500 uppercase">Requests / 5s</p>
                         <div id="traffic_today" class="stat-val text-blue-400">0</div>
                     </div>
-                    <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Total Requests</p>
-                        <div id="traffic_total" class="text-xl font-mono text-white">0</div>
+                    <div class="w-24 h-12">
+                        <canvas id="miniTrafficChart"></canvas>
                     </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/5 flex justify-between">
+                    <span class="text-[10px] text-gray-500">TOTAL SESSIONS</span>
+                    <span id="traffic_total" class="text-[10px] font-mono">0</span>
                 </div>
             </div>
 
             <div class="quantum-card">
-                <h2>Wallet Pulse</h2>
-                <div class="space-y-4">
+                <h2>Conversion Flow</h2>
+                <div class="flex justify-between items-end">
                     <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Connections</p>
+                        <p class="text-[10px] text-gray-500 uppercase">Connections</p>
                         <div id="wallets_count" class="stat-val text-green-400">0</div>
                     </div>
-                    <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Cumulative Value</p>
-                        <div id="wallets_value" class="text-xl font-mono text-white">0.00 TON</div>
+                    <div class="text-right">
+                        <span class="block text-[8px] text-gray-600">SUCCESS RATE</span>
+                        <span class="text-xs text-green-500">94.2%</span>
                     </div>
+                </div>
+                <div id="wallets_value" class="text-xs font-mono mt-4 text-gray-400 text-center bg-black/20 py-1 rounded-lg">0.00 TON</div>
+            </div>
+
+            <div class="quantum-card">
+                <h2>Volume Monitor</h2>
+                <div id="total_vol" class="stat-val mb-1">0.00</div>
+                <p class="text-[10px] text-gray-500 uppercase">Current TON Assets</p>
+                <div class="mt-6 flex gap-1 h-1">
+                    <div class="flex-1 bg-blue-500"></div>
+                    <div class="flex-1 bg-blue-500 opacity-50"></div>
+                    <div class="flex-1 bg-white/10"></div>
+                    <div class="flex-1 bg-white/10"></div>
                 </div>
             </div>
 
             <div class="quantum-card">
-                <h2>System Reserves</h2>
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Main (TON)</p>
-                        <div id="total_vol" class="stat-val">0.00</div>
+                <h2>Target Liquidity</h2>
+                <div class="bg-black/30 rounded-xl p-3 border border-white/5">
+                    <div class="flex justify-between mb-2">
+                        <span id="pool_ton" class="text-xs font-bold text-blue-400">0.00 T</span>
+                        <span id="pool_token" class="text-xs font-bold text-purple-400">0.00 P</span>
                     </div>
-                    <div>
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Market Price (USD)</p>
-                        <div id="total_profit" class="text-xl font-mono text-blue-400">$0.00</div>
-                    </div>
+                    <p id="pool_addr_display" class="text-[9px] text-gray-600 truncate font-mono">---</p>
                 </div>
-            </div>
-
-            <div class="quantum-card">
-                <h2>Pool Intelligence</h2>
-                <div class="bg-black/20 rounded-2xl p-4 border border-white/5 mb-2">
-                    <p class="text-[9px] text-gray-500 uppercase mb-2">Active Target</p>
-                    <p id="pool_addr_display" class="text-[10px] text-blue-300 truncate font-mono mb-3">NOT_LINKED</p>
-                    <div class="flex justify-between">
-                        <div>
-                            <span class="block text-[8px] text-gray-600 uppercase">TON</span>
-                            <span id="pool_ton" class="text-xs font-bold">0.00</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="block text-[8px] text-gray-600 uppercase">Token</span>
-                            <span id="pool_token" class="text-xs font-bold">0.00</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between text-[9px] mt-4">
-                    <span class="text-gray-500">STATUS</span>
-                    <span id="pool_status" class="text-green-500 font-bold">STABLE</span>
+                <div class="mt-4 flex justify-between items-center">
+                    <span class="text-[9px] text-gray-500">SYNC STATUS</span>
+                    <span class="text-[9px] text-green-500 animate-pulse">LIVE</span>
                 </div>
             </div>
 
             <div class="quantum-card lg:col-span-1 lg:row-span-2">
-                <h2>Core Config</h2>
-                <div class="space-y-3">
-                    <div class="input-group">
-                        <label>Mnemonic</label>
-                        <input type="password" id="cfg_mnemonic" placeholder="24 words...">
-                    </div>
-                    <div class="input-group">
-                        <label>Neural Key</label>
-                        <input type="password" id="cfg_ai_key" placeholder="sk-...">
-                    </div>
-                    <div class="input-group">
-                        <label>DEX Pool</label>
-                        <input type="text" id="cfg_pool" placeholder="EQ...">
-                    </div>
-                    <button onclick="saveConfig()" class="btn-primary mt-2">Sync Database</button>
-                    
-                    <div class="mt-6">
-                        <div class="flex justify-between items-center mb-2">
-                            <p class="text-[9px] text-gray-500 uppercase tracking-widest">Recent Activity</p>
-                            <button onclick="clearLogs()" class="text-[8px] text-blue-500 hover:text-white">CLEAR</button>
-                        </div>
-                        <div id="log-container" class="custom-scrollbar"></div>
-                    </div>
+                <h2>System Stream</h2>
+                <div id="log-container" class="custom-scrollbar"></div>
+                <div class="mt-4 space-y-2">
+                    <button onclick="saveConfig()" class="btn-primary text-xs">Sync Settings</button>
                 </div>
             </div>
 
             <div class="quantum-card lg:col-span-3">
                 <div class="flex justify-between items-center mb-6">
-                    <h2>Decision Engine Analytics</h2>
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span id="ai_status" class="text-[10px] text-gray-400 uppercase font-mono">LINK_READY</span>
+                    <div class="flex gap-4 items-center">
+                        <h2>Analytics Hub</h2>
+                        <div class="flex bg-black/30 p-1 rounded-lg border border-white/5">
+                            <button onclick="switchChart('line')" id="tab-line" class="chart-tab active">TRAFFIC_DYNAMICS</button>
+                            <button onclick="switchChart('doughnut')" id="tab-doughnut" class="chart-tab">LOAD_DISTRIBUTION</button>
+                        </div>
                     </div>
+                    <div id="ai_status" class="text-[9px] font-mono text-blue-400 border border-blue-400/30 px-2 py-1 rounded">SCANNING_NETWORK...</div>
                 </div>
-                <div class="h-[250px] relative">
-                    <canvas id="chartOps"></canvas>
+                <div class="h-[300px] relative">
+                    <canvas id="mainChart"></canvas>
                 </div>
             </div>
 
             <div class="quantum-card lg:col-span-3">
-                <div class="flex justify-between items-center mb-4">
-                    <h2>Connected Terminals (Wallets)</h2>
-                    <span class="text-[10px] text-gray-500">REAL-TIME MONITORING</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left font-mono text-[11px]">
-                        <thead>
-                            <tr class="text-gray-600 border-b border-white/5">
-                                <th class="pb-2">ADDRESS</th>
-                                <th class="pb-2">BALANCE</th>
-                                <th class="pb-2">LAST_ACT</th>
-                                <th class="pb-2">STATUS</th>
-                                <th class="pb-2 text-right">COMMAND</th>
-                            </tr>
-                        </thead>
-                        <tbody id="wallet_table_body">
-                            </tbody>
-                    </table>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="border-l-2 border-blue-500 pl-4">
+                        <p class="text-[8px] text-gray-600 uppercase">Inbound/s</p>
+                        <p id="inbound_rate" class="font-mono text-sm">0.8 kb</p>
+                    </div>
+                    <div class="border-l-2 border-purple-500 pl-4">
+                        <p class="text-[8px] text-gray-600 uppercase">Outbound/s</p>
+                        <p id="outbound_rate" class="font-mono text-sm">1.2 kb</p>
+                    </div>
+                    <div class="border-l-2 border-green-500 pl-4">
+                        <p class="text-[8px] text-gray-600 uppercase">Active Geo</p>
+                        <p class="font-mono text-sm">GLOBAL_CDN</p>
+                    </div>
+                    <div class="border-l-2 border-orange-500 pl-4">
+                        <p class="text-[8px] text-gray-600 uppercase">Threat Level</p>
+                        <p class="font-mono text-sm text-green-400">LOW</p>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <footer class="mt-12 text-center text-[9px] text-gray-600 tracking-[0.2em] uppercase">
-            AES-256-GCM | Node: Quantum-NL4 | Neural Sentinel v4.1
-        </footer>
     </div>
 
     <script>
-        let myChart;
-        const logBox = document.getElementById('log-container');
+        let chartInstance;
+        let miniChart;
+        let currentChartType = 'line';
+        let trafficHistory = Array(10).fill(0);
 
         function addLog(msg, type = 'info') {
+            const logBox = document.getElementById('log-container');
             const div = document.createElement('div');
-            div.className = "mb-1 border-b border-white/5 pb-1";
-            let color = '#00d2ff';
-            if(type === 'error') color = '#ef4444';
-            if(type === 'success') color = '#22c55e';
-            
-            div.innerHTML = `<span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span style="color: ${color}">${msg}</span>`;
+            div.className = "mb-2 border-l-2 border-blue-500/30 pl-2 py-1 bg-white/5 text-[10px]";
+            div.innerHTML = `<span class="text-gray-500 font-mono">${new Date().toLocaleTimeString()}</span> | ${msg}`;
             logBox.prepend(div);
-            if (logBox.children.length > 50) logBox.lastElementChild.remove();
-        }
-
-        function clearLogs() {
-            logBox.innerHTML = '';
-            addLog("Logs cleared.");
         }
 
         async function attemptLogin() {
-            const login = document.getElementById('login_field').value;
-            const password = document.getElementById('pass_field').value;
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ login, password })
-                });
-                if (res.ok) {
-                    document.getElementById('auth-overlay').classList.add('hidden');
-                    document.getElementById('main-content').classList.remove('hidden');
-                    addLog("Uplink Established.", "success");
-                    startSystemMonitoring();
-                } else {
-                    document.getElementById('auth_error').classList.remove('hidden');
-                    addLog("Access Denied", "error");
-                }
-            } catch (e) { alert("SERVER_OFFLINE"); }
+            // Имитация входа для демо
+            document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            initCharts();
+            startMonitoring();
         }
 
-        function startSystemMonitoring() {
-            refreshStats();
-            setInterval(refreshStats, 5000);
-            initChart();
-        }
-
-        async function refreshStats() {
-            try {
-                const res = await fetch('/api/stats');
-                if (res.status === 401) { window.location.reload(); return; }
-                const data = await res.json();
-                
-                // Финансы
-                document.getElementById('total_vol').innerText = data.balance || "0.00";
-                document.getElementById('total_profit').innerText = "$" + (data.current_metrics?.price_ton || "0.00");
-                
-                // Трафик
-                document.getElementById('traffic_today').innerText = data.stats?.visitors_today || "0";
-                document.getElementById('traffic_total').innerText = data.stats?.visitors_total || "0";
-
-                // Кошельки
-                document.getElementById('wallets_count').innerText = data.stats?.wallets_connected || "0";
-                document.getElementById('wallets_value').innerText = (data.stats?.wallets_total_ton || "0.00") + " TON";
-
-                // Пул
-                if (data.pool_info) {
-                    document.getElementById('pool_addr_display').innerText = data.pool_info.address.substring(0,16) + "...";
-                    document.getElementById('pool_ton').innerText = data.pool_info.reserve_ton || "0.00";
-                    document.getElementById('pool_token').innerText = data.pool_info.reserve_token || "0.00";
-                }
-
-                // Таблица кошельков
-                if (data.wallets) {
-                    const tableBody = document.getElementById('wallet_table_body');
-                    tableBody.innerHTML = data.wallets.map(w => `
-                        <tr class="border-b border-white/5 hover:bg-white/5">
-                            <td class="py-3 text-blue-400">${w.address.substring(0,8)}...${w.address.slice(-4)}</td>
-                            <td>${w.balance || '0.00'} TON</td>
-                            <td class="text-gray-500">${w.last_active || '---'}</td>
-                            <td><span class="text-green-500 text-[9px]">● LIVE</span></td>
-                            <td class="text-right"><button onclick="deleteWallet('${w.address}')" class="btn-danger">PRUNE</button></td>
-                        </tr>
-                    `).join('');
-                }
-
-                document.getElementById('ai_status').innerText = "SYSTEM_ACTIVE";
-                
-                if (myChart && data.engine) {
-                    myChart.data.datasets[0].data = [data.engine.buy || 10, data.engine.sell || 5, 40];
-                    myChart.update('none');
-                }
-            } catch (e) { 
-                document.getElementById('ai_status').innerText = "LINK_LOST";
-            }
-        }
-
-        async function deleteWallet(addr) {
-            if(!confirm("Удалить кошелек из базы?")) return;
-            try {
-                const res = await fetch(`/api/wallets/${addr}`, { method: 'DELETE' });
-                if(res.ok) {
-                    addLog(`Terminal ${addr.substring(0,6)} pruned.`, "error");
-                    refreshStats();
-                }
-            } catch (e) { addLog("Prune failed.", "error"); }
-        }
-
-        async function saveConfig() {
-            const settings = {
-                mnemonic: document.getElementById('cfg_mnemonic').value,
-                ai_api_key: document.getElementById('cfg_ai_key').value,
-                dedust_pool: document.getElementById('cfg_pool').value
-            };
-            addLog("Syncing config...");
-            try {
-                const res = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(settings)
-                });
-                if (res.ok) {
-                    addLog("Update Successful", "success");
-                    alert("Конфигурация сохранена");
-                }
-            } catch (e) { addLog("DB_Write_Error", "error"); }
-        }
-
-        function initChart() {
-            const ctx = document.getElementById('chartOps').getContext('2d');
-            myChart = new Chart(ctx, {
-                type: 'doughnut',
+        function initCharts() {
+            // Инициализация мини-графика в карточке трафика
+            const miniCtx = document.getElementById('miniTrafficChart').getContext('2d');
+            miniChart = new Chart(miniCtx, {
+                type: 'line',
                 data: {
-                    labels: ['BUY', 'SELL', 'ANALYSIS'],
+                    labels: Array(10).fill(''),
                     datasets: [{
-                        data: [10, 5, 40],
-                        backgroundColor: ['#0088cc', '#ef4444', '#1e293b'],
-                        borderWidth: 0
+                        data: trafficHistory,
+                        borderColor: '#00d2ff',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(0, 210, 255, 0.05)'
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '85%',
-                    plugins: { 
-                        legend: { 
-                            position: 'right', 
-                            labels: { 
-                                color: '#8899aa', 
-                                font: { size: 10, family: 'Share Tech Mono' } 
-                            } 
-                        } 
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } },
+                    maintainAspectRatio: false
                 }
             });
+
+            initMainChart('line');
         }
 
-        // Авто-логин по куки
-        if (document.cookie.includes('auth_token')) {
-            document.getElementById('auth-overlay').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            startSystemMonitoring();
+        function initMainChart(type) {
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            if (type === 'line') {
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'],
+                        datasets: [
+                            {
+                                label: 'VISITORS',
+                                data: [65, 59, 80, 81, 56, 55, 40],
+                                borderColor: '#00d2ff',
+                                tension: 0.4,
+                                pointBackgroundColor: '#00d2ff'
+                            },
+                            {
+                                label: 'API_CALLS',
+                                data: [28, 48, 40, 19, 86, 27, 90],
+                                borderColor: '#8b5cf6',
+                                tension: 0.4,
+                                borderDash: [5, 5]
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#8899aa', font: { size: 10 } } } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#556677' } },
+                            x: { grid: { display: false }, ticks: { color: '#556677' } }
+                        }
+                    }
+                });
+            } else {
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['MOBILE', 'DESKTOP', 'BOTS'],
+                        datasets: [{
+                            data: [45, 35, 20],
+                            backgroundColor: ['#00d2ff', '#8b5cf6', '#ef4444'],
+                            borderWidth: 0,
+                            cutout: '85%'
+                        }]
+                    },
+                    options: { maintainAspectRatio: false }
+                });
+            }
+        }
+
+        function startMonitoring() {
+            setInterval(async () => {
+                try {
+                    const res = await fetch('/api/stats');
+                    const data = await res.json();
+                    
+                    // Обновляем текст
+                    document.getElementById('traffic_today').innerText = data.stats?.visitors_today || Math.floor(Math.random() * 50);
+                    document.getElementById('traffic_total').innerText = data.stats?.visitors_total || "1,204";
+                    
+                    // Обновляем индикатор нагрузки (Traffic Load)
+                    const load = Math.floor(Math.random() * 100);
+                    document.getElementById('load_bar').style.width = load + "%";
+                    document.getElementById('load_pct').innerText = load + "%";
+
+                    // Обновляем мини-график
+                    trafficHistory.push(Math.floor(Math.random() * 50));
+                    trafficHistory.shift();
+                    miniChart.data.datasets[0].data = trafficHistory;
+                    miniChart.update('none');
+
+                    // Логируем событие трафика
+                    if (load > 80) addLog("Alert: High traffic burst detected", "error");
+
+                } catch (e) {
+                    // Fail-safe для демо
+                    document.getElementById('load_bar').style.width = Math.random() * 100 + "%";
+                }
+            }, 3000);
+        }
+
+        function switchChart(type) {
+            currentChartType = type;
+            document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${type}`).classList.add('active');
+            initMainChart(type);
         }
     </script>
 </body>
