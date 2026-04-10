@@ -127,7 +127,7 @@
                     <span class="text-xl font-bold tracking-tight">QUANTUM</span>
                     <span class="admin-badge">ADMIN</span>
                 </div>
-                <span class="text-[10px] text-slate-500 font-medium tracking-widest uppercase">Protocol Management</span>
+                <span id="display-core-id" class="text-[10px] text-slate-500 font-medium tracking-widest uppercase">System Loading...</span>
             </div>
         </div>
 
@@ -139,9 +139,9 @@
 
         <div class="flex items-center gap-4">
             <div class="text-right hidden sm:block">
-                <p class="text-[10px] text-slate-500 uppercase font-bold">Status</p>
-                <p id="statusDisplay" class="text-xs text-green-400 flex items-center gap-1 justify-end">
-                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online
+                <p class="text-[10px] text-slate-500 uppercase font-bold">Engine Status</p>
+                <p id="statusDisplay" class="text-xs text-yellow-400 flex items-center gap-1 justify-end">
+                    <span id="statusIcon" class="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span> <span id="statusText">Connecting</span>
                 </p>
             </div>
             <button class="secondary-btn px-4 py-2 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onclick="logout()">Выйти</button>
@@ -154,13 +154,13 @@
                 <div class="lg:col-span-2 space-y-6">
                     <div class="dedust-panel p-10 relative overflow-hidden">
                         <div class="relative z-10">
-                            <h2 class="text-4xl font-bold mb-4">Neural Pulse Protocol</h2>
+                            <h2 class="text-4xl font-bold mb-4 italic uppercase tracking-tighter">Neural Pulse Protocol</h2>
                             <p class="text-slate-400 text-lg max-w-lg mb-8">
-                                Контрольная панель децентрализованного протокола. Управление ликвидностью и мониторинг транзакций в реальном времени.
+                                Контрольная панель ядра V3.0. Управление ликвидностью и мониторинг высокочастотных импульсов в реальном времени.
                             </p>
                             <div class="flex gap-4">
-                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3">Управление свопами</button>
-                                <button class="secondary-btn px-8 py-3">Системный лог</button>
+                                <button onclick="switchTab('swap')" class="action-btn px-8 py-3 uppercase text-xs font-black">Управление свопами</button>
+                                <button class="secondary-btn px-8 py-3 uppercase text-xs font-black" onclick="alert('Uptime: ' + lastUptime + 's')">Инфо Ядра</button>
                             </div>
                         </div>
                         <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/10 blur-[100px] rounded-full"></div>
@@ -168,40 +168,42 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Total Value Locked</p>
-                            <p class="text-2xl font-bold" id="tvlDisplay">$82,142,090</p>
-                            <span class="text-green-400 text-xs font-medium">↑ 2.5% (Admin view)</span>
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1 tracking-wider">Current Wallet Balance</p>
+                            <p class="text-3xl font-black text-cyan-400" id="display-balance">0.00 TON</p>
+                            <span class="text-slate-500 text-[10px] font-medium uppercase">Адрес кошелька активен</span>
                         </div>
                         <div class="dedust-panel p-6">
-                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1">24h System Volume</p>
-                            <p class="text-2xl font-bold" id="volDisplay">$12,405,112</p>
-                            <span class="text-blue-400 text-xs font-medium">14,201 total swaps</span>
+                            <p class="text-slate-500 text-xs uppercase font-semibold mb-1 tracking-wider">Total Operations</p>
+                            <p class="text-3xl font-black text-white" id="display-ops">0</p>
+                            <span class="text-blue-400 text-[10px] font-medium uppercase">Импульсов за сессию</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="dedust-panel p-6">
-                    <h3 class="font-bold mb-4 flex justify-between items-center">
-                        Мониторинг токенов
-                        <span class="text-xs text-slate-500 font-normal underline cursor-pointer">Edit List</span>
-                    </h3>
-                    <div class="space-y-5">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-[10px]">TON</div>
-                                <div>
-                                    <p class="font-semibold text-sm leading-none">TON</p>
-                                    <p class="text-[11px] text-slate-500 italic">Main Asset</p>
+                <div class="dedust-panel p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold mb-4 flex justify-between items-center text-sm uppercase tracking-widest">
+                            Мониторинг TON
+                            <span class="text-[10px] text-green-400">Live</span>
+                        </h3>
+                        <div class="space-y-5">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-[10px]">TON</div>
+                                    <div>
+                                        <p class="font-bold text-sm leading-none">The Open Network</p>
+                                        <p class="text-[11px] text-slate-500">Native Asset</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-black">$5.24</p>
+                                    <p class="text-[10px] text-green-400">+1.2%</p>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <p class="text-sm font-medium">$5.24</p>
-                                <p class="text-[10px] text-green-400">+1.2%</p>
-                            </div>
                         </div>
-                        <div class="pt-4 mt-4 border-t border-white/5">
-                            <canvas id="miniChart" height="100"></canvas>
-                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-white/5">
+                        <canvas id="miniChart" height="120"></canvas>
                     </div>
                 </div>
             </div>
@@ -210,18 +212,18 @@
         <section id="swap" class="tab-content max-w-md mx-auto mt-10">
             <div class="dedust-panel p-6 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold">Тестовый своп</h2>
+                    <h2 class="text-xl font-bold uppercase italic">Тестовый своп</h2>
                     <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-500">ADMIN MODE</span>
                 </div>
                 <div class="space-y-1 relative">
                     <div class="swap-input-group">
-                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
+                        <div class="flex justify-between text-[10px] text-slate-500 mb-2 font-black uppercase">
                             <span>Вы отдаете</span>
-                            <span>Баланс: <span id="userBalance">--</span></span>
+                            <span>Доступно: <span id="userBalanceDisplay">--</span> TON</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <input type="number" placeholder="0.0" class="bg-transparent text-3xl font-bold outline-none w-2/3" id="inputAmount" oninput="calculateSwap()">
-                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 hover:border-blue-500/50">
+                            <button class="secondary-btn px-3 py-1.5 flex items-center gap-2 border-cyan-500/20">
                                 <div id="fromIcon" class="w-5 h-5 bg-blue-500 rounded-full"></div>
                                 <span id="fromSymbol" class="font-bold text-sm">TON</span>
                             </button>
@@ -233,7 +235,7 @@
                         </button>
                     </div>
                     <div class="swap-input-group">
-                        <div class="flex justify-between text-xs text-slate-500 mb-2 font-medium uppercase">
+                        <div class="flex justify-between text-[10px] text-slate-500 mb-2 font-black uppercase">
                             <span>Вы получаете</span>
                             <span id="usdValue">~ $0.00</span>
                         </div>
@@ -246,7 +248,7 @@
                         </div>
                     </div>
                 </div>
-                <button class="w-full mt-4 action-btn py-4 text-lg" onclick="handleSwapAction()">Выполнить админ-обмен</button>
+                <button class="w-full mt-4 action-btn py-4 text-sm font-black uppercase italic tracking-widest" onclick="handleSwapAction()">Выполнить админ-обмен</button>
             </div>
         </section>
 
@@ -254,12 +256,12 @@
             <div class="dedust-panel p-8">
                 <div class="flex justify-between items-end mb-8">
                     <div>
-                        <h2 class="text-2xl font-bold">Аналитика ликвидности</h2>
-                        <p class="text-slate-500 text-sm italic">Полный доступ к данным протокола</p>
+                        <h2 class="text-2xl font-bold uppercase italic">Аналитика пулов</h2>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Протокольная ликвидность</p>
                     </div>
                     <div class="flex bg-black/20 p-1 rounded-xl">
-                        <button class="px-4 py-1.5 text-xs font-bold bg-white/10 rounded-lg">TVL</button>
-                        <button class="px-4 py-1.5 text-xs font-bold text-slate-500">Volume</button>
+                        <button class="px-4 py-1.5 text-[10px] font-black uppercase bg-white/10 rounded-lg">Ликвидность</button>
+                        <button class="px-4 py-1.5 text-[10px] font-black uppercase text-slate-500">Объем 24ч</button>
                     </div>
                 </div>
                 <div class="h-[400px]">
@@ -273,13 +275,12 @@
         const EXCHANGE_RATE = 42.12; 
         const TON_PRICE_USD = 5.24;
         let isReversed = false;
-        const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+        let lastUptime = 0;
 
-        // --- ИНТЕГРАЦИЯ С БЭКЕНДОМ ---
+        // --- ИНТЕГРАЦИЯ С ТВОИМ API (/api/stats) ---
         async function loadDashboardData() {
             try {
                 const response = await fetch('/api/stats');
-                
                 if (response.status === 401) {
                     window.location.href = '/'; 
                     return;
@@ -287,38 +288,44 @@
 
                 const data = await response.json();
 
-                if (data.balance !== undefined) {
-                    document.getElementById('userBalance').innerText = data.balance;
+                // Обновляем баланс
+                if (data.balance) {
+                    const cleanBalance = parseFloat(data.balance).toFixed(2);
+                    document.getElementById('display-balance').innerText = cleanBalance + " TON";
+                    document.getElementById('userBalanceDisplay').innerText = cleanBalance;
                 }
 
-                const statusEl = document.getElementById('statusDisplay');
-                if (data.engine && data.engine.last_status === "running") {
-                    statusEl.innerHTML = '<span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span> Online';
-                    statusEl.className = "text-xs text-green-400 flex items-center gap-1 justify-end";
+                // Обновляем данные движка
+                if (data.engine) {
+                    document.getElementById('display-core-id').innerText = "ID: " + data.engine.core_id;
+                    document.getElementById('display-ops').innerText = data.engine.ops_total;
+                    lastUptime = data.engine.uptime;
+
+                    const statusIcon = document.getElementById('statusIcon');
+                    const statusText = document.getElementById('statusText');
+                    
+                    if (data.engine.status === "ACTIVE") {
+                        statusIcon.className = "w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse";
+                        statusText.innerText = "Online";
+                        statusText.className = "text-green-400";
+                    } else {
+                        statusIcon.className = "w-1.5 h-1.5 bg-yellow-400 rounded-full";
+                        statusText.innerText = data.engine.status;
+                        statusText.className = "text-yellow-400";
+                    }
                 }
 
             } catch (err) {
-                console.warn("API не отвечает (Development Mode)");
+                console.warn("Backend Sync Lost...");
             }
         }
 
         async function logout() {
-            if(confirm("Выйти из панели администратора?")) {
-                try {
-                    await fetch('/api/logout');
-                } finally {
-                    window.location.href = '/';
-                }
+            if(confirm("Завершить сессию администратора?")) {
+                window.location.href = '/';
             }
         }
 
-        window.onload = () => {
-            loadDashboardData();
-            setInterval(loadDashboardData, 10000);
-            renderMiniChart();
-        };
-
-        // --- ИНТЕРФЕЙСНЫЕ ФУНКЦИИ ---
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
@@ -369,24 +376,24 @@
         function handleSwapAction() {
             const amount = document.getElementById('inputAmount').value;
             if(!amount || amount <= 0) return alert("ADMIN: Укажите сумму");
-            alert(`ADMIN: Команда на обмен ${amount} отправлена в очередь исполнения.`);
+            alert(`ADMIN: Сигнал на транзакцию ${amount} TON принят в обработку.`);
         }
 
-        // --- ГРАФИКИ ---
+        // --- ГРАФИКИ (Chart.js) ---
         function renderMiniChart() {
             const miniCtx = document.getElementById('miniChart').getContext('2d');
             new Chart(miniCtx, {
                 type: 'line',
                 data: {
-                    labels: [1,2,3,4,5,6,7,8,9,10],
+                    labels: [1,2,3,4,5,6,7,8],
                     datasets: [{
-                        data: [10, 12, 11, 15, 14, 20, 18, 25, 22, 30],
+                        data: [5.1, 5.2, 5.15, 5.3, 5.28, 5.4, 5.35, 5.24],
                         borderColor: '#0088cc',
-                        borderWidth: 2,
+                        borderWidth: 3,
                         tension: 0.4,
                         pointRadius: 0,
                         fill: true,
-                        backgroundColor: 'rgba(0, 136, 204, 0.05)'
+                        backgroundColor: 'rgba(0, 136, 204, 0.1)'
                     }]
                 },
                 options: { 
@@ -405,10 +412,9 @@
                 data: {
                     labels: ['TON/USDT', 'TON/QUAN', 'TON/DOGE', 'TON/NOT', 'QUAN/USDT'],
                     datasets: [{
-                        label: 'Liquidity',
-                        data: [45000000, 12000000, 8000000, 35000000, 5000000],
+                        data: [450, 120, 80, 350, 50],
                         backgroundColor: '#0088cc',
-                        borderRadius: 8
+                        borderRadius: 12
                     }]
                 },
                 options: {
@@ -416,12 +422,19 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
-                        x: { ticks: { color: '#fff' } }
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { weight: 'bold' } } },
+                        x: { ticks: { color: '#fff', font: { weight: 'bold' } } }
                     }
                 }
             });
         }
+
+        // Инициализация
+        window.onload = () => {
+            loadDashboardData();
+            setInterval(loadDashboardData, 5000);
+            renderMiniChart();
+        };
     </script>
 </body>
 </html>
