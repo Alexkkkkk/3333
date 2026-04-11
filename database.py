@@ -91,7 +91,7 @@ async def init_db():
             )
         ''')
 
-        # Базовая настройка генома (Добавлены поля для совместимости с админкой)
+        # Базовая настройка генома
         default_val = {
             "mnemonic": "",
             "ai_api_key": "",
@@ -107,7 +107,7 @@ async def init_db():
             ON CONFLICT DO NOTHING
         ''', json.dumps(default_val))
 
-        # Индексы для оптимизации
+        # Индексы для оптимизации High-Load
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
@@ -117,28 +117,23 @@ async def init_db():
 # --- СИСТЕМА УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
-    """Загрузка конфигурации из БД для main.py"""
+    """Загрузка конфигурации из БД."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT val FROM quantum_genome WHERE key = 'active_core'")
-        if row:
-            return json.loads(row['val'])
-        return {}
+        val = await conn.fetchval("SELECT val FROM quantum_genome WHERE key = 'active_core'")
+        return json.loads(val) if val else {}
 
 async def update_remote_config(data: dict):
-    """Обновление конфигурации через админ-панель"""
+    """Обновление конфигурации через админ-панель."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
-            # Сначала получаем текущий конфиг
             current = await load_remote_config()
-            # Обновляем только пришедшие ключи
             current.update(data)
-            
             await conn.execute('''
-                UPDATE quantum_genome 
-                SET val = $1, updated_at = NOW() 
-                WHERE key = 'active_core'
+                INSERT INTO quantum_genome (key, val) 
+                VALUES ('active_core', $1) 
+                ON CONFLICT (key) DO UPDATE SET val = $1, updated_at = NOW()
             ''', json.dumps(current))
             return True
         except Exception as e:
@@ -148,11 +143,13 @@ async def update_remote_config(data: dict):
 # --- СИСТЕМА УЧЕТА ПОЛЬЗОВАТЕЛЕЙ И КОШЕЛЬКОВ ---
 
 async def register_visit(ip: str, user_agent: str):
+    """Регистрация захода на сайт с хешированием IP."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('INSERT INTO site_visits (ip_hash, user_agent) VALUES (MD5($1), $2)', ip, user_agent)
 
 async def save_wallet_state(address: str, balance: float, qc: float, network: str = 'MAINNET'):
+    """Сохранение состояния кошелька (узла)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
@@ -165,10 +162,10 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
                 status = 'SUCCESS'
         ''', address, float(balance), float(qc), network)
 
-# --- АНАЛИТИКА ДОХОДНОСТИ ---
+# --- АНАЛИТИКА И ПРИБЫЛЬ ---
 
 async def calculate_roi_stats():
-    """Расчет процента прибыли за 24 часа."""
+    """Расчет процента прибыли за последние 24 часа."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         total_assets = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 1.0
@@ -180,57 +177,8 @@ async def calculate_roi_stats():
         roi_percent = (profit_24h / total_assets) * 100
         return round(roi_percent, 2)
 
-# --- СИСТЕМА САМООБУЧЕНИЯ ---
-
-async def log_ai_action(strategy, market, success_metric=0.0):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        reward = success_metric if strategy.get('cmd') != 'WAIT' else 0.01
-        await conn.execute('''
-            INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot, reward_score) 
-            VALUES ($1, $2, $3, $4, $5, $6)
-        ''', strategy.get('cmd'), float(strategy.get('amt', 0)), 
-             int(strategy.get('urgency', 1)), strategy.get('reason'), 
-             json.dumps(market), float(reward))
-        
-        await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
-
-# --- СБОР ДАННЫХ ДЛЯ ВЕБ-ИНТЕРФЕЙСА ---
-
-async def get_stats_for_web():
-    """Сбор данных для фронтенда."""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        # 1. Трафик за последние 15 минут
-        active_users = await conn.fetchval('''
-            SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
-            WHERE timestamp > NOW() - INTERVAL '15 minutes'
-        ''') or 0
-
-        # 2. Последние узлы (кошельки)
-        wallets_rows = await conn.fetch('''
-            SELECT address, balance_ton as amount, equity_qc as qc, network as type, status 
-            FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
-        ''')
-
-        # 3. Глобальные метрики
-        total_qc = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 0
-        total_wallets = await conn.fetchval('SELECT COUNT(*) FROM quantum_wallets') or 0
-        roi_percent = await calculate_roi_stats()
-
-        recent_actions = [dict(row) for row in wallets_rows]
-        
-        return {
-            "connections": total_wallets,
-            "balance": float(total_qc),
-            "traffic": active_users * 7,
-            "profit_percent": roi_percent,
-            "recent_actions": recent_actions,
-            "cpu": random.randint(32, 48)
-        }
-
 async def add_profit_record(amount):
-    """Фиксация прибыли."""
+    """Фиксация прибыли и распределение по долям."""
     pool = await get_pool()
     shares = {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
     amount = float(amount)
@@ -242,4 +190,54 @@ async def add_profit_record(amount):
         ''', amount, amount*shares['holders'], amount*shares['staking'], 
              amount*shares['liquidity'], amount*shares['treasury'])
         
+        # Логируем событие получения прибыли в ИИ-логи
         await log_ai_action({'cmd': 'PROFIT_TAKE', 'amt': amount, 'reason': 'ROI Growth'}, {}, success_metric=1.0)
+
+# --- СИСТЕМА САМООБУЧЕНИЯ (AI LOGS) ---
+
+async def log_ai_action(strategy, market, success_metric=0.0):
+    """Запись действий ИИ для последующего анализа."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reward = success_metric if strategy.get('cmd') != 'WAIT' else 0.01
+        await conn.execute('''
+            INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot, reward_score) 
+            VALUES ($1, $2, $3, $4, $5, $6)
+        ''', strategy.get('cmd'), float(strategy.get('amt', 0)), 
+             int(strategy.get('urgency', 1)), strategy.get('reason'), 
+             json.dumps(market), float(reward))
+        
+        # Очистка старых логов (старше 7 дней) для экономии места
+        await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
+
+# --- СБОР ДАННЫХ ДЛЯ ВЕБ-ИНТЕРФЕЙСА ---
+
+async def get_stats_for_web():
+    """Сбор данных для фронтенда (index.html)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 1. Трафик за последние 15 минут
+        active_users = await conn.fetchval('''
+            SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
+            WHERE timestamp > NOW() - INTERVAL '15 minutes'
+        ''') or 0
+
+        # 2. Последние 10 кошельков
+        wallets_rows = await conn.fetch('''
+            SELECT address, balance_ton as amount, equity_qc as qc, network as type, status 
+            FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
+        ''')
+
+        # 3. Глобальные метрики
+        total_qc = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 0
+        total_wallets = await conn.fetchval('SELECT COUNT(*) FROM quantum_wallets') or 0
+        roi_percent = await calculate_roi_stats()
+
+        return {
+            "connections": total_wallets,
+            "balance": float(total_qc),
+            "traffic": active_users * 7, # Множитель для визуальной активности
+            "roi_24h": roi_percent,
+            "recent_actions": [dict(row) for row in wallets_rows],
+            "cpu": random.randint(32, 48)
+        }
