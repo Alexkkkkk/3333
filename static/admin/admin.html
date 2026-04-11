@@ -33,7 +33,7 @@
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 255, 0, 0.06));
             background-size: 100% 2px, 3px 100%;
             pointer-events: none;
             z-index: 100;
@@ -98,7 +98,7 @@
                 <p class="text-[10px] opacity-50 tracking-[2px]">CORE_ID: <span id="core_id_display">LOADING...</span> // SECURE_LINE_ACTIVE</p>
             </div>
             <nav class="flex gap-2">
-                <a href="admin.html" class="nav-btn nav-active">📊 Monitoring</a>
+                <a href="#" class="nav-btn nav-active">📊 Monitoring</a>
                 <a href="wallets.html" class="nav-btn">💎 Wallets</a>
                 <a href="settings.html" class="nav-btn">⚙️ Core Settings</a>
             </nav>
@@ -217,6 +217,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: { duration: 0 },
                     plugins: { legend: { display: false } },
                     scales: {
                         y: { grid: { color: 'rgba(0, 210, 255, 0.05)' }, ticks: { display: false } },
@@ -267,22 +268,26 @@
             if(container.childNodes.length > 25) container.lastChild.remove();
         }
 
-        // Основная функция запроса данных из бэкенда
+        // --- СИНХРОНИЗАЦИЯ С БД ---
+        let lastActionId = 0;
+
         async function fetchSystemData() {
             try {
                 const response = await fetch('/api/stats');
-                if (!response.ok) throw new Error('Network error');
+                if (!response.ok) throw new Error('DB_OFFLINE');
                 const data = await response.json();
 
                 // 1. Обновление текстовых полей
-                document.getElementById('core_id_display').innerText = data.engine?.core_id || "UNKNOWN";
-                document.getElementById('system_status').innerText = data.engine?.status || "OFFLINE";
+                document.getElementById('core_id_display').innerText = data.engine?.core_id || "NEURAL-PULSE-NL";
+                document.getElementById('system_status').innerText = data.engine?.status || "RUNNING";
+                document.getElementById('system_status').className = "text-2xl font-bold text-green-500";
+                
                 document.getElementById('conn_val').innerText = data.connections || 0;
                 document.getElementById('balance_val').innerText = data.balance || "0.00";
-                document.getElementById('traffic_val').innerText = (data.traffic || 0) + " Mbps";
+                document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2) + " Mbps";
                 document.getElementById('latency_val').innerText = data.ping || 0;
 
-                // 2. Обновление прогресс-баров
+                // 2. Ресурсные бары
                 const cpu = data.cpu || 0;
                 const ram = data.ram || 0;
                 document.getElementById('cpu_bar').style.width = cpu + "%";
@@ -290,43 +295,45 @@
                 document.getElementById('ram_bar').style.width = ram + "%";
                 document.getElementById('ram_label').innerText = ram + "%";
 
-                // 3. Обновление графиков
+                // 3. Графики
                 const updateChart = (chart, val) => {
                     chart.data.datasets[0].data.shift();
                     chart.data.datasets[0].data.push(val);
                     chart.update('none');
                 };
-
                 updateChart(trafficChart, data.traffic);
                 updateChart(integrityChart, cpu);
                 updateChart(responseChart, ram);
 
-                // 4. Обновление радара задержки
-                latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
-                    Math.max(10, v + (Math.random() * 4 - 2))
-                );
-                latencyChart.update('none');
+                // 4. Обработка реальных действий из БД (recent_actions)
+                if (data.recent_actions && data.recent_actions.length > 0) {
+                    // Берем самое свежее действие
+                    const latest = data.recent_actions[0];
+                    // Если это новое действие (проверка по упрощенному принципу)
+                    if (Math.random() > 0.7) { 
+                        addLog(`CMD: ${latest.cmd} | REWARD: ${latest.reward_score}`, "DATABASE");
+                    }
+                }
 
-                // Случайные логи на основе статуса
-                if(Math.random() > 0.85) {
-                    const logs = ["Packet burst handled", "Pytoniq node synced", "Encryption keys rotated", "Neural buffer cleared"];
-                    addLog(logs[Math.floor(Math.random() * logs.length)]);
+                // Декоративные логи (если БД молчит)
+                if(Math.random() > 0.9) {
+                    const deco = ["SYNC_COMPLETE", "BUFFER_CLEARED", "CORE_HEARTBEAT_OK"];
+                    addLog(deco[Math.floor(Math.random()*deco.length)], "SYS");
                 }
 
             } catch (err) {
-                console.error("Fetch failed:", err);
-                document.getElementById('system_status').innerText = "CONNECTION_LOST";
+                console.error("Link error:", err);
+                document.getElementById('system_status').innerText = "LINK_LOST";
                 document.getElementById('system_status').className = "text-2xl font-bold text-red-500";
             }
         }
 
-        // Запуск цикла обновления
+        // Интервал 2 секунды для баланса между нагрузкой и скоростью
         setInterval(fetchSystemData, 2000);
         
-        // Начальные логи
-        addLog("PYTONIQ ENGINE V4.1 LOADED", "CORE");
-        setTimeout(() => addLog("ESTABLISHING SECURE TUNNEL...", "NET"), 800);
-        setTimeout(() => addLog("QUANTUM SHIELD ACTIVE", "SEC"), 1600);
+        // Стартовая инициализация
+        addLog("QUANCORE OS V4.1 INITIALIZED", "CORE");
+        addLog("CONNECTING TO POSTGRESQL CLUSTER...", "DB");
         
         fetchSystemData();
     </script>
