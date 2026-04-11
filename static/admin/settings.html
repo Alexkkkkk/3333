@@ -11,7 +11,7 @@
         :root { 
             --accent: #0088cc; 
             --neon: #00d2ff;
-            --panel: rgba(10, 15, 25, 0.8);
+            --panel: rgba(10, 15, 25, 0.85);
             --border: rgba(0, 210, 255, 0.2);
         }
 
@@ -24,21 +24,22 @@
             position: relative;
         }
 
+        /* Анимированная сетка на фоне */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: 
-                linear-gradient(transparent 0%, rgba(0, 136, 204, 0.05) 50%, transparent 100%),
-                linear-gradient(90deg, transparent 0%, rgba(0, 136, 204, 0.05) 50%, transparent 100%);
-            background-size: 50px 50px;
+                linear-gradient(transparent 0%, rgba(0, 136, 204, 0.03) 50%, transparent 100%),
+                linear-gradient(90deg, transparent 0%, rgba(0, 136, 204, 0.03) 50%, transparent 100%);
+            background-size: 40px 40px;
             z-index: -1;
             animation: gridMove 20s linear infinite;
         }
 
         @keyframes gridMove {
             from { background-position: 0 0; }
-            to { background-position: 50px 50px; }
+            to { background-position: 40px 40px; }
         }
 
         .quantum-card { 
@@ -46,17 +47,25 @@
             backdrop-filter: blur(15px); 
             border: 1px solid var(--border); 
             border-radius: 20px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,210,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             position: relative;
             overflow: hidden;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
+        .quantum-card:hover {
+            border-color: rgba(0, 210, 255, 0.5);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.1);
+        }
+
+        /* Линия сканирования */
         .quantum-card::after {
             content: "";
             position: absolute;
             top: -100%; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.05), transparent);
-            animation: scan 4s linear infinite;
+            background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.03), transparent);
+            animation: scan 6s linear infinite;
+            pointer-events: none;
         }
 
         @keyframes scan {
@@ -69,48 +78,48 @@
             border: 1px solid var(--border);
             padding: 8px 16px;
             border-radius: 8px;
-            transition: 0.4s;
+            transition: 0.3s;
             text-transform: uppercase;
             font-size: 11px;
-            letter-spacing: 2px;
-            color: #e0f2fe;
-            text-decoration: none;
+            letter-spacing: 1px;
         }
+
         .nav-active { 
             background: rgba(0, 210, 255, 0.1);
             border-color: var(--neon);
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
             color: var(--neon);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
         }
 
         .save-btn { 
             background: linear-gradient(90deg, #004466, #0088cc);
             font-family: 'Orbitron', sans-serif;
-            letter-spacing: 3px;
-            position: relative;
+            letter-spacing: 2px;
             transition: 0.3s;
         }
-        .save-btn:hover { 
-            box-shadow: 0 0 30px rgba(0, 210, 255, 0.6);
-            transform: scale(1.02);
-        }
-        .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .terminal-text { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
-        .glitch-text { animation: glitch 3s infinite; }
+        .save-btn:hover:not(:disabled) { 
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .glitch-text { animation: glitch 4s infinite; }
 
         @keyframes glitch {
-            0% { text-shadow: 1px 0 0 #ff00ff, -1px 0 0 #00ffff; }
-            2% { text-shadow: 3px 0 0 #ff00ff, -3px 0 0 #00ffff; }
-            4% { text-shadow: 0 0 0 #ff00ff, 0 0 0 #00ffff; }
+            0%, 90%, 100% { text-shadow: none; }
+            92% { text-shadow: 2px 0 0 #ff00ff, -2px 0 0 #00ffff; }
+            95% { text-shadow: 1px 0 0 #ff00ff, -1px 0 0 #00ffff; }
         }
 
-        input[type="range"] { -webkit-appearance: none; background: #0f172a; height: 6px; border-radius: 10px; }
+        input[type="range"] { -webkit-appearance: none; background: #0f172a; height: 4px; border-radius: 10px; }
         input[type="range"]::-webkit-slider-thumb { 
-            -webkit-appearance: none; width: 18px; height: 18px; 
-            background: var(--neon); border-radius: 50%; border: 3px solid #05080a;
+            -webkit-appearance: none; width: 16px; height: 16px; 
+            background: var(--neon); border-radius: 50%; border: 2px solid #05080a;
             box-shadow: 0 0 10px var(--neon); cursor: pointer;
         }
+
+        #terminal::-webkit-scrollbar { width: 4px; }
+        #terminal::-webkit-scrollbar-thumb { background: rgba(0, 136, 204, 0.3); border-radius: 10px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -118,17 +127,17 @@
     <div class="max-w-7xl mx-auto relative z-10">
         <header class="flex flex-col lg:flex-row justify-between items-center mb-10 gap-6">
             <div class="flex items-center gap-4">
-                <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-                    <span class="text-white font-bold text-xl">Q</span>
+                <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_25px_rgba(59,130,246,0.4)]">
+                    <span class="text-white font-bold text-2xl font-['Orbitron']">Q</span>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-widest uppercase font-['Orbitron'] glitch-text">Quantum<span class="text-blue-400 font-light">OS</span></h1>
-                    <p class="text-[9px] text-blue-400/60 font-mono">ENCRYPTED ADMIN UPLINK // V. 4.1.0</p>
+                    <h1 class="text-2xl font-bold tracking-[0.2em] uppercase font-['Orbitron'] glitch-text">Quantum<span class="text-blue-400 font-light">OS</span></h1>
+                    <p class="text-[10px] text-blue-400/60 font-mono tracking-widest">SYSTEM OVERSEER // V. 4.1.0</p>
                 </div>
             </div>
             <nav class="flex gap-3">
-                <a href="admin.html" class="nav-btn">📊 Statistics</a>
-                <a href="wallets.html" class="nav-btn">💎 Assets</a>
+                <a href="admin.html" class="nav-btn hover:border-blue-400">📊 Stats</a>
+                <a href="wallets.html" class="nav-btn hover:border-blue-400">💎 Assets</a>
                 <a href="settings.html" class="nav-btn nav-active">⚙️ Core</a>
             </nav>
         </header>
@@ -144,7 +153,7 @@
             <div class="quantum-card p-4 border-l-4 border-green-500">
                 <p class="text-[10px] text-gray-500 font-mono">POOL_HEALTH</p>
                 <div class="flex items-end gap-2">
-                    <span class="text-2xl font-['Share+Tech+Mono'] text-white">99.8</span>
+                    <span class="text-2xl font-['Share+Tech+Mono'] text-white">99.9</span>
                     <span class="text-[10px] text-green-400 mb-1">%</span>
                 </div>
             </div>
@@ -156,11 +165,11 @@
                 </div>
             </div>
             <div class="quantum-card p-4 border-l-4 border-red-500">
-                <p class="text-[10px] text-gray-500 font-mono">THREAT_LEVEL</p>
+                <p class="text-[10px] text-gray-500 font-mono">CPU_LOAD</p>
                 <div class="flex items-center gap-2">
                     <span id="stat_load" class="text-2xl font-['Share+Tech+Mono'] text-white">0%</span>
-                    <div class="h-2 w-12 bg-gray-800 rounded-full overflow-hidden">
-                        <div id="load_bar" class="h-full bg-red-500 transition-all duration-500" style="width: 0%"></div>
+                    <div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                        <div id="load_bar" class="h-full bg-red-500 transition-all duration-700" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
@@ -169,58 +178,58 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6">
-                    <h2 class="text-xs font-['Orbitron'] text-blue-400 mb-8 uppercase tracking-[4px]">Core Distribution</h2>
+                    <h2 class="text-xs font-['Orbitron'] text-blue-400 mb-8 uppercase tracking-[4px]">Configuration</h2>
                     <div class="space-y-8">
                         <div>
                             <div class="flex justify-between mb-4">
-                                <label class="terminal-text text-gray-400">REFERRAL_COMMISSION</label>
+                                <label class="text-[11px] font-mono text-gray-400">REF_COMMISSION</label>
                                 <span id="ref_display" class="text-blue-400 font-mono">15%</span>
                             </div>
                             <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%', 'REF_COMM')">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
-                                <label class="terminal-text text-gray-400">YIELD_PERCENTAGE</label>
+                                <label class="text-[11px] font-mono text-gray-400">YIELD_PERCENT</label>
                                 <span id="pool_display" class="text-blue-400 font-mono">75%</span>
                             </div>
                             <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%', 'YIELD_VAL')">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
-                                <label class="terminal-text text-gray-400">GAS_LIMIT_MIN</label>
+                                <label class="text-[11px] font-mono text-gray-400">MIN_GAS_LIMIT</label>
                                 <span id="gas_display" class="text-blue-400 font-mono">0.2</span>
                             </div>
                             <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value, 'GAS_LIMIT')">
                         </div>
-                        <button id="execute_btn" onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-xs">Execute Protocol</button>
+                        <button id="execute_btn" onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-[10px]">Execute Protocol</button>
                     </div>
                 </div>
 
-                <div class="quantum-card p-4 bg-black/40 h-48">
-                    <p class="text-[10px] text-blue-500 font-mono mb-2 uppercase border-b border-blue-500/20 pb-1">System_Logs</p>
-                    <div id="terminal" class="terminal-text text-[10px] text-blue-300/70 overflow-y-hidden h-32 space-y-1"></div>
+                <div class="quantum-card p-4 bg-black/40 h-52">
+                    <p class="text-[9px] text-blue-500 font-mono mb-3 uppercase border-b border-blue-500/10 pb-1">System_Terminal</p>
+                    <div id="terminal" class="font-['Share+Tech+Mono'] text-[10px] text-blue-300/60 overflow-y-auto h-36 space-y-1 pr-2"></div>
                 </div>
             </div>
 
             <div class="lg:col-span-8">
-                <div class="quantum-card p-6 h-full">
+                <div class="quantum-card p-6 h-full min-h-[500px] flex flex-col">
                     <div class="flex justify-between items-center mb-8">
                         <div>
-                            <h2 class="text-xs font-['Orbitron'] text-blue-400 uppercase tracking-[4px]">Network Analytics</h2>
-                            <p class="terminal-text text-gray-500 text-[10px]">REAL-TIME CONNECTION DATA STREAM</p>
+                            <h2 class="text-xs font-['Orbitron'] text-blue-400 uppercase tracking-[4px]">Connection Analytics</h2>
+                            <p class="text-[10px] font-mono text-gray-500 mt-1">REAL-TIME DATA STREAM: NODE_NL_04</p>
                         </div>
-                        <div class="flex gap-4">
+                        <div class="flex gap-6">
                             <div class="text-right">
-                                <p class="text-[9px] text-gray-500 font-mono">PEAK_24H</p>
-                                <p id="stat_peak" class="text-sm font-mono text-white">0</p>
+                                <p class="text-[9px] text-gray-500 font-mono">PEAK_FLOW</p>
+                                <p id="stat_peak" class="text-lg font-mono text-white">0</p>
                             </div>
-                            <div class="text-right border-l border-white/10 pl-4">
-                                <p class="text-[9px] text-gray-500 font-mono">AVG_LATENCY</p>
-                                <p class="text-sm font-mono text-green-400">24ms</p>
+                            <div class="text-right border-l border-white/10 pl-6">
+                                <p class="text-[9px] text-gray-500 font-mono">LATENCY</p>
+                                <p class="text-lg font-mono text-green-400">21<span class="text-[10px]">ms</span></p>
                             </div>
                         </div>
                     </div>
-                    <div class="h-[400px]">
+                    <div class="flex-grow">
                         <canvas id="connectionChart"></canvas>
                     </div>
                 </div>
@@ -232,10 +241,10 @@
         let mainChart;
         const terminal = document.getElementById('terminal');
 
-        // 1. ПЕРВИЧНАЯ ЗАГРУЗКА ИЗ БД
+        // 1. Загрузка конфигурации
         async function loadConfig() {
             try {
-                addLog("Pulling latest configuration from database...");
+                addLog("Initiating DB handshake...");
                 const response = await fetch('/api/stats'); 
                 const data = await response.json();
                 
@@ -247,14 +256,14 @@
                     updateVal('ref_display', data.config.referral_commission + '%', null, false);
                     updateVal('pool_display', data.config.yield_percentage + '%', null, false);
                     updateVal('gas_display', data.config.gas_limit_min, null, false);
-                    addLog("CORE: Configuration synchronized successfully.");
+                    addLog("SUCCESS: Core parameters synchronized.");
                 }
             } catch (e) {
-                addLog("WARN: Direct DB link failed. Using local presets.", "text-orange-400");
+                addLog("WARNING: Backend offline. Running in local simulation.", "text-orange-400");
             }
         }
 
-        // 2. СОХРАНЕНИЕ В БД
+        // 2. Сохранение данных
         async function commitSettings() {
             const btn = document.getElementById('execute_btn');
             const config = {
@@ -266,7 +275,7 @@
             try {
                 btn.innerText = "UPLOADING...";
                 btn.disabled = true;
-                addLog("CRITICAL: Committing protocol state to backend...");
+                addLog("ACTION: Pushing local state to master database...");
 
                 const response = await fetch('/api/update_config', {
                     method: 'POST',
@@ -277,51 +286,47 @@
                 if (response.ok) {
                     btn.innerText = "SYNCHRONIZED";
                     btn.style.background = "linear-gradient(90deg, #10b981, #059669)";
-                    addLog("SUCCESS: Database record updated.");
+                    addLog("PROTOCOL: Core update confirmed.", "text-green-400");
                     setTimeout(() => {
                         btn.innerText = "EXECUTE PROTOCOL";
                         btn.style.background = "";
                         btn.disabled = false;
-                    }, 2000);
+                    }, 2500);
                 } else { throw new Error(); }
             } catch (e) {
-                btn.innerText = "FAILED";
+                btn.innerText = "RETRY";
                 btn.style.background = "#ef4444";
-                addLog("ERROR: Request timed out or rejected.", "text-red-500");
-                setTimeout(() => { 
-                    btn.disabled = false; 
-                    btn.innerText = "RETRY"; 
-                    btn.style.background = "";
-                }, 2000);
+                addLog("CRITICAL: Update rejected by server node.", "text-red-500");
+                setTimeout(() => { btn.disabled = false; btn.style.background = ""; }, 2500);
             }
         }
 
         function updateVal(id, text, label, logIt = true) {
             document.getElementById(id).innerText = text;
-            if (logIt && label) addLog(`Param change: ${label} -> ${text}`);
+            if (logIt && label) addLog(`${label} modified: ${text}`);
         }
 
-        function addLog(msg, colorClass = "text-blue-300/70") {
-            const time = new Date().toLocaleTimeString([], { hour12: false });
+        function addLog(msg, colorClass = "text-blue-300/60") {
+            const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const entry = document.createElement('div');
-            entry.className = colorClass;
-            entry.innerHTML = `<span class="text-blue-500">[${time}]</span> ${msg}`;
+            entry.className = `py-0.5 border-l-2 border-transparent hover:border-blue-500 pl-2 transition-all ${colorClass}`;
+            entry.innerHTML = `<span class="opacity-40">[${time}]</span> ${msg}`;
             terminal.prepend(entry);
-            if(terminal.childNodes.length > 10) terminal.lastChild.remove();
+            if(terminal.childNodes.length > 50) terminal.lastChild.remove();
         }
 
         function initChart() {
             const ctx = document.getElementById('connectionChart').getContext('2d');
             const grad = ctx.createLinearGradient(0, 0, 0, 400);
-            grad.addColorStop(0, 'rgba(0, 210, 255, 0.4)');
+            grad.addColorStop(0, 'rgba(0, 210, 255, 0.25)');
             grad.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
             mainChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array(20).fill(''),
+                    labels: Array(30).fill(''),
                     datasets: [{
-                        data: Array(20).fill(0).map(() => Math.floor(Math.random() * 10)),
+                        data: Array(30).fill(0),
                         borderColor: '#00d2ff',
                         borderWidth: 2,
                         pointRadius: 0,
@@ -335,55 +340,56 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566' }, min: 0 },
-                        x: { grid: { display: false } }
+                        y: { 
+                            grid: { color: 'rgba(255,255,255,0.03)' }, 
+                            ticks: { color: '#4b5563', font: { family: 'Share Tech Mono' } },
+                            min: 0,
+                            suggestedMax: 100
+                        },
+                        x: { display: false }
                     },
                     animation: { duration: 1000 }
                 }
             });
         }
 
-        // 3. ЖИВОЕ ОБНОВЛЕНИЕ СТАТИСТИКИ
         function liveUpdate() {
             setInterval(async () => {
+                let connections, cpu;
                 try {
                     const response = await fetch('/api/stats');
                     const data = await response.json();
-
-                    document.getElementById('stat_connections').innerText = data.connections;
-                    document.getElementById('stat_load').innerText = data.cpu + '%';
-                    document.getElementById('load_bar').style.width = data.cpu + '%';
-                    document.getElementById('stat_throughput').innerText = (data.connections / 80).toFixed(1);
-                    
-                    let currentPeak = parseInt(document.getElementById('stat_peak').innerText);
-                    if (data.connections > currentPeak) {
-                        document.getElementById('stat_peak').innerText = data.connections;
-                    }
-
-                    if(mainChart) {
-                        mainChart.data.datasets[0].data.shift();
-                        mainChart.data.datasets[0].data.push(data.connections);
-                        mainChart.update('none');
-                    }
+                    connections = data.connections || 0;
+                    cpu = data.cpu || 0;
                 } catch (e) {
-                    // Симуляция данных если сервер не отвечает
-                    const randomVal = Math.floor(Math.random() * 50) + 10;
-                    document.getElementById('stat_connections').innerText = randomVal;
-                    if(mainChart) {
-                        mainChart.data.datasets[0].data.shift();
-                        mainChart.data.datasets[0].data.push(randomVal);
-                        mainChart.update('none');
-                    }
+                    // Эмуляция если бэкенд недоступен
+                    connections = Math.floor(Math.random() * 40) + 20;
+                    cpu = Math.floor(Math.random() * 15) + 5;
+                }
+
+                // Обновление UI
+                document.getElementById('stat_connections').innerText = connections;
+                document.getElementById('stat_load').innerText = cpu + '%';
+                document.getElementById('load_bar').style.width = cpu + '%';
+                document.getElementById('stat_throughput').innerText = (connections * 0.12).toFixed(1);
+
+                let currentPeak = parseInt(document.getElementById('stat_peak').innerText);
+                if (connections > currentPeak) document.getElementById('stat_peak').innerText = connections;
+
+                if(mainChart) {
+                    mainChart.data.datasets[0].data.shift();
+                    mainChart.data.datasets[0].data.push(connections);
+                    mainChart.update('none');
                 }
             }, 3000);
         }
 
         window.onload = () => {
-            addLog("System Uplink Established.");
-            addLog("Quantum Core v4.1.0 ready for commands.");
             initChart();
             loadConfig();
             liveUpdate();
+            addLog("QuantumOS Core successfully initialized.");
+            addLog("Uplink secure. Welcome, Operator.");
         };
     </script>
 </body>
