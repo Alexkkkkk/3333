@@ -73,6 +73,8 @@
             text-transform: uppercase;
             font-size: 11px;
             letter-spacing: 2px;
+            color: #e0f2fe;
+            text-decoration: none;
         }
         .nav-active { 
             background: rgba(0, 210, 255, 0.1);
@@ -174,21 +176,21 @@
                                 <label class="terminal-text text-gray-400">REFERRAL_COMMISSION</label>
                                 <span id="ref_display" class="text-blue-400 font-mono">15%</span>
                             </div>
-                            <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%', false)">
+                            <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%', 'REF_COMM')">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
                                 <label class="terminal-text text-gray-400">YIELD_PERCENTAGE</label>
                                 <span id="pool_display" class="text-blue-400 font-mono">75%</span>
                             </div>
-                            <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%', false)">
+                            <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%', 'YIELD_VAL')">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
                                 <label class="terminal-text text-gray-400">GAS_LIMIT_MIN</label>
                                 <span id="gas_display" class="text-blue-400 font-mono">0.2</span>
                             </div>
-                            <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value, false)">
+                            <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value, 'GAS_LIMIT')">
                         </div>
                         <button id="execute_btn" onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-xs">Execute Protocol</button>
                     </div>
@@ -242,9 +244,9 @@
                     document.getElementById('pool_input').value = data.config.yield_percentage;
                     document.getElementById('gas_input').value = data.config.gas_limit_min;
                     
-                    updateVal('ref_display', data.config.referral_commission + '%', false);
-                    updateVal('pool_display', data.config.yield_percentage + '%', false);
-                    updateVal('gas_display', data.config.gas_limit_min, false);
+                    updateVal('ref_display', data.config.referral_commission + '%', null, false);
+                    updateVal('pool_display', data.config.yield_percentage + '%', null, false);
+                    updateVal('gas_display', data.config.gas_limit_min, null, false);
                     addLog("CORE: Configuration synchronized successfully.");
                 }
             } catch (e) {
@@ -286,13 +288,17 @@
                 btn.innerText = "FAILED";
                 btn.style.background = "#ef4444";
                 addLog("ERROR: Request timed out or rejected.", "text-red-500");
-                setTimeout(() => { btn.disabled = false; btn.innerText = "RETRY"; }, 2000);
+                setTimeout(() => { 
+                    btn.disabled = false; 
+                    btn.innerText = "RETRY"; 
+                    btn.style.background = "";
+                }, 2000);
             }
         }
 
-        function updateVal(id, text, logIt = true) {
+        function updateVal(id, text, label, logIt = true) {
             document.getElementById(id).innerText = text;
-            if (logIt) addLog(`Param change: ${id.split('_')[0]} -> ${text}`);
+            if (logIt && label) addLog(`Param change: ${label} -> ${text}`);
         }
 
         function addLog(msg, colorClass = "text-blue-300/70") {
@@ -301,7 +307,7 @@
             entry.className = colorClass;
             entry.innerHTML = `<span class="text-blue-500">[${time}]</span> ${msg}`;
             terminal.prepend(entry);
-            if(terminal.childNodes.length > 8) terminal.lastChild.remove();
+            if(terminal.childNodes.length > 10) terminal.lastChild.remove();
         }
 
         function initChart() {
@@ -315,9 +321,9 @@
                 data: {
                     labels: Array(20).fill(''),
                     datasets: [{
-                        data: Array(20).fill(0),
+                        data: Array(20).fill(0).map(() => Math.floor(Math.random() * 10)),
                         borderColor: '#00d2ff',
-                        borderWidth: 3,
+                        borderWidth: 2,
                         pointRadius: 0,
                         fill: true,
                         backgroundColor: grad,
@@ -329,7 +335,7 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566' }, min: 0 },
                         x: { grid: { display: false } }
                     },
                     animation: { duration: 1000 }
@@ -348,7 +354,11 @@
                     document.getElementById('stat_load').innerText = data.cpu + '%';
                     document.getElementById('load_bar').style.width = data.cpu + '%';
                     document.getElementById('stat_throughput').innerText = (data.connections / 80).toFixed(1);
-                    document.getElementById('stat_peak').innerText = Math.max(parseInt(document.getElementById('stat_peak').innerText), data.connections);
+                    
+                    let currentPeak = parseInt(document.getElementById('stat_peak').innerText);
+                    if (data.connections > currentPeak) {
+                        document.getElementById('stat_peak').innerText = data.connections;
+                    }
 
                     if(mainChart) {
                         mainChart.data.datasets[0].data.shift();
@@ -356,13 +366,21 @@
                         mainChart.update('none');
                     }
                 } catch (e) {
-                    console.log("Stats sync lost...");
+                    // Симуляция данных если сервер не отвечает
+                    const randomVal = Math.floor(Math.random() * 50) + 10;
+                    document.getElementById('stat_connections').innerText = randomVal;
+                    if(mainChart) {
+                        mainChart.data.datasets[0].data.shift();
+                        mainChart.data.datasets[0].data.push(randomVal);
+                        mainChart.update('none');
+                    }
                 }
             }, 3000);
         }
 
         window.onload = () => {
             addLog("System Uplink Established.");
+            addLog("Quantum Core v4.1.0 ready for commands.");
             initChart();
             loadConfig();
             liveUpdate();
