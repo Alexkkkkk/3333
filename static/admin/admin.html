@@ -6,6 +6,7 @@
     <title>QUANTUM | NEURAL MONITOR V4.1</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -116,8 +117,19 @@
         ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 10px; }
         
         .status-lost { color: #ef4444 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important; }
-        
         #log-container { scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent; }
+
+        /* Стили для TonConnect кнопки */
+        #ton-connect-button button {
+            background-color: transparent !important;
+            border: 1px solid var(--accent) !important;
+            color: var(--accent) !important;
+            border-radius: 0 !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            text-transform: uppercase !important;
+            font-size: 10px !important;
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%) !important;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -126,6 +138,7 @@
     <div class="max-w-[1600px] mx-auto">
         
         <div class="mb-4 flex items-center gap-4 text-[10px] tracking-[3px] text-cyan-500/40 uppercase font-bold">
+            <img src="/static/images/logo.png" alt="Logo" class="w-4 h-4 opacity-50">
             <span class="text-cyan-500/20">Root</span>
             <span>/</span>
             <span class="text-white/60">static / index.html</span>
@@ -140,11 +153,12 @@
                     <p class="text-[10px] opacity-60 tracking-[3px]">SESSION_ID: <span id="core_id_display" class="text-white">FETCHING...</span></p>
                 </div>
             </div>
-            <nav class="flex flex-wrap gap-3 justify-center">
+            
+            <nav class="flex flex-wrap gap-3 justify-center items-center">
                 <a href="#" class="nav-btn nav-active">📊 MONITOR</a>
                 <a href="/static/admin/wallets.html" class="nav-btn">💎 WALLETS</a>
                 <a href="/static/admin/settings.html" class="nav-btn">⚙️ CORE</a>
-                <a href="/static/admin/admin.html" class="nav-btn">🔒 ADMIN</a>
+                <div id="ton-connect-button" class="ml-2"></div>
             </nav>
         </header>
 
@@ -258,6 +272,12 @@
     </div>
 
     <script>
+        // Инициализация TonConnect
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://' + window.location.host + '/static/tonconnect-manifest.json',
+            buttonRootId: 'ton-connect-button'
+        });
+
         // Инициализация Chart.js
         Chart.defaults.color = 'rgba(0, 210, 255, 0.4)';
         Chart.defaults.font.family = "'Share Tech Mono'";
@@ -328,6 +348,7 @@
         // Система логов
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
+            if (!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
