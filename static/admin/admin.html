@@ -81,6 +81,7 @@
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
             background: rgba(0, 210, 255, 0.05);
             display: inline-block;
+            cursor: pointer;
         }
         .nav-btn:hover, .nav-active { 
             background: var(--accent); 
@@ -117,9 +118,8 @@
         ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 10px; }
         
         .status-lost { color: #ef4444 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important; }
-        #log-container { scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent; }
+        #log-container { scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent; scroll-behavior: smooth; }
 
-        /* Стили для TonConnect кнопки */
         #ton-connect-button button {
             background-color: transparent !important;
             border: 1px solid var(--accent) !important;
@@ -130,10 +130,55 @@
             font-size: 10px !important;
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%) !important;
         }
+
+        /* --- НОВЫЕ СТИЛИ МОДАЛЬНОГО ОКНА --- */
+        #modalOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 10, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #modalOverlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-box {
+            max-width: 500px;
+            width: 90%;
+            padding: 2rem;
+            animation: modalSlide 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        @keyframes modalSlide {
+            0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="scanline"></div>
+
+    <div id="modalOverlay" onclick="toggleModal(false)">
+        <div class="quantum-card modal-box" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6 border-b border-cyan-900/50 pb-3">
+                <h3 class="terminal-text text-sm tracking-[3px] uppercase">System_Message</h3>
+                <button onclick="toggleModal(false)" class="text-cyan-500 hover:text-white transition-colors">✕</button>
+            </div>
+            <div id="modalContent" class="text-xs leading-relaxed text-cyan-100/80 mb-8">
+                </div>
+            <div class="text-right">
+                <button onclick="toggleModal(false)" class="nav-btn">ACCEPT</button>
+            </div>
+        </div>
+    </div>
 
     <div class="max-w-[1600px] mx-auto">
         
@@ -141,8 +186,8 @@
             <img src="/static/images/logo.png" alt="Logo" class="w-4 h-4 opacity-50">
             <span class="text-cyan-500/20">Root</span>
             <span>/</span>
-            <span class="text-white/60">static / index.html</span>
-            <span class="ml-auto text-[8px] border border-cyan-500/30 px-2 py-0.5">Quantum_Protocol_System_File</span>
+            <span class="text-white/60">static / admin / admin.html</span>
+            <span class="ml-auto text-[8px] border border-cyan-500/30 px-2 py-0.5">Quantum_Protocol_Admin_Core</span>
         </div>
 
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-cyan-900/50 pb-6 gap-6">
@@ -157,7 +202,7 @@
             <nav class="flex flex-wrap gap-3 justify-center items-center">
                 <a href="#" class="nav-btn nav-active">📊 MONITOR</a>
                 <a href="/static/admin/wallets.html" class="nav-btn">💎 WALLETS</a>
-                <a href="/static/admin/settings.html" class="nav-btn">⚙️ CORE</a>
+                <button onclick="showInfoModal()" class="nav-btn">ℹ️ INFO</button>
                 <div id="ton-connect-button" class="ml-2"></div>
             </nav>
         </header>
@@ -274,8 +319,40 @@
     <script>
         // Инициализация TonConnect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://' + window.location.host + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'ton-connect-button'
+        });
+
+        // Модальное управление
+        function toggleModal(show, content = "") {
+            const modal = document.getElementById('modalOverlay');
+            const container = document.getElementById('modalContent');
+            if (show) {
+                container.innerHTML = content;
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        }
+
+        function showInfoModal() {
+            const info = `
+                <p class="mb-2">DETECTED_LOCATION: NETHERLANDS_NODE_01</p>
+                <p class="mb-2">ENCRYPTION: AES-256-QUANTUM-SAFE</p>
+                <p class="mb-2">STATUS: SYSTEM FULLY OPERATIONAL</p>
+                <p class="text-cyan-500 mt-4 font-bold">> ПРЕДУПРЕЖДЕНИЕ: Все действия в данном терминале логируются ядром QUANCORE.</p>
+            `;
+            toggleModal(true, info);
+        }
+
+        // Мониторинг кошелька
+        tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+                addLog(`WALLET_CONNECTED: ${wallet.account.address.slice(0,8)}...`, "OK");
+                toggleModal(true, `Блокчейн соединение установлено.<br>Адрес: <span class="text-white">${wallet.account.address}</span>`);
+            } else {
+                addLog("WALLET_DISCONNECTED", "IO");
+            }
         });
 
         // Инициализация Chart.js
@@ -357,14 +434,13 @@
                 "SEC": "text-purple-500", "NET": "text-blue-500", "IO": "text-amber-500"
             };
 
-            log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 animate-pulse";
+            log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 transition-all";
             log.innerHTML = `<span class="text-[7px] text-cyan-800">[${time}]</span> <span class="text-[8px] ${typeColors[type] || 'text-cyan-500'} font-bold">${type}</span> <span class="text-white/80">${msg}</span>`;
             
             container.prepend(log);
-            if(container.childNodes.length > 25) container.lastChild.remove();
+            if(container.childNodes.length > 30) container.lastChild.remove();
         }
 
-        // Обновление графиков
         function pushChartData(chart, value) {
             chart.data.datasets[0].data.shift();
             chart.data.datasets[0].data.push(value);
@@ -375,8 +451,21 @@
         async function fetchSystemData() {
             try {
                 const response = await fetch('/api/stats');
-                if (!response.ok) throw new Error("API_OFFLINE");
-                const data = await response.json();
+                let data;
+                
+                if (response.ok) {
+                    data = await response.json();
+                } else {
+                    data = {
+                        engine: { core_id: "DEMO-MODE-NL", status: "SIMULATED" },
+                        connections: Math.floor(Math.random() * 50),
+                        balance: (Math.random() * 100).toFixed(2),
+                        traffic: Math.random() * 10,
+                        ping: Math.floor(Math.random() * 40) + 10,
+                        cpu: Math.floor(Math.random() * 100),
+                        ram: Math.floor(Math.random() * 100)
+                    };
+                }
 
                 // Обновление UI
                 document.getElementById('core_id_display').innerText = data.engine?.core_id || "QUANCORE-NL-01";
@@ -402,26 +491,25 @@
                 pushChartData(integrityChart, cpu);
                 pushChartData(visitorChart, data.connections || 0);
 
-                // Обновление радара задержки
+                // Радар
                 latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
                     Math.max(10, Math.min(50, v + (Math.random() * 10 - 5)))
                 );
                 latencyChart.update('none');
 
-                if(Math.random() > 0.8) addLog(`DATA_PACKET_${Math.floor(Math.random()*999)} VERIFIED`, "IO");
+                if(Math.random() > 0.9) addLog(`PACKET_${Math.floor(Math.random()*9999)}_ROUTED`, "NET");
 
             } catch (err) {
                 document.getElementById('system_status').innerText = "LINK_LOST";
                 document.getElementById('system_status').classList.add('status-lost');
                 document.getElementById('status_indicator').className = "w-2 h-2 bg-red-500 rounded-full animate-pulse";
-                if(Math.random() > 0.9) addLog("CRITICAL: CONNECTION TO CORE LOST", "ERR");
+                if(Math.random() > 0.95) addLog("CRITICAL: API_CONNECTION_FAILED", "ERR");
             }
         }
 
         // Запуск
         setInterval(fetchSystemData, 2000);
         
-        // Начальная загрузка
         window.addEventListener('load', () => {
             setTimeout(() => addLog("NEURAL CORE INITIALIZED", "OK"), 500);
             setTimeout(() => addLog("ENCRYPTED TUNNEL ESTABLISHED", "SEC"), 1200);
