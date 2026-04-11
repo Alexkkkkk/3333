@@ -9,10 +9,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --panel: rgba(13, 17, 23, 0.85); /* Глубокий иссиня-черный для панелей */
-            --border: rgba(0, 210, 255, 0.15); /* Прозрачный голубой для границ */
-            --neon-blue: #00d2ff; /* Основной акцентный свет */
-            --neon-green: #10b981; /* Цвет успеха/активности */
+            --panel: rgba(13, 17, 23, 0.85);
+            --border: rgba(0, 210, 255, 0.15);
+            --neon-blue: #00d2ff;
+            --neon-green: #10b981;
+            --neon-red: #ef4444;
         }
 
         body { 
@@ -25,13 +26,9 @@
             overflow-x: hidden;
         }
 
-        /* Фоновая сетка */
         .grid-bg {
             position: fixed;
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-image: linear-gradient(var(--border) 1px, transparent 1px), 
                               linear-gradient(90deg, var(--border) 1px, transparent 1px);
             background-size: 50px 50px;
@@ -39,19 +36,15 @@
             opacity: 0.1;
         }
 
-        /* Стили карточек */
         .quantum-card { 
             background: var(--panel); 
             backdrop-filter: blur(20px); 
             border: 1px solid var(--border); 
             border-radius: 24px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
         }
 
-        /* Навигация */
         .nav-btn { 
             background: rgba(255,255,255,0.03); 
             border: 1px solid var(--border); 
@@ -63,12 +56,14 @@
             letter-spacing: 1px;
             color: #94a3b8;
         }
+
         .nav-btn:hover { 
             border-color: var(--neon-blue); 
             background: rgba(0, 210, 255, 0.08); 
             transform: translateY(-1px); 
             color: white;
         }
+
         .nav-active { 
             border-color: var(--neon-blue); 
             color: var(--neon-blue); 
@@ -76,7 +71,6 @@
             box-shadow: 0 0 20px rgba(0, 210, 255, 0.15); 
         }
         
-        /* Таблицы */
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th { 
             color: #64748b; 
@@ -90,11 +84,9 @@
         }
         td { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 13px; font-family: 'Share Tech Mono', monospace; }
         
-        /* Индикаторы */
         .status-badge { padding: 3px 10px; border-radius: 6px; font-size: 9px; font-weight: bold; border: 1px solid transparent; }
         .stat-value { font-family: 'Orbitron', sans-serif; font-weight: 700; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
 
-        /* Скроллбар */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
@@ -207,8 +199,8 @@
                 <div class="quantum-card overflow-hidden h-full">
                     <div class="p-6 border-b border-white/5 bg-white/[0.02] flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div class="flex items-center gap-3">
-                            <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]"></span>
-                            <span class="text-[10px] uppercase text-gray-400 font-mono tracking-widest">Database Sync: <span class="text-green-500">Active</span></span>
+                            <span id="sync_indicator" class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]"></span>
+                            <span class="text-[10px] uppercase text-gray-400 font-mono tracking-widest">Database Sync: <span id="sync_status" class="text-green-500">Active</span></span>
                         </div>
                         <div class="flex gap-2 w-full sm:w-auto">
                             <input type="text" id="searchInput" placeholder="Search Node..." class="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[11px] font-mono focus:outline-none focus:border-blue-500/50 w-full sm:w-64 transition-all text-white">
@@ -238,11 +230,35 @@
         let growthChart;
         let lastActionAddress = null;
 
+        // Поиск по таблице
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#wallet-rows tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+
+        // Форматирование адреса (0x1234...abcd)
+        function formatAddress(addr) {
+            if (!addr) return 'Unknown Node';
+            return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+        }
+
         async function updateDashboard() {
+            const syncInd = document.getElementById('sync_indicator');
+            const syncStat = document.getElementById('sync_status');
+
             try {
                 const response = await fetch('/api/stats');
                 if (!response.ok) throw new Error('API Sync Failed');
                 const data = await response.json();
+
+                // Сброс индикатора в "Active"
+                syncInd.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]";
+                syncStat.innerText = "Active";
+                syncStat.className = "text-green-500";
 
                 document.getElementById('stat_wallets').innerText = (data.connections || 0).toLocaleString();
                 document.getElementById('stat_qc').innerText = Math.floor(data.balance || 0).toLocaleString();
@@ -258,7 +274,7 @@
                         <tr class="hover:bg-white/[0.03] transition-colors border-b border-white/5">
                             <td class="py-4">
                                 <div class="flex flex-col">
-                                    <span class="text-blue-400 font-bold font-mono tracking-wider">${w.address ? w.address.slice(0, 14) + '...' : 'Unknown'}</span>
+                                    <span class="text-blue-400 font-bold font-mono tracking-wider">${formatAddress(w.address)}</span>
                                     <span class="text-[9px] text-gray-600 font-mono uppercase">${w.type || 'Quantum Node'}</span>
                                 </div>
                             </td>
@@ -282,7 +298,7 @@
                         logEntry.innerHTML = `
                             <span class="text-gray-600">[${logTime}]</span> Sync: 
                             <span class="text-white">${latest.address.slice(0,6)}</span> 
-                            <span class="text-green-400">+$${Math.floor(latest.qc)}</span>
+                            <span class="text-green-400">+$${Math.floor(latest.qc || 0)}</span>
                         `;
                         logBox.prepend(logEntry);
                         lastActionAddress = latest.address;
@@ -297,6 +313,10 @@
                 }
             } catch (err) {
                 console.error("Dashboard Error:", err);
+                // Индикатор ошибки
+                syncInd.className = "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
+                syncStat.innerText = "Offline";
+                syncStat.className = "text-red-500";
             }
         }
 
