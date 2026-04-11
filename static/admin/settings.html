@@ -24,7 +24,6 @@
             position: relative;
         }
 
-        /* Анимированный фон с сеткой */
         body::before {
             content: "";
             position: fixed;
@@ -52,7 +51,6 @@
             overflow: hidden;
         }
 
-        /* Эффект сканирующей линии */
         .quantum-card::after {
             content: "";
             position: absolute;
@@ -94,6 +92,7 @@
             box-shadow: 0 0 30px rgba(0, 210, 255, 0.6);
             transform: scale(1.02);
         }
+        .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .terminal-text { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
         .glitch-text { animation: glitch 3s infinite; }
@@ -104,7 +103,6 @@
             4% { text-shadow: 0 0 0 #ff00ff, 0 0 0 #00ffff; }
         }
 
-        /* Custom Range Slider */
         input[type="range"] { -webkit-appearance: none; background: #0f172a; height: 6px; border-radius: 10px; }
         input[type="range"]::-webkit-slider-thumb { 
             -webkit-appearance: none; width: 18px; height: 18px; 
@@ -151,16 +149,16 @@
             <div class="quantum-card p-4 border-l-4 border-purple-500">
                 <p class="text-[10px] text-gray-500 font-mono">THROUGHPUT</p>
                 <div class="flex items-end gap-2">
-                    <span class="text-2xl font-['Share+Tech+Mono'] text-white">14.2</span>
+                    <span id="stat_throughput" class="text-2xl font-['Share+Tech+Mono'] text-white">0.0</span>
                     <span class="text-[10px] text-purple-400 mb-1">GB/S</span>
                 </div>
             </div>
             <div class="quantum-card p-4 border-l-4 border-red-500">
                 <p class="text-[10px] text-gray-500 font-mono">THREAT_LEVEL</p>
                 <div class="flex items-center gap-2">
-                    <span id="stat_load" class="text-2xl font-['Share+Tech+Mono'] text-white">0</span>
+                    <span id="stat_load" class="text-2xl font-['Share+Tech+Mono'] text-white">0%</span>
                     <div class="h-2 w-12 bg-gray-800 rounded-full overflow-hidden">
-                        <div id="load_bar" class="h-full bg-red-500 transition-all duration-500" style="width: 12%"></div>
+                        <div id="load_bar" class="h-full bg-red-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
@@ -176,32 +174,29 @@
                                 <label class="terminal-text text-gray-400">REFERRAL_COMMISSION</label>
                                 <span id="ref_display" class="text-blue-400 font-mono">15%</span>
                             </div>
-                            <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%')">
+                            <input type="range" id="ref_input" class="w-full" min="0" max="40" value="15" oninput="updateVal('ref_display', this.value + '%', false)">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
                                 <label class="terminal-text text-gray-400">YIELD_PERCENTAGE</label>
                                 <span id="pool_display" class="text-blue-400 font-mono">75%</span>
                             </div>
-                            <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%')">
+                            <input type="range" id="pool_input" class="w-full" min="10" max="95" value="75" oninput="updateVal('pool_display', this.value + '%', false)">
                         </div>
                         <div>
                             <div class="flex justify-between mb-4">
                                 <label class="terminal-text text-gray-400">GAS_LIMIT_MIN</label>
                                 <span id="gas_display" class="text-blue-400 font-mono">0.2</span>
                             </div>
-                            <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value)">
+                            <input type="range" id="gas_input" class="w-full" min="0" max="5" step="0.1" value="0.2" oninput="updateVal('gas_display', this.value, false)">
                         </div>
-                        <button onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-xs">Execute Protocol</button>
+                        <button id="execute_btn" onclick="commitSettings()" class="save-btn w-full py-4 rounded-xl text-white font-bold uppercase text-xs">Execute Protocol</button>
                     </div>
                 </div>
 
                 <div class="quantum-card p-4 bg-black/40 h-48">
                     <p class="text-[10px] text-blue-500 font-mono mb-2 uppercase border-b border-blue-500/20 pb-1">System_Logs</p>
-                    <div id="terminal" class="terminal-text text-[10px] text-blue-300/70 overflow-y-hidden h-32 space-y-1">
-                        <div>[SYSTEM]: Link established...</div>
-                        <div>[AUTH]: Encrypted session active...</div>
-                    </div>
+                    <div id="terminal" class="terminal-text text-[10px] text-blue-300/70 overflow-y-hidden h-32 space-y-1"></div>
                 </div>
             </div>
 
@@ -215,7 +210,7 @@
                         <div class="flex gap-4">
                             <div class="text-right">
                                 <p class="text-[9px] text-gray-500 font-mono">PEAK_24H</p>
-                                <p class="text-sm font-mono text-white">1,482</p>
+                                <p id="stat_peak" class="text-sm font-mono text-white">0</p>
                             </div>
                             <div class="text-right border-l border-white/10 pl-4">
                                 <p class="text-[9px] text-gray-500 font-mono">AVG_LATENCY</p>
@@ -235,14 +230,75 @@
         let mainChart;
         const terminal = document.getElementById('terminal');
 
-        function updateVal(id, text) {
-            document.getElementById(id).innerText = text;
-            addLog(`Parameter changed: ${id.split('_')[0]} -> ${text}`);
+        // 1. ПЕРВИЧНАЯ ЗАГРУЗКА ИЗ БД
+        async function loadConfig() {
+            try {
+                addLog("Pulling latest configuration from database...");
+                const response = await fetch('/api/stats'); 
+                const data = await response.json();
+                
+                if (data.config) {
+                    document.getElementById('ref_input').value = data.config.referral_commission;
+                    document.getElementById('pool_input').value = data.config.yield_percentage;
+                    document.getElementById('gas_input').value = data.config.gas_limit_min;
+                    
+                    updateVal('ref_display', data.config.referral_commission + '%', false);
+                    updateVal('pool_display', data.config.yield_percentage + '%', false);
+                    updateVal('gas_display', data.config.gas_limit_min, false);
+                    addLog("CORE: Configuration synchronized successfully.");
+                }
+            } catch (e) {
+                addLog("WARN: Direct DB link failed. Using local presets.", "text-orange-400");
+            }
         }
 
-        function addLog(msg) {
+        // 2. СОХРАНЕНИЕ В БД
+        async function commitSettings() {
+            const btn = document.getElementById('execute_btn');
+            const config = {
+                referral_commission: parseInt(document.getElementById('ref_input').value),
+                yield_percentage: parseInt(document.getElementById('pool_input').value),
+                gas_limit_min: parseFloat(document.getElementById('gas_input').value)
+            };
+
+            try {
+                btn.innerText = "UPLOADING...";
+                btn.disabled = true;
+                addLog("CRITICAL: Committing protocol state to backend...");
+
+                const response = await fetch('/api/update_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    btn.innerText = "SYNCHRONIZED";
+                    btn.style.background = "linear-gradient(90deg, #10b981, #059669)";
+                    addLog("SUCCESS: Database record updated.");
+                    setTimeout(() => {
+                        btn.innerText = "EXECUTE PROTOCOL";
+                        btn.style.background = "";
+                        btn.disabled = false;
+                    }, 2000);
+                } else { throw new Error(); }
+            } catch (e) {
+                btn.innerText = "FAILED";
+                btn.style.background = "#ef4444";
+                addLog("ERROR: Request timed out or rejected.", "text-red-500");
+                setTimeout(() => { btn.disabled = false; btn.innerText = "RETRY"; }, 2000);
+            }
+        }
+
+        function updateVal(id, text, logIt = true) {
+            document.getElementById(id).innerText = text;
+            if (logIt) addLog(`Param change: ${id.split('_')[0]} -> ${text}`);
+        }
+
+        function addLog(msg, colorClass = "text-blue-300/70") {
             const time = new Date().toLocaleTimeString([], { hour12: false });
             const entry = document.createElement('div');
+            entry.className = colorClass;
             entry.innerHTML = `<span class="text-blue-500">[${time}]</span> ${msg}`;
             terminal.prepend(entry);
             if(terminal.childNodes.length > 8) terminal.lastChild.remove();
@@ -259,7 +315,7 @@
                 data: {
                     labels: Array(20).fill(''),
                     datasets: [{
-                        data: Array(20).fill(0).map(() => Math.floor(Math.random() * 500 + 400)),
+                        data: Array(20).fill(0),
                         borderColor: '#00d2ff',
                         borderWidth: 3,
                         pointRadius: 0,
@@ -273,7 +329,7 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566', font: { family: 'Share Tech Mono' } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#445566' } },
                         x: { grid: { display: false } }
                     },
                     animation: { duration: 1000 }
@@ -281,45 +337,35 @@
             });
         }
 
+        // 3. ЖИВОЕ ОБНОВЛЕНИЕ СТАТИСТИКИ
         function liveUpdate() {
-            setInterval(() => {
-                const val = Math.floor(Math.random() * 100 + 1100);
-                document.getElementById('stat_connections').innerText = val;
-                
-                const load = Math.floor(Math.random() * 20 + 5);
-                document.getElementById('stat_load').innerText = load + '%';
-                document.getElementById('load_bar').style.width = load + '%';
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/stats');
+                    const data = await response.json();
 
-                if(mainChart) {
-                    mainChart.data.datasets[0].data.shift();
-                    mainChart.data.datasets[0].data.push(val / 2);
-                    mainChart.update('none');
+                    document.getElementById('stat_connections').innerText = data.connections;
+                    document.getElementById('stat_load').innerText = data.cpu + '%';
+                    document.getElementById('load_bar').style.width = data.cpu + '%';
+                    document.getElementById('stat_throughput').innerText = (data.connections / 80).toFixed(1);
+                    document.getElementById('stat_peak').innerText = Math.max(parseInt(document.getElementById('stat_peak').innerText), data.connections);
+
+                    if(mainChart) {
+                        mainChart.data.datasets[0].data.shift();
+                        mainChart.data.datasets[0].data.push(data.connections);
+                        mainChart.update('none');
+                    }
+                } catch (e) {
+                    console.log("Stats sync lost...");
                 }
-
-                if(Math.random() > 0.8) addLog("Incoming handshake from node " + Math.floor(Math.random()*999));
-            }, 2000);
-        }
-
-        function commitSettings() {
-            const btn = document.querySelector('.save-btn');
-            btn.innerText = "INITIALIZING...";
-            addLog("CRITICAL: Committing protocol state to blockchain...");
-            
-            setTimeout(() => {
-                btn.innerText = "SYNCHRONIZED";
-                btn.style.background = "linear-gradient(90deg, #10b981, #059669)";
-                addLog("SUCCESS: Network state updated.");
-                setTimeout(() => {
-                    btn.innerText = "EXECUTE PROTOCOL";
-                    btn.style.background = "";
-                }, 2000);
-            }, 1500);
+            }, 3000);
         }
 
         window.onload = () => {
+            addLog("System Uplink Established.");
             initChart();
+            loadConfig();
             liveUpdate();
-            addLog("Core systems initialized.");
         };
     </script>
 </body>
