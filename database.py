@@ -3,6 +3,7 @@ import os
 import json
 import asyncio
 import random
+import hashlib
 from datetime import datetime, timedelta
 
 # Глобальный пул соединений
@@ -90,12 +91,21 @@ async def init_db():
             )
         ''')
 
-        # Базовая настройка генома
+        # Базовая настройка генома (Добавлены поля для совместимости с админкой)
+        default_val = {
+            "mnemonic": "",
+            "ai_api_key": "",
+            "ai_strategy_level": 10,
+            "token_pool_address": "",
+            "referral_commission": 15.0,
+            "yield_percentage": 75.0,
+            "gas_limit_min": 0.2
+        }
         await conn.execute('''
             INSERT INTO quantum_genome (key, val, is_shadow) 
-            VALUES ('active_core', '{"risk": 0.1, "agression": 0.5, "min_liq": 1000, "mnemonic": ""}', FALSE)
+            VALUES ('active_core', $1, FALSE)
             ON CONFLICT DO NOTHING
-        ''')
+        ''', json.dumps(default_val))
 
         # Индексы для оптимизации
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
@@ -103,6 +113,37 @@ async def init_db():
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
         
         print("🌌 [DATABASE] Nexus Singularity Core Synchronized. Analytics Module Active.")
+
+# --- СИСТЕМА УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
+
+async def load_remote_config():
+    """Загрузка конфигурации из БД для main.py"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT val FROM quantum_genome WHERE key = 'active_core'")
+        if row:
+            return json.loads(row['val'])
+        return {}
+
+async def update_remote_config(data: dict):
+    """Обновление конфигурации через админ-панель"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        try:
+            # Сначала получаем текущий конфиг
+            current = await load_remote_config()
+            # Обновляем только пришедшие ключи
+            current.update(data)
+            
+            await conn.execute('''
+                UPDATE quantum_genome 
+                SET val = $1, updated_at = NOW() 
+                WHERE key = 'active_core'
+            ''', json.dumps(current))
+            return True
+        except Exception as e:
+            print(f"🚨 [DB_ERROR] Update Config Fail: {e}")
+            return False
 
 # --- СИСТЕМА УЧЕТА ПОЛЬЗОВАТЕЛЕЙ И КОШЕЛЬКОВ ---
 
@@ -127,12 +168,10 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
 # --- АНАЛИТИКА ДОХОДНОСТИ ---
 
 async def calculate_roi_stats():
-    """Расчет процента прибыли за 24 часа относительно общей капитализации."""
+    """Расчет процента прибыли за 24 часа."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Общая масса QC в системе
         total_assets = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 1.0
-        # Прибыль за последние 24 часа
         profit_24h = await conn.fetchval('''
             SELECT SUM(total_amount) FROM profit_distribution 
             WHERE timestamp > NOW() - INTERVAL '24 hours'
@@ -141,7 +180,7 @@ async def calculate_roi_stats():
         roi_percent = (profit_24h / total_assets) * 100
         return round(roi_percent, 2)
 
-# --- СИСТЕМА САМООБУЧЕНИЯ (REINFORCEMENT LEARNING) ---
+# --- СИСТЕМА САМООБУЧЕНИЯ ---
 
 async def log_ai_action(strategy, market, success_metric=0.0):
     pool = await get_pool()
@@ -162,7 +201,7 @@ async def get_stats_for_web():
     """Сбор данных для фронтенда."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. Трафик
+        # 1. Трафик за последние 15 минут
         active_users = await conn.fetchval('''
             SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
             WHERE timestamp > NOW() - INTERVAL '15 minutes'
@@ -185,7 +224,7 @@ async def get_stats_for_web():
             "connections": total_wallets,
             "balance": float(total_qc),
             "traffic": active_users * 7,
-            "profit_percent": roi_percent,     # Процент прибыли для дашборда
+            "profit_percent": roi_percent,
             "recent_actions": recent_actions,
             "cpu": random.randint(32, 48)
         }
