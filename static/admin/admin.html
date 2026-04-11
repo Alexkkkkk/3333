@@ -30,7 +30,7 @@
             background-size: 100% 100%, 40px 40px, 40px 40px;
         }
 
-        /* Улучшенный CRT Эффект */
+        /* CRT Эффект */
         body::after {
             content: "";
             position: fixed;
@@ -42,7 +42,6 @@
             z-index: 1000;
         }
 
-        /* Сканирующая полоса */
         .scanline {
             width: 100%; height: 100px;
             background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.05), transparent);
@@ -65,7 +64,6 @@
             transition: all 0.3s ease;
         }
 
-        /* Декоративные уголки */
         .quantum-card::before, .quantum-card::after {
             content: ""; position: absolute; width: 10px; height: 10px; border-color: var(--accent);
         }
@@ -95,9 +93,7 @@
             font-family: 'Orbitron', sans-serif;
         }
 
-        .glitch {
-            position: relative;
-        }
+        .glitch { position: relative; }
         .glitch::before {
             content: attr(data-text);
             position: absolute; left: -2px; text-shadow: 2px 0 #ff00c1;
@@ -117,30 +113,32 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 10px; }
+        
+        .status-lost { color: #ef4444 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important; }
+        
+        #log-container { scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent; }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="scanline"></div>
 
     <div class="max-w-[1600px] mx-auto">
-        
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-cyan-900/50 pb-6 gap-6">
             <div class="relative">
                 <h1 class="text-4xl font-bold tracking-[6px] terminal-text uppercase glitch" data-text="QUANCORE_OS_V4.1">QUANCORE_OS_V4.1</h1>
                 <div class="flex items-center gap-3 mt-2">
-                    <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                    <p class="text-[10px] opacity-60 tracking-[3px]">SESSION_ID: <span id="core_id_display" class="text-white">...</span></p>
+                    <span id="status_indicator" class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                    <p class="text-[10px] opacity-60 tracking-[3px]">SESSION_ID: <span id="core_id_display" class="text-white">FETCHING...</span></p>
                 </div>
             </div>
             <nav class="flex gap-4">
                 <a href="#" class="nav-btn nav-active">📊 MONITOR</a>
-                <a href="wallets.html" class="nav-btn">💎 WALLETS</a>
-                <a href="settings.html" class="nav-btn">⚙️ CORE</a>
+                <a href="../wallets.html" class="nav-btn">💎 WALLETS</a>
+                <a href="../settings.html" class="nav-btn">⚙️ CORE</a>
             </nav>
         </header>
 
         <div class="grid grid-cols-12 gap-5">
-            
             <div class="col-span-12 lg:col-span-3 space-y-5">
                 <div class="quantum-card p-5 bg-gradient-to-br from-cyan-950/20 to-transparent">
                     <h3 class="text-[9px] text-cyan-500/50 mb-3 uppercase tracking-[3px]">System_Integrity</h3>
@@ -167,7 +165,7 @@
                                 <span id="cpu_label" class="text-cyan-400">0%</span>
                             </div>
                             <div class="w-full bg-cyan-900/20 h-1.5 rounded-full overflow-hidden border border-cyan-900/30">
-                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700 shadow-[0_0_10px_var(--accent)]" style="width: 0%"></div>
+                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
                         <div>
@@ -176,7 +174,7 @@
                                 <span id="ram_label" class="text-purple-400">0%</span>
                             </div>
                             <div class="w-full bg-purple-900/20 h-1.5 rounded-full overflow-hidden border border-purple-900/30">
-                                <div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700 shadow-[0_0_10px_#8b5cf6]" style="width: 0%"></div>
+                                <div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
@@ -226,7 +224,7 @@
                         <canvas id="latencyChart"></canvas>
                     </div>
                     <div class="mt-4 text-center border-t border-cyan-900/50 pt-5 relative">
-                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-bg px-3 text-[8px] text-cyan-800">DELAY_MS</div>
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#05080a] px-3 text-[8px] text-cyan-800">DELAY_MS</div>
                         <span id="latency_val" class="text-5xl font-bold text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]">0</span>
                     </div>
                 </div>
@@ -240,21 +238,19 @@
                     <div class="absolute -right-4 -top-4 text-emerald-500/10 text-6xl font-bold group-hover:scale-110 transition-transform">99%</div>
                     <h3 class="text-[9px] text-emerald-500 mb-2 uppercase tracking-[3px]">Stability_Index</h3>
                     <div id="stability_val" class="text-5xl font-bold tracking-tighter">99.9%</div>
-                    <p class="text-[9px] text-gray-500 mt-3 leading-relaxed border-t border-emerald-500/20 pt-3">
+                    <div class="text-[9px] text-gray-500 mt-3 leading-relaxed border-t border-emerald-500/20 pt-3">
                         PROTO_SYNC: <span class="text-emerald-400">ACTIVE</span><br>
                         PYTONIQ_CORE: <span class="text-emerald-400">STABLE</span>
-                    </p>
+                    </div>
                 </div>
             </div>
-
         </div>
     </div>
 
     <script>
-        // Общие настройки Chart.js
+        // Инициализация Chart.js
         Chart.defaults.color = 'rgba(0, 210, 255, 0.4)';
         Chart.defaults.font.family = "'Share Tech Mono'";
-        Chart.defaults.elements.line.cap = 'round';
 
         const createLineChart = (id, color, tension = 0.4) => {
             const ctx = document.getElementById(id).getContext('2d');
@@ -265,27 +261,26 @@
             return new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array(30).fill(''),
+                    labels: Array(20).fill(''),
                     datasets: [{
-                        data: Array(30).fill(0),
+                        data: Array(20).fill(0),
                         borderColor: color,
                         borderWidth: 2,
                         fill: true,
                         backgroundColor: grad,
                         tension: tension,
-                        pointRadius: 0,
-                        borderJoinStyle: 'round'
+                        pointRadius: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: { duration: 400 },
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(0, 210, 255, 0.03)' }, ticks: { display: false } },
+                        y: { grid: { color: 'rgba(0, 210, 255, 0.03)' }, ticks: { display: false }, min: 0 },
                         x: { grid: { display: false } }
-                    }
+                    },
+                    animation: { duration: 1000 }
                 }
             });
         };
@@ -320,29 +315,54 @@
             }
         });
 
+        // Система логов
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             const log = document.createElement('div');
-            log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 opacity-0 transition-opacity duration-500 animate-in fade-in";
-            log.style.opacity = "1";
-            log.innerHTML = `<span class="text-[8px] text-cyan-800 font-bold">${type}</span> <span class="text-white/80">${msg}</span>`;
+            const time = new Date().toLocaleTimeString('ru-RU', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            const typeColors = {
+                "SYS": "text-cyan-500",
+                "ERR": "text-red-500",
+                "OK": "text-green-500",
+                "SEC": "text-purple-500",
+                "NET": "text-blue-500",
+                "IO": "text-amber-500"
+            };
+
+            log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 animate-pulse";
+            log.innerHTML = `<span class="text-[7px] text-cyan-800">[${time}]</span> <span class="text-[8px] ${typeColors[type] || 'text-cyan-500'} font-bold">${type}</span> <span class="text-white/80">${msg}</span>`;
+            
             container.prepend(log);
-            if(container.childNodes.length > 20) container.lastChild.remove();
+            if(container.childNodes.length > 25) container.lastChild.remove();
         }
 
+        // Обновление графиков
+        function pushChartData(chart, value) {
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(value);
+            chart.update('none');
+        }
+
+        // Основной цикл запроса данных
         async function fetchSystemData() {
             try {
                 const response = await fetch('/api/stats');
-                if (!response.ok) throw new Error();
+                if (!response.ok) throw new Error("API_OFFLINE");
                 const data = await response.json();
 
+                // Обновление UI
                 document.getElementById('core_id_display').innerText = data.engine?.core_id || "QUANCORE-NL-01";
                 document.getElementById('system_status').innerText = data.engine?.status || "OPERATIONAL";
+                document.getElementById('system_status').classList.remove('status-lost');
+                document.getElementById('status_indicator').className = "w-2 h-2 bg-green-500 rounded-full animate-ping";
+                
                 document.getElementById('conn_val').innerText = data.connections || 0;
                 document.getElementById('balance_val').innerText = data.balance || "0.00";
                 document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2) + " Mbps";
                 document.getElementById('latency_val').innerText = data.ping || 0;
 
+                // Прогресс-бары
                 const cpu = data.cpu || 0;
                 const ram = data.ram || 0;
                 document.getElementById('cpu_bar').style.width = cpu + "%";
@@ -350,30 +370,38 @@
                 document.getElementById('ram_bar').style.width = ram + "%";
                 document.getElementById('ram_label').innerText = ram + "%";
 
-                const updateChart = (chart, val) => {
-                    chart.data.datasets[0].data.shift();
-                    chart.data.datasets[0].data.push(val);
-                    chart.update('none');
-                };
-                
-                updateChart(trafficChart, data.traffic);
-                updateChart(integrityChart, cpu);
-                updateChart(visitorChart, data.connections || Math.random() * 50);
+                // Пушим данные в графики
+                pushChartData(trafficChart, data.traffic || 0);
+                pushChartData(integrityChart, cpu);
+                pushChartData(visitorChart, data.connections || 0);
+
+                // Обновление радара задержки (случайные колебания для вида)
+                latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
+                    Math.max(10, Math.min(50, v + (Math.random() * 10 - 5)))
+                );
+                latencyChart.update('none');
+
+                // Лог активности
+                if(Math.random() > 0.8) addLog(`DATA_PACKET_${Math.floor(Math.random()*999)} VERIFIED`, "IO");
 
             } catch (err) {
                 document.getElementById('system_status').innerText = "LINK_LOST";
-                document.getElementById('system_status').className = "text-3xl font-bold text-red-500";
+                document.getElementById('system_status').classList.add('status-lost');
+                document.getElementById('status_indicator').className = "w-2 h-2 bg-red-500 rounded-full animate-pulse";
+                if(Math.random() > 0.9) addLog("CRITICAL: CONNECTION TO CORE LOST", "ERR");
             }
         }
 
+        // Запуск
         setInterval(fetchSystemData, 2000);
         
-        // Стартовые логи
-        setTimeout(() => addLog("NEURAL CORE INITIALIZED", "OK"), 500);
-        setTimeout(() => addLog("ENCRYPTED TUNNEL ESTABLISHED", "SEC"), 1200);
-        setTimeout(() => addLog("SYNCING WITH TON_MAINNET...", "NET"), 2000);
-        
-        fetchSystemData();
+        // Начальная загрузка
+        window.addEventListener('load', () => {
+            setTimeout(() => addLog("NEURAL CORE INITIALIZED", "OK"), 500);
+            setTimeout(() => addLog("ENCRYPTED TUNNEL ESTABLISHED", "SEC"), 1200);
+            setTimeout(() => addLog("SYNCING WITH TON_MAINNET...", "NET"), 2000);
+            fetchSystemData();
+        });
     </script>
 </body>
 </html>
