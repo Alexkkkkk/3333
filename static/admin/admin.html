@@ -72,13 +72,14 @@
 
         .nav-btn { 
             border: 1px solid var(--border); 
-            padding: 8px 20px; 
+            padding: 8px 15px; 
             text-transform: uppercase;
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 1px;
             transition: 0.4s;
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
             background: rgba(0, 210, 255, 0.05);
+            display: inline-block;
         }
         .nav-btn:hover, .nav-active { 
             background: var(--accent); 
@@ -123,6 +124,14 @@
     <div class="scanline"></div>
 
     <div class="max-w-[1600px] mx-auto">
+        
+        <div class="mb-4 flex items-center gap-4 text-[10px] tracking-[3px] text-cyan-500/40 uppercase font-bold">
+            <span class="text-cyan-500/20">Root</span>
+            <span>/</span>
+            <span class="text-white/60">static / index.html</span>
+            <span class="ml-auto text-[8px] border border-cyan-500/30 px-2 py-0.5">Quantum_Protocol_System_File</span>
+        </div>
+
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-cyan-900/50 pb-6 gap-6">
             <div class="relative">
                 <h1 class="text-4xl font-bold tracking-[6px] terminal-text uppercase glitch" data-text="QUANCORE_OS_V4.1">QUANCORE_OS_V4.1</h1>
@@ -131,10 +140,11 @@
                     <p class="text-[10px] opacity-60 tracking-[3px]">SESSION_ID: <span id="core_id_display" class="text-white">FETCHING...</span></p>
                 </div>
             </div>
-            <nav class="flex gap-4">
+            <nav class="flex flex-wrap gap-3 justify-center">
                 <a href="#" class="nav-btn nav-active">📊 MONITOR</a>
-                <a href="../wallets.html" class="nav-btn">💎 WALLETS</a>
-                <a href="../settings.html" class="nav-btn">⚙️ CORE</a>
+                <a href="/static/admin/wallets.html" class="nav-btn">💎 WALLETS</a>
+                <a href="/static/admin/settings.html" class="nav-btn">⚙️ CORE</a>
+                <a href="/static/admin/admin.html" class="nav-btn">🔒 ADMIN</a>
             </nav>
         </header>
 
@@ -322,12 +332,8 @@
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
             const typeColors = {
-                "SYS": "text-cyan-500",
-                "ERR": "text-red-500",
-                "OK": "text-green-500",
-                "SEC": "text-purple-500",
-                "NET": "text-blue-500",
-                "IO": "text-amber-500"
+                "SYS": "text-cyan-500", "ERR": "text-red-500", "OK": "text-green-500",
+                "SEC": "text-purple-500", "NET": "text-blue-500", "IO": "text-amber-500"
             };
 
             log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 animate-pulse";
@@ -375,13 +381,12 @@
                 pushChartData(integrityChart, cpu);
                 pushChartData(visitorChart, data.connections || 0);
 
-                // Обновление радара задержки (случайные колебания для вида)
+                // Обновление радара задержки
                 latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
                     Math.max(10, Math.min(50, v + (Math.random() * 10 - 5)))
                 );
                 latencyChart.update('none');
 
-                // Лог активности
                 if(Math.random() > 0.8) addLog(`DATA_PACKET_${Math.floor(Math.random()*999)} VERIFIED`, "IO");
 
             } catch (err) {
