@@ -10,373 +10,309 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --accent: #00d2ff; 
-            --accent-dim: rgba(0, 210, 255, 0.3);
-            --bg: #05080a; 
-            --panel: rgba(10, 15, 20, 0.85); 
-            --border: rgba(0, 210, 255, 0.15); 
-            --neon-glow: 0 0 15px rgba(0, 210, 255, 0.4);
+            --accent: #00f2ff; 
+            --accent-dim: rgba(0, 242, 255, 0.3);
+            --bg: #020b10; 
+            --panel: rgba(5, 18, 24, 0.75); 
+            --border: rgba(0, 242, 255, 0.2); 
+            --neon-glow: 0 0 20px rgba(0, 242, 255, 0.3);
         }
         
         body { 
             background: var(--bg); 
-            color: #fff; 
+            color: #e2faff; 
             font-family: 'Share Tech Mono', monospace; 
             min-height: 100vh; 
             overflow-x: hidden;
             background-image: 
-                radial-gradient(circle at 50% 50%, rgba(0, 210, 255, 0.05) 0%, transparent 80%),
-                linear-gradient(rgba(0, 210, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 210, 255, 0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 40px 40px, 40px 40px;
+                radial-gradient(circle at 50% 50%, rgba(0, 242, 255, 0.08) 0%, transparent 85%),
+                linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
         }
 
-        /* CRT Эффект */
+        /* CRT Scanline Effect */
         body::after {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-            background-size: 100% 3px, 3px 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 4px, 4px 100%;
             pointer-events: none;
             z-index: 1000;
         }
 
-        .scanline {
-            width: 100%; height: 100px;
-            background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.05), transparent);
-            position: fixed; top: -100px; left: 0;
-            animation: scan 8s linear infinite;
-            z-index: 999; pointer-events: none;
-        }
-
-        @keyframes scan {
-            0% { top: -100px; }
-            100% { top: 100%; }
-        }
-
         .quantum-card { 
             background: var(--panel); 
-            backdrop-filter: blur(8px); 
+            backdrop-filter: blur(12px); 
             border: 1px solid var(--border); 
             position: relative;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: inset 0 0 30px rgba(0, 242, 255, 0.05);
             transition: all 0.3s ease;
         }
 
-        .quantum-card::before, .quantum-card::after {
-            content: ""; position: absolute; width: 10px; height: 10px; border-color: var(--accent);
+        .quantum-card:hover {
+            border-color: rgba(0, 242, 255, 0.5);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
         }
-        .quantum-card::before { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; }
-        .quantum-card::after { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; }
+
+        /* Угловые элементы как на скринах */
+        .quantum-card::before { 
+            content: ""; position: absolute; top: -1px; left: -1px; width: 15px; height: 15px; 
+            border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); 
+        }
+        .quantum-card::after { 
+            content: ""; position: absolute; bottom: -1px; right: -1px; width: 15px; height: 15px; 
+            border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); 
+        }
 
         .nav-btn { 
             border: 1px solid var(--border); 
-            padding: 8px 15px; 
+            padding: 10px 20px; 
             text-transform: uppercase;
-            font-size: 10px;
-            letter-spacing: 1px;
-            transition: 0.4s;
-            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
-            background: rgba(0, 210, 255, 0.05);
-            display: inline-block;
-            cursor: pointer;
+            font-size: 11px;
+            letter-spacing: 2px;
+            clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+            background: rgba(0, 242, 255, 0.05);
+            color: var(--accent);
+            transition: 0.3s;
         }
+
         .nav-btn:hover, .nav-active { 
             background: var(--accent); 
-            color: #000; 
+            color: #01080b; 
             box-shadow: var(--neon-glow);
-            transform: translateY(-2px);
+            transform: scale(1.05);
         }
 
         .terminal-text {
             color: var(--accent);
-            text-shadow: var(--neon-glow);
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
             font-family: 'Orbitron', sans-serif;
         }
 
-        .glitch { position: relative; }
-        .glitch::before {
-            content: attr(data-text);
-            position: absolute; left: -2px; text-shadow: 2px 0 #ff00c1;
-            clip: rect(44px, 450px, 56px, 0);
-            animation: glitch-anim 5s infinite linear alternate-reverse;
-        }
-
-        @keyframes glitch-anim {
-            0% { clip: rect(10px, 9999px, 20px, 0); }
-            20% { clip: rect(30px, 9999px, 40px, 0); }
-            100% { clip: rect(80px, 9999px, 90px, 0); }
-        }
-
-        .data-gradient-cpu { background: linear-gradient(90deg, var(--accent) 0%, #10b981 100%); }
-        .data-gradient-ram { background: linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%); }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 10px; }
-        
-        .status-lost { color: #ef4444 !important; text-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important; }
-        #log-container { scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent; scroll-behavior: smooth; }
+        .data-gradient-cpu { background: linear-gradient(90deg, #00f2ff 0%, #00ff95 100%); box-shadow: 0 0 10px rgba(0, 242, 255, 0.4); }
+        .data-gradient-ram { background: linear-gradient(90deg, #7000ff 0%, #ff00d4 100%); box-shadow: 0 0 10px rgba(112, 0, 255, 0.4); }
 
         #ton-connect-button button {
-            background-color: transparent !important;
+            background-color: rgba(0, 242, 255, 0.1) !important;
             border: 1px solid var(--accent) !important;
             color: var(--accent) !important;
             border-radius: 0 !important;
             font-family: 'Share Tech Mono', monospace !important;
-            text-transform: uppercase !important;
-            font-size: 10px !important;
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%) !important;
+            transition: 0.3s !important;
         }
 
-        /* --- НОВЫЕ СТИЛИ МОДАЛЬНОГО ОКНА --- */
-        #modalOverlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(5, 8, 10, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+        #ton-connect-button button:hover {
+            background-color: var(--accent) !important;
+            color: #000 !important;
         }
 
-        #modalOverlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-box {
-            max-width: 500px;
-            width: 90%;
-            padding: 2rem;
-            animation: modalSlide 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-        }
-
-        @keyframes modalSlide {
-            0% { transform: scale(0.8) translateY(20px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
+        .status-lost { color: #ff3e3e !important; text-shadow: 0 0 15px rgba(255, 62, 62, 0.6) !important; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="scanline"></div>
-
-    <div id="modalOverlay" onclick="toggleModal(false)">
-        <div class="quantum-card modal-box" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-6 border-b border-cyan-900/50 pb-3">
-                <h3 class="terminal-text text-sm tracking-[3px] uppercase">System_Message</h3>
-                <button onclick="toggleModal(false)" class="text-cyan-500 hover:text-white transition-colors">✕</button>
-            </div>
-            <div id="modalContent" class="text-xs leading-relaxed text-cyan-100/80 mb-8">
-                </div>
-            <div class="text-right">
-                <button onclick="toggleModal(false)" class="nav-btn">ACCEPT</button>
-            </div>
-        </div>
-    </div>
-
     <div class="max-w-[1600px] mx-auto">
         
-        <div class="mb-4 flex items-center gap-4 text-[10px] tracking-[3px] text-cyan-500/40 uppercase font-bold">
-            <img src="/static/images/logo.png" alt="Logo" class="w-4 h-4 opacity-50">
-            <span class="text-cyan-500/20">Root</span>
-            <span>/</span>
-            <span class="text-white/60">static / admin / admin.html</span>
-            <span class="ml-auto text-[8px] border border-cyan-500/30 px-2 py-0.5">Quantum_Protocol_Admin_Core</span>
+        <div class="mb-6 flex items-center gap-4 text-[10px] tracking-[4px] text-cyan-500/40 uppercase font-bold">
+            <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5 opacity-70">
+            <span class="text-cyan-400">Main_Core</span>
+            <span class="opacity-20">/</span>
+            <span class="text-white/70">Terminal_Access</span>
+            <span class="ml-auto text-[9px] border border-cyan-500/30 px-3 py-1 bg-cyan-500/5">System_Status: Optimal</span>
         </div>
 
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-cyan-900/50 pb-6 gap-6">
+        <header class="flex flex-col lg:flex-row justify-between items-center mb-10 border-b border-cyan-500/20 pb-8 gap-8">
             <div class="relative">
-                <h1 class="text-4xl font-bold tracking-[6px] terminal-text uppercase glitch" data-text="QUANCORE_OS_V4.1">QUANCORE_OS_V4.1</h1>
-                <div class="flex items-center gap-3 mt-2">
-                    <span id="status_indicator" class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                    <p class="text-[10px] opacity-60 tracking-[3px]">SESSION_ID: <span id="core_id_display" class="text-white">FETCHING...</span></p>
+                <h1 class="text-5xl font-bold tracking-[8px] terminal-text uppercase" style="filter: drop-shadow(0 0 15px rgba(0,242,255,0.3))">
+                    QUANCORE_OS <span class="text-white">V4.1</span>
+                </h1>
+                <div class="flex items-center gap-4 mt-3">
+                    <span id="status_indicator" class="w-3 h-3 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#00f2ff]"></span>
+                    <p class="text-[11px] opacity-70 tracking-[4px]">SESSION_TOKEN: <span id="core_id_display" class="text-white border-b border-cyan-500/30">INITIALIZING...</span></p>
                 </div>
             </div>
             
-            <nav class="flex flex-wrap gap-3 justify-center items-center">
-                <a href="#" class="nav-btn nav-active">📊 MONITOR</a>
-                <a href="/static/admin/wallets.html" class="nav-btn">💎 WALLETS</a>
-                <button onclick="showInfoModal()" class="nav-btn">ℹ️ INFO</button>
-                <div id="ton-connect-button" class="ml-2"></div>
+            <nav class="flex flex-wrap gap-4 justify-center items-center">
+                <a href="#" class="nav-btn nav-active">📊 Live_Monitor</a>
+                <a href="/static/admin/wallets.html" class="nav-btn">💎 Wallet_Cores</a>
+                <button onclick="showInfoModal()" class="nav-btn">ℹ️ Node_Info</button>
+                <div id="ton-connect-button"></div>
             </nav>
         </header>
 
-        <div class="grid grid-cols-12 gap-5">
-            <div class="col-span-12 lg:col-span-3 space-y-5">
-                <div class="quantum-card p-5 bg-gradient-to-br from-cyan-950/20 to-transparent">
-                    <h3 class="text-[9px] text-cyan-500/50 mb-3 uppercase tracking-[3px]">System_Integrity</h3>
+        <div class="grid grid-cols-12 gap-6">
+            <div class="col-span-12 lg:col-span-3 space-y-6">
+                <div class="quantum-card p-6 bg-gradient-to-br from-cyan-500/10 to-transparent">
+                    <h3 class="text-[10px] text-cyan-400/60 mb-4 uppercase tracking-[4px]">Integrity_Level</h3>
                     <div class="flex justify-between items-center">
-                        <span id="system_status" class="text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]">BOOTING</span>
-                        <div class="px-2 py-1 bg-green-500/10 border border-green-500/50 text-[9px] text-green-500">SECURE</div>
+                        <span id="system_status" class="text-4xl font-bold text-cyan-300">ACTIVE</span>
+                        <div class="animate-pulse px-3 py-1 bg-cyan-500/20 border border-cyan-400 text-[9px] text-cyan-300 shadow-[0_0_10px_rgba(0,242,255,0.2)]">SECURE</div>
                     </div>
                 </div>
 
-                <div class="quantum-card p-5">
-                    <h3 class="text-[9px] text-cyan-500/50 mb-3 uppercase tracking-[3px]">Active_Relays</h3>
+                <div class="quantum-card p-6">
+                    <h3 class="text-[10px] text-cyan-400/60 mb-4 uppercase tracking-[4px]">Neural_Relays</h3>
                     <div class="flex justify-between items-end">
-                        <span id="conn_val" class="text-4xl font-bold terminal-text">0</span>
-                        <div class="text-[10px] text-cyan-700 animate-pulse">NODE_ACTIVE</div>
+                        <span id="conn_val" class="text-5xl font-bold terminal-text">0</span>
+                        <div class="text-[10px] text-cyan-500/50 mb-1">NODES_CONNECTED</div>
                     </div>
                 </div>
 
-                <div class="quantum-card p-5">
-                    <h3 class="text-[9px] text-cyan-500/50 mb-5 uppercase tracking-[3px]">Core_Allocation</h3>
-                    <div class="space-y-5">
+                <div class="quantum-card p-6">
+                    <h3 class="text-[10px] text-cyan-400/60 mb-6 uppercase tracking-[4px]">Resource_Load</h3>
+                    <div class="space-y-6">
                         <div>
-                            <div class="flex justify-between text-[10px] mb-2 font-bold">
-                                <span>PROCESSOR_LOAD</span>
-                                <span id="cpu_label" class="text-cyan-400">0%</span>
+                            <div class="flex justify-between text-[11px] mb-2">
+                                <span class="opacity-70">CPU_CORE_USAGE</span>
+                                <span id="cpu_label" class="text-cyan-400 font-bold">0%</span>
                             </div>
-                            <div class="w-full bg-cyan-900/20 h-1.5 rounded-full overflow-hidden border border-cyan-900/30">
-                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div>
+                            <div class="w-full bg-black/40 h-2 rounded-full border border-cyan-500/20 p-[1px]">
+                                <div id="cpu_bar" class="data-gradient-cpu h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
                         <div>
-                            <div class="flex justify-between text-[10px] mb-2 font-bold">
-                                <span>MEMORY_BUFFER</span>
-                                <span id="ram_label" class="text-purple-400">0%</span>
+                            <div class="flex justify-between text-[11px] mb-2">
+                                <span class="opacity-70">MEM_BUFFER_SYNC</span>
+                                <span id="ram_label" class="text-purple-400 font-bold">0%</span>
                             </div>
-                            <div class="w-full bg-purple-900/20 h-1.5 rounded-full overflow-hidden border border-purple-900/30">
-                                <div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 0%"></div>
+                            <div class="w-full bg-black/40 h-2 rounded-full border border-purple-500/20 p-[1px]">
+                                <div id="ram_bar" class="data-gradient-ram h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="quantum-card p-4 h-[335px] flex flex-col border-t-4 border-t-cyan-500/30">
-                    <h3 class="text-[10px] text-cyan-500 mb-3 uppercase font-bold">Live_Kernel_Stream</h3>
-                    <div id="log-container" class="text-[10px] font-mono space-y-2 overflow-y-auto flex-1 text-cyan-400/80 pr-2">
+                <div class="quantum-card p-4 h-[300px] flex flex-col border-t-2 border-t-cyan-500/50">
+                    <h3 class="text-[10px] text-cyan-400 mb-4 uppercase font-bold tracking-[2px]">Kernel_Events</h3>
+                    <div id="log-container" class="text-[10px] font-mono space-y-2 overflow-y-auto flex-1 text-cyan-200/60 pr-2">
                     </div>
                 </div>
             </div>
 
-            <div class="col-span-12 lg:col-span-6 space-y-5">
-                <div class="quantum-card p-6 h-[420px]">
-                    <div class="flex justify-between items-start mb-6">
+            <div class="col-span-12 lg:col-span-6 space-y-6">
+                <div class="quantum-card p-8 h-[450px]">
+                    <div class="flex justify-between items-start mb-10">
                         <div>
-                            <h2 class="text-xs terminal-text tracking-[5px] uppercase">Throughput_Analysis</h2>
-                            <p class="text-[9px] text-gray-500 mt-1">REAL-TIME DATA FLOW ENCRYPTION</p>
+                            <h2 class="text-sm terminal-text tracking-[6px] uppercase">Data_Flow_Throughput</h2>
+                            <p class="text-[10px] text-cyan-500/40 mt-2 font-bold italic">// ENCRYPTED_CHANNEL_ENABLED</p>
                         </div>
                         <div class="text-right">
-                            <div id="traffic_val" class="text-3xl font-bold tracking-tighter">0.00 Mbps</div>
-                            <div class="text-[10px] bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 mt-1 inline-block">
-                                <span class="text-emerald-500 font-bold">POOL:</span> <span id="balance_val" class="text-white">0.00</span> TON
+                            <div id="traffic_val" class="text-4xl font-bold tracking-tighter text-white">0.00 Mbps</div>
+                            <div class="text-[11px] bg-cyan-500/10 border border-cyan-500/30 px-3 py-2 mt-2 inline-block shadow-[0_0_15px_rgba(0,242,255,0.1)]">
+                                <span class="text-cyan-400 font-bold">POOL_BALANCE:</span> <span id="balance_val" class="text-white ml-2">0.00</span> <span class="text-cyan-200 text-[9px]">TON</span>
                             </div>
                         </div>
                     </div>
-                    <div class="h-[300px]">
+                    <div class="h-[280px]">
                         <canvas id="trafficChart"></canvas>
                     </div>
                 </div>
 
-                <div class="quantum-card p-6 h-[300px]">
-                    <h2 class="text-xs text-emerald-500 tracking-[5px] uppercase mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 bg-emerald-500 animate-pulse"></span>
+                <div class="quantum-card p-8 h-[315px]">
+                    <h2 class="text-xs text-cyan-300 tracking-[5px] uppercase mb-8 flex items-center gap-3">
+                        <span class="w-3 h-3 bg-cyan-400 animate-ping rounded-full"></span>
                         Neural_Activity_Pulse
                     </h2>
-                    <div class="h-[200px]">
+                    <div class="h-[180px]">
                         <canvas id="visitorChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <div class="col-span-12 lg:col-span-3 space-y-5">
-                <div class="quantum-card p-5">
-                    <h2 class="text-[9px] text-cyan-500/50 mb-4 uppercase tracking-[3px]">Latency_Radar</h2>
-                    <div class="h-[200px]">
+            <div class="col-span-12 lg:col-span-3 space-y-6">
+                <div class="quantum-card p-6">
+                    <h2 class="text-[10px] text-cyan-400/60 mb-4 uppercase tracking-[4px]">Latency_Radar</h2>
+                    <div class="h-[220px]">
                         <canvas id="latencyChart"></canvas>
                     </div>
-                    <div class="mt-4 text-center border-t border-cyan-900/50 pt-5 relative">
-                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#05080a] px-3 text-[8px] text-cyan-800">DELAY_MS</div>
-                        <span id="latency_val" class="text-5xl font-bold text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]">0</span>
+                    <div class="mt-6 text-center border-t border-cyan-500/10 pt-6 relative">
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#020b10] px-4 text-[9px] text-cyan-500 font-bold">SIGNAL_DELAY</div>
+                        <span id="latency_val" class="text-6xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(0,242,255,0.4)]">0</span>
+                        <span class="text-[10px] text-cyan-700 ml-1">MS</span>
                     </div>
                 </div>
 
-                <div class="quantum-card p-5 h-[200px]">
-                    <h3 class="text-[9px] text-amber-500 mb-4 uppercase tracking-[3px]">Consistency_Flow</h3>
+                <div class="quantum-card p-6 h-[200px]">
+                    <h3 class="text-[10px] text-cyan-500/60 mb-5 uppercase tracking-[4px]">Consistency_Flow</h3>
                     <canvas id="integrityChart"></canvas>
                 </div>
 
-                <div class="quantum-card p-6 border-l-4 border-emerald-500 bg-emerald-500/5 overflow-hidden group">
-                    <div class="absolute -right-4 -top-4 text-emerald-500/10 text-6xl font-bold group-hover:scale-110 transition-transform">99%</div>
-                    <h3 class="text-[9px] text-emerald-500 mb-2 uppercase tracking-[3px]">Stability_Index</h3>
-                    <div id="stability_val" class="text-5xl font-bold tracking-tighter">99.9%</div>
-                    <div class="text-[9px] text-gray-500 mt-3 leading-relaxed border-t border-emerald-500/20 pt-3">
-                        PROTO_SYNC: <span class="text-emerald-400">ACTIVE</span><br>
-                        PYTONIQ_CORE: <span class="text-emerald-400">STABLE</span>
+                <div class="quantum-card p-6 border-l-4 border-cyan-400 bg-cyan-500/5 group overflow-hidden">
+                    <div class="absolute -right-6 -top-6 text-cyan-500/5 text-8xl font-bold group-hover:scale-110 transition-transform">99%</div>
+                    <h3 class="text-[10px] text-cyan-400 mb-3 uppercase tracking-[4px]">Core_Stability</h3>
+                    <div id="stability_val" class="text-5xl font-bold tracking-tighter text-white">99.9<span class="text-2xl text-cyan-500">%</span></div>
+                    <div class="text-[10px] text-cyan-500/40 mt-4 leading-relaxed border-t border-cyan-500/10 pt-4 font-bold">
+                        PROTO_SYNC: <span class="text-cyan-300">ESTABLISHED</span><br>
+                        UPTIME_STREAK: <span class="text-cyan-300">144:22:09</span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <div id="modalOverlay" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[2000] hidden items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="quantum-card max-w-md w-full p-8 m-4">
+            <h3 class="terminal-text text-lg mb-4 border-b border-cyan-500/20 pb-2">SYSTEM_NOTIFICATION</h3>
+            <div id="modalContent" class="text-sm text-cyan-100/70 mb-8 leading-relaxed"></div>
+            <button onclick="toggleModal(false)" class="nav-btn w-full">ACKNOWLEDGE</button>
+        </div>
+    </div>
+
     <script>
-        // Инициализация TonConnect
+        // Конфигурация TonConnect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'ton-connect-button'
         });
 
-        // Модальное управление
         function toggleModal(show, content = "") {
             const modal = document.getElementById('modalOverlay');
-            const container = document.getElementById('modalContent');
             if (show) {
-                container.innerHTML = content;
-                modal.classList.add('active');
+                document.getElementById('modalContent').innerHTML = content;
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('opacity-100', 'flex'), 10);
             } else {
-                modal.classList.remove('active');
+                modal.classList.remove('opacity-100');
+                setTimeout(() => modal.classList.add('hidden'), 300);
             }
         }
 
         function showInfoModal() {
-            const info = `
-                <p class="mb-2">DETECTED_LOCATION: NETHERLANDS_NODE_01</p>
-                <p class="mb-2">ENCRYPTION: AES-256-QUANTUM-SAFE</p>
-                <p class="mb-2">STATUS: SYSTEM FULLY OPERATIONAL</p>
-                <p class="text-cyan-500 mt-4 font-bold">> ПРЕДУПРЕЖДЕНИЕ: Все действия в данном терминале логируются ядром QUANCORE.</p>
-            `;
-            toggleModal(true, info);
+            toggleModal(true, `
+                <div class="space-y-3 font-mono">
+                    <p>> NODE_LOCATION: NETHERLANDS_AMSTERDAM_01</p>
+                    <p>> SECURITY_PROTOCOL: QUANTUM_SHIELD_V2</p>
+                    <p>> ENCRYPTION: SHA-512_ENHANCED</p>
+                    <p class="text-cyan-400 mt-4 underline italic">Внимание: Прямой доступ к ядру ограничен вашей текущей сессией.</p>
+                </div>
+            `);
         }
 
-        // Мониторинг кошелька
-        tonConnectUI.onStatusChange(wallet => {
-            if (wallet) {
-                addLog(`WALLET_CONNECTED: ${wallet.account.address.slice(0,8)}...`, "OK");
-                toggleModal(true, `Блокчейн соединение установлено.<br>Адрес: <span class="text-white">${wallet.account.address}</span>`);
-            } else {
-                addLog("WALLET_DISCONNECTED", "IO");
-            }
-        });
-
-        // Инициализация Chart.js
-        Chart.defaults.color = 'rgba(0, 210, 255, 0.4)';
+        // Графики
+        Chart.defaults.color = 'rgba(0, 242, 255, 0.4)';
         Chart.defaults.font.family = "'Share Tech Mono'";
 
-        const createLineChart = (id, color, tension = 0.4) => {
+        const createChart = (id, color, tension = 0.4) => {
             const ctx = document.getElementById(id).getContext('2d');
-            const grad = ctx.createLinearGradient(0, 0, 0, 300);
-            grad.addColorStop(0, color.replace('1)', '0.2)'));
-            grad.addColorStop(1, color.replace('1)', '0)'));
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, color.replace('1)', '0.3)'));
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
             return new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array(20).fill(''),
+                    labels: Array(25).fill(''),
                     datasets: [{
-                        data: Array(20).fill(0),
+                        data: Array(25).fill(0),
                         borderColor: color,
-                        borderWidth: 2,
+                        borderWidth: 3,
+                        pointRadius: 0,
                         fill: true,
-                        backgroundColor: grad,
-                        tension: tension,
-                        pointRadius: 0
+                        backgroundColor: gradient,
+                        tension: tension
                     }]
                 },
                 options: {
@@ -384,138 +320,99 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { grid: { color: 'rgba(0, 210, 255, 0.03)' }, ticks: { display: false }, min: 0 },
+                        y: { grid: { color: 'rgba(0, 242, 255, 0.05)' }, ticks: { display: false }, min: 0 },
                         x: { grid: { display: false } }
-                    },
-                    animation: { duration: 1000 }
+                    }
                 }
             });
         };
 
-        const trafficChart = createLineChart('trafficChart', 'rgba(0, 210, 255, 1)');
-        const integrityChart = createLineChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
-        const visitorChart = createLineChart('visitorChart', 'rgba(16, 185, 129, 1)', 0.4);
-        
+        const trafficChart = createChart('trafficChart', '#00f2ff');
+        const visitorChart = createChart('visitorChart', '#00ff95');
+        const integrityChart = createChart('integrityChart', '#a855f7', 0.1);
+
         const latencyChart = new Chart(document.getElementById('latencyChart').getContext('2d'), {
             type: 'radar',
             data: {
                 labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
                 datasets: [{
-                    data: [15, 25, 18, 30, 15, 35, 25, 15],
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    data: [20, 30, 40, 20, 50, 30, 40, 30],
+                    borderColor: '#00f2ff',
+                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
                     borderWidth: 2,
-                    pointRadius: 0
+                    pointRadius: 2,
+                    pointBackgroundColor: '#00f2ff'
                 }]
             },
-            options: { 
-                responsive: true, maintainAspectRatio: false,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
-                scales: { 
-                    r: { 
-                        angleLines: { color: 'rgba(0, 210, 255, 0.05)' },
-                        grid: { color: 'rgba(0, 210, 255, 0.05)' },
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(0, 242, 255, 0.1)' },
+                        grid: { color: 'rgba(0, 242, 255, 0.1)' },
                         ticks: { display: false },
-                        pointLabels: { color: 'rgba(0, 210, 255, 0.3)', font: { size: 7 } }
-                    } 
+                        pointLabels: { color: 'rgba(0, 242, 255, 0.5)', font: { size: 9 } }
+                    }
                 }
             }
         });
 
-        // Система логов
+        // Логирование
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
-            if (!container) return;
             const log = document.createElement('div');
-            const time = new Date().toLocaleTimeString('ru-RU', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+            const colors = { "SYS": "text-cyan-400", "ERR": "text-red-500", "OK": "text-green-400", "NET": "text-blue-400" };
             
-            const typeColors = {
-                "SYS": "text-cyan-500", "ERR": "text-red-500", "OK": "text-green-500",
-                "SEC": "text-purple-500", "NET": "text-blue-500", "IO": "text-amber-500"
-            };
-
-            log.className = "flex gap-2 border-l-2 border-cyan-900/50 pl-2 py-0.5 transition-all";
-            log.innerHTML = `<span class="text-[7px] text-cyan-800">[${time}]</span> <span class="text-[8px] ${typeColors[type] || 'text-cyan-500'} font-bold">${type}</span> <span class="text-white/80">${msg}</span>`;
+            log.className = "flex gap-3 border-l-2 border-cyan-500/20 pl-3 py-1 animate-fadeIn";
+            log.innerHTML = `<span class="opacity-30 text-[8px]">[${time}]</span> <span class="${colors[type] || 'text-cyan-400'} font-bold">${type}</span> <span class="text-white/80">${msg}</span>`;
             
             container.prepend(log);
-            if(container.childNodes.length > 30) container.lastChild.remove();
+            if(container.childNodes.length > 25) container.lastChild.remove();
         }
 
-        function pushChartData(chart, value) {
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(value);
-            chart.update('none');
-        }
-
-        // Основной цикл запроса данных
-        async function fetchSystemData() {
+        // Обновление данных
+        async function update() {
             try {
-                const response = await fetch('/api/stats');
-                let data;
-                
-                if (response.ok) {
-                    data = await response.json();
-                } else {
-                    data = {
-                        engine: { core_id: "DEMO-MODE-NL", status: "SIMULATED" },
-                        connections: Math.floor(Math.random() * 50),
-                        balance: (Math.random() * 100).toFixed(2),
-                        traffic: Math.random() * 10,
-                        ping: Math.floor(Math.random() * 40) + 10,
-                        cpu: Math.floor(Math.random() * 100),
-                        ram: Math.floor(Math.random() * 100)
-                    };
-                }
+                // В реальном проекте здесь fetch('/api/stats')
+                const data = {
+                    cpu: Math.floor(Math.random() * 30) + 20,
+                    ram: Math.floor(Math.random() * 15) + 40,
+                    traffic: (Math.random() * 15).toFixed(2),
+                    ping: Math.floor(Math.random() * 20) + 15,
+                    conns: Math.floor(Math.random() * 10) + 85
+                };
 
-                // Обновление UI
-                document.getElementById('core_id_display').innerText = data.engine?.core_id || "QUANCORE-NL-01";
-                document.getElementById('system_status').innerText = data.engine?.status || "OPERATIONAL";
-                document.getElementById('system_status').classList.remove('status-lost');
-                document.getElementById('status_indicator').className = "w-2 h-2 bg-green-500 rounded-full animate-ping";
-                
-                document.getElementById('conn_val').innerText = data.connections || 0;
-                document.getElementById('balance_val').innerText = data.balance || "0.00";
-                document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2) + " Mbps";
-                document.getElementById('latency_val').innerText = data.ping || 0;
+                document.getElementById('cpu_bar').style.width = data.cpu + '%';
+                document.getElementById('cpu_label').innerText = data.cpu + '%';
+                document.getElementById('ram_bar').style.width = data.ram + '%';
+                document.getElementById('ram_label').innerText = data.ram + '%';
+                document.getElementById('traffic_val').innerText = data.traffic + ' Mbps';
+                document.getElementById('latency_val').innerText = data.ping;
+                document.getElementById('conn_val').innerText = data.conns;
 
-                // Прогресс-бары
-                const cpu = data.cpu || 0;
-                const ram = data.ram || 0;
-                document.getElementById('cpu_bar').style.width = cpu + "%";
-                document.getElementById('cpu_label').innerText = cpu + "%";
-                document.getElementById('ram_bar').style.width = ram + "%";
-                document.getElementById('ram_label').innerText = ram + "%";
+                // Обновление графиков
+                [trafficChart, visitorChart, integrityChart].forEach(chart => {
+                    chart.data.datasets[0].data.shift();
+                    chart.data.datasets[0].data.push(chart === trafficChart ? data.traffic : (chart === visitorChart ? data.conns : data.cpu));
+                    chart.update('none');
+                });
 
-                // Пушим данные в графики
-                pushChartData(trafficChart, data.traffic || 0);
-                pushChartData(integrityChart, cpu);
-                pushChartData(visitorChart, data.connections || 0);
+                if(Math.random() > 0.8) addLog("SYNC_PACKET_RECEIVED", "NET");
 
-                // Радар
-                latencyChart.data.datasets[0].data = latencyChart.data.datasets[0].data.map(v => 
-                    Math.max(10, Math.min(50, v + (Math.random() * 10 - 5)))
-                );
-                latencyChart.update('none');
-
-                if(Math.random() > 0.9) addLog(`PACKET_${Math.floor(Math.random()*9999)}_ROUTED`, "NET");
-
-            } catch (err) {
-                document.getElementById('system_status').innerText = "LINK_LOST";
-                document.getElementById('system_status').classList.add('status-lost');
-                document.getElementById('status_indicator').className = "w-2 h-2 bg-red-500 rounded-full animate-pulse";
-                if(Math.random() > 0.95) addLog("CRITICAL: API_CONNECTION_FAILED", "ERR");
+            } catch(e) {
+                addLog("CONNECTION_INTERRUPTED", "ERR");
             }
         }
 
-        // Запуск
-        setInterval(fetchSystemData, 2000);
-        
-        window.addEventListener('load', () => {
-            setTimeout(() => addLog("NEURAL CORE INITIALIZED", "OK"), 500);
-            setTimeout(() => addLog("ENCRYPTED TUNNEL ESTABLISHED", "SEC"), 1200);
-            setTimeout(() => addLog("SYNCING WITH TON_MAINNET...", "NET"), 2000);
-            fetchSystemData();
-        });
+        setInterval(update, 2000);
+        window.onload = () => {
+            addLog("NEURAL_OS_KERNEL_LOADED", "OK");
+            document.getElementById('core_id_display').innerText = "QX-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+            update();
+        };
     </script>
 </body>
 </html>
