@@ -9,19 +9,37 @@
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --panel: rgba(13, 17, 23, 0.85); 
-            --border: rgba(0, 210, 255, 0.15); 
-            --neon-blue: #00d2ff;
-            --neon-green: #10b981;
+            --panel: rgba(13, 17, 23, 0.85); /* Глубокий иссиня-черный для панелей */
+            --border: rgba(0, 210, 255, 0.15); /* Прозрачный голубой для границ */
+            --neon-blue: #00d2ff; /* Основной акцентный свет */
+            --neon-green: #10b981; /* Цвет успеха/активности */
         }
+
         body { 
             background: #05080a; 
             color: #e2e8f0; 
             font-family: 'Inter', sans-serif; 
             min-height: 100vh;
             background-image: radial-gradient(circle at 50% 50%, #0a1622 0%, #05080a 100%);
+            margin: 0;
+            overflow-x: hidden;
         }
-        
+
+        /* Фоновая сетка */
+        .grid-bg {
+            position: fixed;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px), 
+                              linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+            opacity: 0.1;
+        }
+
+        /* Стили карточек */
         .quantum-card { 
             background: var(--panel); 
             backdrop-filter: blur(20px); 
@@ -30,17 +48,10 @@
             box-shadow: 0 15px 35px rgba(0,0,0,0.5);
             position: relative;
             overflow: hidden;
+            transition: transform 0.3s ease;
         }
 
-        .grid-bg {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 50px 50px;
-            z-index: -1;
-            opacity: 0.1;
-        }
-
+        /* Навигация */
         .nav-btn { 
             background: rgba(255,255,255,0.03); 
             border: 1px solid var(--border); 
@@ -50,10 +61,22 @@
             font-family: 'Share Tech Mono', monospace;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             letter-spacing: 1px;
+            color: #94a3b8;
         }
-        .nav-btn:hover { border-color: var(--neon-blue); background: rgba(0, 210, 255, 0.08); transform: translateY(-1px); }
-        .nav-active { border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0, 136, 204, 0.12); box-shadow: 0 0 20px rgba(0, 210, 255, 0.15); }
+        .nav-btn:hover { 
+            border-color: var(--neon-blue); 
+            background: rgba(0, 210, 255, 0.08); 
+            transform: translateY(-1px); 
+            color: white;
+        }
+        .nav-active { 
+            border-color: var(--neon-blue); 
+            color: var(--neon-blue); 
+            background: rgba(0, 136, 204, 0.12); 
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.15); 
+        }
         
+        /* Таблицы */
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th { 
             color: #64748b; 
@@ -67,10 +90,11 @@
         }
         td { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 13px; font-family: 'Share Tech Mono', monospace; }
         
+        /* Индикаторы */
         .status-badge { padding: 3px 10px; border-radius: 6px; font-size: 9px; font-weight: bold; border: 1px solid transparent; }
         .stat-value { font-family: 'Orbitron', sans-serif; font-weight: 700; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
 
-        /* Custom Scrollbar */
+        /* Скроллбар */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
@@ -187,7 +211,7 @@
                             <span class="text-[10px] uppercase text-gray-400 font-mono tracking-widest">Database Sync: <span class="text-green-500">Active</span></span>
                         </div>
                         <div class="flex gap-2 w-full sm:w-auto">
-                            <input type="text" id="searchInput" placeholder="Search Node..." class="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[11px] font-mono focus:outline-none focus:border-blue-500/50 w-full sm:w-64 transition-all">
+                            <input type="text" id="searchInput" placeholder="Search Node..." class="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[11px] font-mono focus:outline-none focus:border-blue-500/50 w-full sm:w-64 transition-all text-white">
                             <button onclick="updateDashboard()" class="text-[10px] border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 px-4 py-2 rounded-lg font-bold transition-all uppercase tracking-tighter">Refresh</button>
                         </div>
                     </div>
@@ -220,15 +244,12 @@
                 if (!response.ok) throw new Error('API Sync Failed');
                 const data = await response.json();
 
-                // 1. Счетчики и Аналитика
                 document.getElementById('stat_wallets').innerText = (data.connections || 0).toLocaleString();
                 document.getElementById('stat_qc').innerText = Math.floor(data.balance || 0).toLocaleString();
                 document.getElementById('stat_users').innerText = Math.floor(data.traffic / 4 || 0);
-                // Пример расчета ROI из данных или рандом для визуала если нет в API
                 document.getElementById('stat_roi').innerText = data.roi_24h || (Math.random() * 2 + 1).toFixed(2);
                 document.getElementById('cpu_val').innerText = (data.cpu || 0) + '%';
 
-                // 2. Детальная Таблица Аналитики
                 const tbody = document.getElementById('wallet-rows');
                 if (data.recent_actions && data.recent_actions.length > 0) {
                     tbody.innerHTML = data.recent_actions.map(w => {
@@ -249,10 +270,9 @@
                                 </span>
                             </td>
                             <td class="text-gray-500 text-[11px] font-mono">${time}</td>
-                        </tr>
-                    `}).join('');
+                        </tr>`;
+                    }).join('');
 
-                    // 3. Лог событий
                     const latest = data.recent_actions[0];
                     if (latest && latest.address !== lastActionAddress) {
                         const logBox = document.getElementById('event-log');
@@ -270,7 +290,6 @@
                     }
                 }
 
-                // 4. График нагрузки
                 if (growthChart) {
                     growthChart.data.datasets[0].data.shift();
                     growthChart.data.datasets[0].data.push(data.cpu || Math.floor(Math.random() * 20) + 10);
