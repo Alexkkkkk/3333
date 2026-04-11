@@ -52,7 +52,7 @@ class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.session_start = time.time()
-        self.core_id = f"OMNI-{os.urandom(4).hex().upper()}"
+        self.core_id = f"QC-CORE-{os.urandom(2).hex().upper()}"
         
         # Админ-панель
         self.admin_login = os.getenv("ADMIN_LOGIN", "1")
@@ -64,7 +64,6 @@ class OmniNeuralOverlord:
         self.current_balance = 0.0
 
     def get_static_path(self):
-        # Приоритет для Docker/Bothost структуры
         if os.path.exists("/app/static"):
             return "/app/static"
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -85,11 +84,8 @@ overlord = OmniNeuralOverlord()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log("SYS: Синхронизация с PostgreSQL Core...", "INFO")
-    # 1. Инициализируем таблицы в БД
     await init_db()
-    # 2. Загружаем конфиг из БД перед запуском воркера
     await overlord.update_config_from_db()
-    # 3. Запускаем фоновый воркер TON
     worker_task = asyncio.create_task(core_worker())
     yield
     overlord.is_active = False
@@ -111,7 +107,7 @@ app.add_middleware(
 @app.get("/")
 @app.get("/index.html")
 async def read_index(request: Request):
-    # Регистрируем посещение в аналитике
+    # Регистрируем посещение при загрузке главной страницы
     ip = request.client.host
     ua = request.headers.get('user-agent', 'unknown')
     await register_visit(ip, ua)
@@ -122,36 +118,42 @@ async def read_index(request: Request):
     return JSONResponse({"error": "Index not found"}, status_code=404)
 
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(request: Request):
     try:
-        # Тянем агрегированные данные из модуля database.py
+        # 1. Сбор данных из БД через твой модуль
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config()
         
-        # Формируем JSON строго под структуру твоего JS на фронтенде
+        # 2. Логируем визит и через API (для точности трафика)
+        ip = request.client.host
+        ua = request.headers.get('user-agent', 'unknown')
+        await register_visit(ip, ua)
+
+        # 3. Формируем JSON строго под структуру скрипта в index.html
         return {
-            'balance': f"{db_stats.get('balance', 0):.2f}",
-            'traffic': db_stats.get('traffic', 0), 
-            'profit_percent': db_stats.get('profit_percent', 0),
-            'cpu': db_stats.get('cpu', 25),
-            'ram': random.randint(60, 75), # Можно добавить в БД или оставить симуляцию
-            'connections': db_stats.get('connections', 0),
-            'ping': random.randint(15, 45),
-            'latency_map': [random.randint(10, 60) for _ in range(8)],
-            'recent_actions': [
+            "balance": float(db_stats.get('balance', 0)),        # Это пойдет в main-balance-ton
+            "qc_balance": float(db_stats.get('qc_balance', 0)),  # Это пойдет в main-balance-qc
+            "traffic": db_stats.get('traffic', 0), 
+            "profit_percent": db_stats.get('profit_percent', 0),
+            "cpu": db_stats.get('cpu_load', 25),
+            "ram": random.randint(60, 75),
+            "connections": db_stats.get('connections', 0),
+            "ping": random.randint(15, 45),
+            "latency_map": [random.randint(10, 60) for _ in range(8)],
+            "recent_actions": [
                 {
-                    "cmd": action.get("address", "0x0...")[:10] + "...", 
+                    "cmd": str(action.get("address", "0x0..."))[:12] + "...", 
                     "timestamp": int(time.time()) 
                 } for action in db_stats.get('recent_actions', [])
             ],
-            'config': {
-                'referral_commission': current_cfg.get('referral_commission', 15),
-                'yield_percentage': current_cfg.get('yield_percentage', 75),
-                'gas_limit_min': current_cfg.get('gas_limit_min', 0.2)
+            "config": {
+                "referral_commission": current_cfg.get('referral_commission', 15),
+                "yield_percentage": current_cfg.get('yield_percentage', 75),
+                "gas_limit_min": current_cfg.get('gas_limit_min', 0.2)
             },
-            'engine': {
+            "engine": {
                 "core_id": overlord.core_id, 
-                "status": overlord.last_status,
+                "status": overlord.last_status, # "ACTIVE", "OFFLINE" и т.д.
                 "uptime": round(time.time() - overlord.session_start)
             }
         }
@@ -173,7 +175,11 @@ async def handle_login(request: Request):
 
 @app.post("/api/update_config")
 async def handle_update_config(request: Request):
-    # Добавь здесь проверку куки auth_token для защиты!
+    # Проверка сессии (куки)
+    token = request.cookies.get("auth_token")
+    if not token or token != overlord.session_token:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     data = await request.json()
     if await update_remote_config(data):
         log(f"CONFIG: Параметры синхронизированы в БД", "SUCCESS")
@@ -181,7 +187,7 @@ async def handle_update_config(request: Request):
         return {"status": "success"}
     return JSONResponse({"status": "error"}, status_code=500)
 
-# Монтирование статики (после API!)
+# Монтирование статики
 app.mount("/static", StaticFiles(directory=overlord.get_static_path()), name="static")
 
 @app.get("/{filename}")
@@ -190,7 +196,7 @@ async def serve_root_static(filename: str):
     file_path = os.path.join(static_dir, filename)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
-    # Поиск картинок в подпапке
+    # Поиск картинок
     img_path = os.path.join(static_dir, "images", filename)
     if os.path.isfile(img_path):
         return FileResponse(img_path)
@@ -205,14 +211,14 @@ async def core_worker():
             await overlord.update_config_from_db()
             
             if not overlord.mnemonic or not TON_ENABLED:
-                overlord.last_status = "WAITING_CONFIG"
+                overlord.last_status = "OFFLINE"
                 await asyncio.sleep(10)
                 continue
             
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
-                    overlord.last_status = "BAD_MNEMONIC"
+                    overlord.last_status = "OFFLINE"
                     log("Ошибка: Мнемоника имеет неверный формат", "ERROR")
                     await asyncio.sleep(30); continue
 
@@ -222,38 +228,37 @@ async def core_worker():
                 
                 while overlord.is_active:
                     try:
-                        # Получаем реальный баланс из блокчейна TON
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # Синхронизация состояния кошелька с PostgreSQL
+                        # Сохраняем состояние в БД
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
-                            qc=overlord.current_balance * 137.5 # Коэффициент Quantum
+                            qc=overlord.current_balance * 137.5 
                         )
                         
-                        # Логируем активность нейросети (пример)
+                        # Небольшой шанс логирования работы AI
                         if random.random() > 0.8:
                             await log_ai_action(
                                 strategy={'cmd': 'SCAN', 'amt': 0, 'reason': 'Heartbeat'},
                                 market={'ton_price': 5.4, 'volatility': 'low'}
                             )
 
-                        # Проверка смены конфига (если изменили мнемонику в админке)
+                        # Следим за обновлением конфига в реальном времени
                         old_mne = overlord.mnemonic
                         await overlord.update_config_from_db()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Обнаружена новая конфигурация. Переподключение...", "WARNING")
+                            log("CORE: Переподключение на новый кошелек...", "WARNING")
                             break
                             
-                        await asyncio.sleep(20) # Частота опроса ноды
+                        await asyncio.sleep(20) 
                     except Exception as e:
                         log(f"Heartbeat Error: {e}", "TRACE")
                         break
         except Exception as e:
             log(f"Global Loop Error: {e}", "ERROR")
-            overlord.last_status = "CORE_ERROR"
+            overlord.last_status = "OFFLINE"
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
