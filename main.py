@@ -41,9 +41,9 @@ log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V3.0 (FastAPI + AI) 
 try:
     from pytoniq import LiteClient, WalletV4R2, Address, begin_cell as BeginCell
     log("L1: Библиотеки TON (pytoniq) загружены", "SUCCESS")
+    TON_ENABLED = True
 except ImportError:
     log("Критическая ошибка: pytoniq не найден!", "ERROR")
-    # Создаем заглушки, если библиотеки нет (для тестов), но в проде это фатально
     TON_ENABLED = False
 
 try:
@@ -165,7 +165,6 @@ async def serve_image(file_name: str):
 @app.get("/admin.html")
 async def serve_admin():
     static_dir = overlord.get_static_path()
-    # Проверка в корне static и в подпапке admin
     check_files = [
         os.path.join(static_dir, "admin.html"),
         os.path.join(static_dir, "admin", "admin.html")
@@ -219,7 +218,6 @@ if os.path.exists(static_path):
 
 # --- CORE WORKER ---
 async def core_worker():
-    # Ожидание базы данных
     while DB_ENABLED:
         try:
             await init_db()
@@ -233,12 +231,11 @@ async def core_worker():
         try:
             await overlord.update_config_from_db()
             
-            if not overlord.mnemonic:
+            if not overlord.mnemonic or not TON_ENABLED:
                 overlord.last_status = "WAITING_CONFIG"
                 await asyncio.sleep(10)
                 continue
 
-            # Инициализация LiteClient и кошелька
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
@@ -250,11 +247,9 @@ async def core_worker():
                 overlord.last_status = "ACTIVE"
                 log(f"CORE ACTIVE: {wallet.address}", "SUCCESS")
                 
-                # Цикл мониторинга баланса
                 while overlord.is_active:
                     try:
                         overlord.current_balance = (await wallet.get_balance()) / 1e9
-                        # Проверка на изменение конфига в БД (Reality Swap)
                         old_mne = overlord.mnemonic
                         await overlord.update_config_from_db()
                         if overlord.mnemonic != old_mne:
@@ -270,7 +265,6 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    # Настройки для Bothost (использование порта из окружения)
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Quantum Overlord запущен на порту {port}", "CORE")
     uvicorn.run(
