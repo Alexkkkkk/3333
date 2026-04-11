@@ -87,9 +87,9 @@
                 </div>
             </div>
             <nav class="flex gap-4">
-                <a href="admin.html" class="nav-btn">📊 MONITORING</a>
-                <a href="wallets.html" class="nav-btn nav-active">💎 WALLETS</a>
-                <a href="settings.html" class="nav-btn">⚙️ DISTRIBUTION</a>
+                <a href="#" class="nav-btn">📊 MONITORING</a>
+                <a href="#" class="nav-btn nav-active">💎 WALLETS</a>
+                <a href="#" class="nav-btn">⚙️ DISTRIBUTION</a>
             </nav>
         </header>
 
@@ -112,7 +112,7 @@
                 <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Active Protocol Users</p>
                 <div class="flex items-baseline gap-2">
                     <span id="stat_users" class="text-3xl stat-value text-purple-400">0</span>
-                    <span class="flex h-2 w-2 rounded-full bg-purple-500 animate-pulse"></span>
+                    <span class="flex h-2 w-2 rounded-full bg-purple-500 animate-pulse ml-2"></span>
                 </div>
             </div>
         </div>
@@ -132,7 +132,7 @@
                 <div class="quantum-card p-4 bg-black/40">
                     <p class="text-[9px] text-gray-600 font-mono mb-3 uppercase tracking-widest border-b border-white/5 pb-2">Network_Events</p>
                     <div id="event-log" class="space-y-2 h-32 overflow-hidden font-mono text-[10px]">
-                    </div>
+                        </div>
                 </div>
             </div>
 
@@ -160,7 +160,7 @@
                                 </tr>
                             </thead>
                             <tbody id="wallet-rows">
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </div>
@@ -170,30 +170,36 @@
 
     <script>
         let growthChart;
+        let lastActionTimestamp = null; // Для фильтрации дублей в логе
 
-        // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ С СЕРВЕРА (API SYNC) ---
+        // --- ФУНКЦИЯ ОБНОВЛЕНИЯ ДАННЫХ В РЕАЛЬНОМ ВРЕМЕНИ ---
         async function updateDashboard() {
             try {
-                // Запрос к FastAPI эндпоинту
+                // Запрос к твоему API (FastAPI)
                 const response = await fetch('/api/stats');
+                if (!response.ok) throw new Error('API Sync Failed');
+                
                 const data = await response.json();
 
-                if (data.status === 'error') throw new Error(data.details);
-
-                // 1. Обновление счетчиков
+                // 1. Обновление верхних карточек (Счетчики)
+                // Кошельки
                 document.getElementById('stat_wallets').innerText = (data.connections || 0).toLocaleString();
-                document.getElementById('stat_qc').innerText = (data.balance || 0).toLocaleString();
-                document.getElementById('stat_users').innerText = Math.floor(data.traffic / 10 || 0);
+                // Баланс QC (Quantum Coins)
+                document.getElementById('stat_qc').innerText = (parseFloat(data.balance) || 0).toLocaleString(undefined, {minimumFractionDigits: 0});
+                // Активные пользователи (симуляция на основе трафика)
+                document.getElementById('stat_users').innerText = Math.floor(data.traffic / 7 || 0);
 
                 // 2. Обновление таблицы кошельков
                 const tbody = document.getElementById('wallet-rows');
                 if (data.recent_actions && data.recent_actions.length > 0) {
-                    tbody.innerHTML = data.recent_actions.map(w => `
+                    tbody.innerHTML = data.recent_actions.slice(0, 8).map(w => `
                         <tr class="hover:bg-white/[0.03] transition-colors border-b border-white/5">
-                            <td class="text-blue-400 font-bold font-mono">${w.address || 'Unknown'}</td>
-                            <td class="text-white">${w.amount || '0.00'}</td>
+                            <td class="text-blue-400 font-bold font-mono">
+                                <span class="text-gray-600 text-[10px] mr-1">ID:</span>${w.address ? w.address.slice(0, 10) + '...' : 'Unknown'}
+                            </td>
+                            <td class="text-white">${parseFloat(w.amount || 0).toFixed(2)}</td>
                             <td class="text-green-400 font-bold">${Math.floor(w.qc || 0).toLocaleString()} QC</td>
-                            <td class="text-gray-500 text-[11px]">${w.type || 'Mainnet'}</td>
+                            <td class="text-gray-500 text-[11px] uppercase">${w.type || 'Mainnet'}</td>
                             <td>
                                 <span class="status-badge ${w.status === 'SUCCESS' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}">
                                     ${w.status || 'SYNCING'}
@@ -201,45 +207,57 @@
                             </td>
                         </tr>
                     `).join('');
+
+                    // 3. Обновление "Живого" лога событий (Network_Events)
+                    const latest = data.recent_actions[0];
+                    // Добавляем запись, если адрес изменился (чтобы не спамить в лог одно и то же)
+                    if (latest && latest.address !== lastActionTimestamp) {
+                        const logBox = document.getElementById('event-log');
+                        const time = new Date().toLocaleTimeString([], { hour12: false });
+                        
+                        const logEntry = document.createElement('div');
+                        logEntry.className = 'text-blue-300 border-l-2 border-blue-500/50 pl-2 py-1 mb-1 animate-pulse';
+                        logEntry.innerHTML = `
+                            <span class="text-gray-600">[${time}]</span> Node 
+                            <span class="text-white font-bold">${latest.address.slice(0,6)}</span> 
+                            sync completed. <span class="text-green-400">+${Math.floor(latest.qc)} QC</span>
+                        `;
+                        
+                        logBox.prepend(logEntry);
+                        lastActionTimestamp = latest.address;
+
+                        // Ограничиваем количество записей в логе
+                        if (logBox.childNodes.length > 5) logBox.lastChild.remove();
+                    }
                 }
 
-                // 3. Обновление лога событий
-                const logBox = document.getElementById('event-log');
-                if (data.recent_actions && data.recent_actions.length > 0) {
-                    const lastAction = data.recent_actions[0];
-                    const time = new Date().toLocaleTimeString([], { hour12: false });
-                    const logEntry = document.createElement('div');
-                    logEntry.className = 'text-blue-300 animate-pulse transition-opacity duration-500';
-                    logEntry.innerHTML = `<span class="text-gray-600">[${time}]</span> Node ${lastAction.address.slice(0,6)}... linked. [${lastAction.type}]`;
-                    logBox.prepend(logEntry);
-                    if (logBox.childNodes.length > 6) logBox.lastChild.remove();
-                }
-
-                // 4. Обновление графика (используем CPU или трафик как пульс)
+                // 4. Обновление графика (Пульс системы)
                 if (growthChart) {
                     growthChart.data.datasets[0].data.shift();
-                    growthChart.data.datasets[0].data.push(data.cpu || 20);
-                    growthChart.update('none');
+                    // Используем данные CPU или случайное число для имитации активности
+                    const newValue = data.cpu || Math.floor(Math.random() * 20) + 30;
+                    growthChart.data.datasets[0].data.push(newValue);
+                    growthChart.update('none'); // Без анимации для экономии ресурсов
                 }
 
             } catch (err) {
-                console.error("Dashboard Sync Error:", err);
+                console.error("Critical Dashboard Error:", err);
             }
         }
 
-        // --- ИНИЦИАЛИЗАЦИЯ CHART.JS ---
+        // --- ИНИЦИАЛИЗАЦИЯ ГРАФИКА (CHART.JS) ---
         function initChart() {
             const ctx = document.getElementById('growthChart').getContext('2d');
             const grad = ctx.createLinearGradient(0, 0, 0, 250);
-            grad.addColorStop(0, 'rgba(0, 210, 255, 0.3)');
+            grad.addColorStop(0, 'rgba(0, 210, 255, 0.4)');
             grad.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
             growthChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['', '', '', '', '', '', ''],
+                    labels: ['', '', '', '', '', '', '', '', '', ''],
                     datasets: [{
-                        data: [20, 25, 22, 30, 28, 35, 30],
+                        data: [30, 35, 32, 40, 38, 45, 40, 42, 38, 40],
                         borderColor: '#00d2ff',
                         borderWidth: 2,
                         fill: true,
@@ -253,19 +271,21 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { display: false },
+                        y: { display: false, min: 0, max: 100 },
                         x: { display: false }
                     }
                 }
             });
         }
 
-        // ЗАПУСК ПРИ ЗАГРУЗКЕ
-        window.onload = () => {
+        // ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+        document.addEventListener('DOMContentLoaded', () => {
             initChart();
-            updateDashboard(); // Мгновенная загрузка
-            setInterval(updateDashboard, 5000); // Обновление каждые 5 секунд
-        };
+            updateDashboard(); // Первый запуск
+            
+            // Запуск цикла обновления (каждые 5 секунд)
+            setInterval(updateDashboard, 5000);
+        });
     </script>
 </body>
 </html>
