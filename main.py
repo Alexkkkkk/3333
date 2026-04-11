@@ -4,7 +4,8 @@ import json
 import time
 import sys
 import random
-import uvicorn
+import numpy as np
+import traceback
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -14,22 +15,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-
-# --- ИМПОРТ МОДУЛЕЙ ПРОЕКТА ---
-try:
-    from database import (init_db, log_ai_action, get_market_state, 
-                          get_stats_for_web, load_remote_config, update_remote_config)
-    DB_ENABLED = True
-except ImportError:
-    DB_ENABLED = False
-
-try:
-    from pytoniq import LiteClient, WalletV4R2, Address
-    TON_ENABLED = True
-except ImportError:
-    TON_ENABLED = False
-
-load_dotenv()
+import uvicorn
 
 # --- СИСТЕМА ЛОГИРОВАНИЯ ---
 LOG_FILE = "quantum_system.log"
@@ -42,12 +28,40 @@ def log(message, level="INFO"):
         "CORE": "\033[95m", "TRACE": "\033[90m"
     }
     reset = "\033[0m"
+    color = colors.get(level, reset)
     log_msg = f"[{timestamp}] [{level}] {message}"
-    print(f"{colors.get(level, reset)}{log_msg}{reset}", flush=True)
+    print(f"{color}{log_msg}{reset}", flush=True)
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_msg + "\n")
     except: pass
+
+# --- ИНИЦИАЛИЗАЦИЯ TON ЯДРА ---
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V3.0 (FastAPI + AI) <<<", "CORE")
+try:
+    from pytoniq import LiteClient, WalletV4R2, Address, begin_cell as BeginCell
+    log("L1: Библиотеки TON (pytoniq) загружены", "SUCCESS")
+except ImportError:
+    log("Критическая ошибка: pytoniq не найден!", "ERROR")
+    # Создаем заглушки, если библиотеки нет (для тестов), но в проде это фатально
+    TON_ENABLED = False
+
+try:
+    from database import (init_db, log_ai_action, get_market_state, 
+                          get_stats_for_web, load_remote_config, update_remote_config)
+    log("L2: Модули базы данных подключены", "SUCCESS")
+    DB_ENABLED = True
+except ImportError:
+    log("L2 ERROR: Файл database.py не найден! Используются заглушки.", "ERROR")
+    DB_ENABLED = False
+    async def init_db(): pass
+    async def log_ai_action(*args): pass
+    async def get_market_state(): return {}
+    async def get_stats_for_web(): return {}
+    async def load_remote_config(): return {}
+    async def update_remote_config(*args): pass
+
+load_dotenv()
 
 # --- УПРАВЛЕНИЕ ЯДРОМ ---
 class OmniNeuralOverlord:
@@ -60,83 +74,108 @@ class OmniNeuralOverlord:
         self.admin_pass = os.getenv("ADMIN_PASS", "1")
         self.session_token = os.urandom(32).hex() 
         
+        self.pool_addr = None
+        self.vault_ton = Address("UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI")
         self.mnemonic = None
         self.ai_key = None
         self.strategy_level = 10
-        self.pool_addr = None
         
         self.last_status = "INITIALIZING"
+        self.total_ops = 0
         self.current_balance = 0.0
 
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        # Проверяем стандартные пути для Bothost и Docker
         check_paths = [
             os.path.join(base_dir, 'static'),
-            os.path.join(base_dir, '..', 'static'),
+            os.path.join(os.getcwd(), 'static'),
             '/app/static',
             'static'
         ]
         for p in check_paths:
-            if os.path.exists(p) and os.path.isdir(p):
+            if os.path.exists(p) and os.path.isdir(p): 
                 return p
         return "static"
 
+    async def update_config_from_db(self):
+        try:
+            cfg = await load_remote_config()
+            if cfg:
+                if cfg.get('mnemonic'):
+                    self.mnemonic = " ".join(str(cfg.get('mnemonic')).replace('\n', ' ').strip().split())
+                self.ai_key = str(cfg.get('ai_api_key', '')).strip()
+                self.strategy_level = cfg.get('ai_strategy_level', 10)
+                
+                pool_raw = str(cfg.get('dedust_pool', cfg.get('token_pool_address', ''))).strip()
+                if pool_raw and pool_raw != "None":
+                    try: self.pool_addr = Address(pool_raw)
+                    except: log(f"Bad Pool Addr: {pool_raw}", "WARNING")
+                return True
+            return False
+        except Exception as e:
+            log(f"Config Sync Error: {e}", "ERROR")
+            return False
+
 overlord = OmniNeuralOverlord()
 
-# --- LIFESPAN MANAGEMENT ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log(f">>> ЗАПУСК ЯДРА {overlord.core_id} <<<", "CORE")
+    log(f">>> ЯДРО {overlord.core_id} ГОТОВО К РАБОТЕ <<<", "CORE")
     worker_task = asyncio.create_task(core_worker())
     yield
     overlord.is_active = False
     worker_task.cancel()
-    log(">>> СИСТЕМА ОСТАНОВЛЕНА <<<", "CORE")
+    log(">>> СИСТЕМА ДЕАКТИВИРОВАНА <<<", "CORE")
 
 app = FastAPI(lifespan=lifespan)
-
-# Настройка CORS
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True, 
+    allow_methods=["*"], 
     allow_headers=["*"]
 )
 
-# --- WEB & API ROUTES ---
+# --- WEB ROUTES (Глобальные фиксы для Bothost) ---
 
 @app.get("/")
 @app.get("/index.html")
 async def serve_index():
     path = os.path.join(overlord.get_static_path(), "index.html")
-    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "No index"}, 404)
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse({"error": "Index not found"}, status_code=404)
 
-# Фикс для манифеста (TON Connect часто ищет его в корне)
 @app.get("/tonconnect-manifest.json")
 async def serve_manifest():
     path = os.path.join(overlord.get_static_path(), "tonconnect-manifest.json")
-    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "No manifest"}, 404)
+    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
 
-# Фикс для картинок, если они запрашиваются как /images/...
+@app.get("/favicon.ico")
+async def serve_favicon():
+    path = os.path.join(overlord.get_static_path(), "favicon.ico")
+    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
+
 @app.get("/images/{file_name}")
-async def serve_images(file_name: str):
+async def serve_image(file_name: str):
     path = os.path.join(overlord.get_static_path(), "images", file_name)
     return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
 
 @app.get("/admin")
 @app.get("/admin.html")
 async def serve_admin():
-    # Пробуем найти админку и в корне static, и в static/admin/
-    paths = [
-        os.path.join(overlord.get_static_path(), "admin.html"),
-        os.path.join(overlord.get_static_path(), "admin", "admin.html")
+    static_dir = overlord.get_static_path()
+    # Проверка в корне static и в подпапке admin
+    check_files = [
+        os.path.join(static_dir, "admin.html"),
+        os.path.join(static_dir, "admin", "admin.html")
     ]
-    for p in paths:
+    for p in check_files:
         if os.path.exists(p):
             return FileResponse(p, headers={"Cache-Control": "no-store"})
-    return JSONResponse({"error": "Admin panel not found"}, 404)
+    return JSONResponse({"status": "error", "message": "Admin file not found"}, status_code=404)
+
+# --- API ---
 
 @app.get("/api/stats")
 async def get_stats():
@@ -145,57 +184,100 @@ async def get_stats():
         metrics = {
             'balance': f"{overlord.current_balance:.2f}",
             'traffic': round(random.uniform(400, 800), 2),
-            'ping': random.randint(15, 45), # Добавили пинг для радара
             'cpu': random.randint(20, 45),
             'ram': random.randint(60, 85),
-            'connections': random.randint(5, 12),
+            'ping': random.randint(15, 25),
+            'connections': random.randint(800, 1200),
             'engine': {
                 "core_id": overlord.core_id,
                 "uptime": round(time.time() - overlord.session_start),
                 "status": overlord.last_status
             }
         }
-        metrics.update(db_stats)
+        if db_stats: metrics.update(db_stats)
         return metrics
-    except: return {"status": "error"}
+    except Exception as e:
+        return {"status": "error", "details": str(e)}
 
 @app.post("/api/login")
 async def handle_login(request: Request):
-    data = await request.json()
-    if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
-        overlord.session_token = os.urandom(32).hex()
-        res = JSONResponse({"status": "success"})
-        res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True, samesite="lax")
-        return res
-    return JSONResponse({"status": "error"}, status_code=401)
+    try:
+        data = await request.json()
+        if str(data.get("login")) == overlord.admin_login and str(data.get("password")) == overlord.admin_pass:
+            overlord.session_token = os.urandom(32).hex()
+            res = JSONResponse({"status": "success"})
+            res.set_cookie(key="auth_token", value=overlord.session_token, httponly=True, samesite="lax")
+            return res
+        return JSONResponse({"status": "error"}, status_code=401)
+    except: return JSONResponse({"status": "error"}, status_code=400)
+
+# --- MOUNT & ASSETS ---
+static_path = overlord.get_static_path()
+if os.path.exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+    log(f"STATIC: {static_path} примонтирован", "INFO")
 
 # --- CORE WORKER ---
 async def core_worker():
-    if DB_ENABLED:
-        while True:
-            try:
-                await init_db()
-                log("DB: Подключено", "SUCCESS")
-                break
-            except: await asyncio.sleep(5)
+    # Ожидание базы данных
+    while DB_ENABLED:
+        try:
+            await init_db()
+            log("DB: Connected Successfully", "SUCCESS")
+            break
+        except: 
+            log("DB: Waiting for connection...", "WARNING")
+            await asyncio.sleep(5)
 
     while overlord.is_active:
         try:
-            # Здесь будет твоя логика синхронизации с TON (как в твоем исходнике)
-            # Для примера ставим статус ACTIVE
-            overlord.last_status = "ACTIVE"
-            await asyncio.sleep(60)
+            await overlord.update_config_from_db()
+            
+            if not overlord.mnemonic:
+                overlord.last_status = "WAITING_CONFIG"
+                await asyncio.sleep(10)
+                continue
+
+            # Инициализация LiteClient и кошелька
+            async with LiteClient.from_mainnet_config() as client:
+                mnemonic_list = overlord.mnemonic.split()
+                if len(mnemonic_list) < 12:
+                    overlord.last_status = "BAD_MNEMONIC"
+                    log("Критическая ошибка: Мнемоника содержит менее 12 слов", "ERROR")
+                    await asyncio.sleep(30); continue
+
+                wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
+                overlord.last_status = "ACTIVE"
+                log(f"CORE ACTIVE: {wallet.address}", "SUCCESS")
+                
+                # Цикл мониторинга баланса
+                while overlord.is_active:
+                    try:
+                        overlord.current_balance = (await wallet.get_balance()) / 1e9
+                        # Проверка на изменение конфига в БД (Reality Swap)
+                        old_mne = overlord.mnemonic
+                        await overlord.update_config_from_db()
+                        if overlord.mnemonic != old_mne:
+                            log("CORE: Обнаружена новая мнемоника, перезапуск сессии...", "WARNING")
+                            break
+                        
+                        await asyncio.sleep(30)
+                    except Exception as e:
+                        log(f"Heartbeat Error: {e}", "TRACE")
+                        break
         except Exception as e:
-            log(f"Core Loop Error: {e}", "ERROR")
+            log(f"Global Loop Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# Монтируем статику (Важно: делать это в самом конце)
-static_p = overlord.get_static_path()
-if os.path.exists(static_p):
-    app.mount("/static", StaticFiles(directory=static_p), name="static")
-    log(f"STATIC: Папка {static_p} примонтирована", "INFO")
-
 if __name__ == "__main__":
+    # Настройки для Bothost (использование порта из окружения)
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Quantum Overlord V3.5 запущен на порту {port}", "CORE")
-    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
+    log(f"SYSTEM: Quantum Overlord запущен на порту {port}", "CORE")
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port, 
+        proxy_headers=True, 
+        forwarded_allow_ips="*",
+        log_level="info"
+    )
