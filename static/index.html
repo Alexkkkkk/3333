@@ -159,6 +159,7 @@
                 const qcBalEl = document.getElementById('main-balance-qc');
                 const indicator = document.getElementById('status-indicator');
                 
+                // Обработка статуса движка
                 if (data.engine && statusEl) {
                     if(data.engine.status === "ACTIVE") {
                         statusEl.innerText = "ONLINE | " + (data.engine.core_id || "QC-CORE");
@@ -171,13 +172,17 @@
                     }
                 }
 
+                // Обновление балансов
                 if (tonBalEl) {
-                    tonBalEl.innerText = (parseFloat(data.balance) || 0).toFixed(2) + " TON";
+                    const balance = parseFloat(data.balance) || 0;
+                    tonBalEl.innerText = balance.toFixed(2) + " TON";
                 }
                 
-                if (qcBalEl && data.qc_balance) {
-                    qcBalEl.innerText = parseFloat(data.qc_balance).toFixed(2) + " QC";
+                if (qcBalEl) {
+                    const qcBalance = parseFloat(data.qc_balance) || 0;
+                    qcBalEl.innerText = qcBalance.toFixed(2) + " QC";
                 }
+
             } catch (e) {
                 console.log("Core API connection standby...");
             }
@@ -188,7 +193,10 @@
         if (canvas) {
             const ctx = canvas.getContext('2d');
             let particles = [];
-            const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+            const resize = () => { 
+                canvas.width = window.innerWidth; 
+                canvas.height = window.innerHeight; 
+            };
             window.addEventListener('resize', resize);
             resize();
 
