@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | WALLET CORE V4.1</title>
+    <title>QUANTUM | ADMIN PANEL V4.1</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
@@ -12,7 +13,7 @@
             --bg: #05080a; 
             --panel: rgba(10, 15, 20, 0.8); 
             --border: rgba(0, 210, 255, 0.2); 
-            --emerald: #10b981;
+            --danger: #ff0055;
         }
         
         body { 
@@ -20,14 +21,12 @@
             color: #fff; 
             font-family: 'Share Tech Mono', monospace; 
             min-height: 100vh; 
-            overflow-x: hidden;
             background-size: 30px 30px;
             background-image: 
                 linear-gradient(rgba(0, 210, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 210, 255, 0.03) 1px, transparent 1px);
         }
 
-        /* Эффект CRT монитора */
         body::after {
             content: "";
             position: fixed;
@@ -44,7 +43,6 @@
             backdrop-filter: blur(10px); 
             border: 1px solid var(--border); 
             border-radius: 4px; 
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.05);
             position: relative;
             overflow: hidden;
         }
@@ -56,6 +54,8 @@
             background: var(--accent);
             box-shadow: 0 0 10px var(--accent);
         }
+
+        .admin-card-danger::before { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
         .nav-btn { 
             border: 1px solid var(--border); 
@@ -71,141 +71,168 @@
             box-shadow: 0 0 15px var(--accent);
         }
 
-        .terminal-text {
+        .input-quantum {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
             color: var(--accent);
-            text-shadow: 0 0 5px var(--accent);
+            padding: 8px;
+            width: 100%;
+            font-family: 'Share Tech Mono', monospace;
+            outline: none;
         }
 
-        .wallet-addr {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px dashed var(--border);
-            padding: 10px;
-            font-size: 12px;
-            color: var(--accent);
-            word-break: break-all;
-        }
+        .input-quantum:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
 
-        .action-btn {
-            background: rgba(0, 210, 255, 0.1);
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            transition: 0.2s;
-            text-transform: uppercase;
-            font-size: 10px;
-            letter-spacing: 1px;
-        }
-
-        .action-btn:hover {
+        .btn-action {
             background: var(--accent);
             color: #000;
+            padding: 10px 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
         }
+        .btn-action:hover { box-shadow: 0 0 20px var(--accent); }
 
-        .status-tag {
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 2px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid var(--emerald);
-            color: var(--emerald);
-        }
+        #admin-log::-webkit-scrollbar { width: 4px; }
+        #admin-log::-webkit-scrollbar-thumb { background: var(--border); }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-[1200px] mx-auto">
+    <div class="max-w-[1600px] mx-auto">
         
         <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-cyan-900 pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tighter terminal-text uppercase">WALLET_VAULT_V4.1</h1>
-                <p class="text-[10px] opacity-50 tracking-[2px]">ENCRYPTED_ASSETS // TON_NETWORK_LINK</p>
+                <h1 class="text-3xl font-bold tracking-tighter text-red-500 uppercase" style="text-shadow: 0 0 10px #ff0055;">QUANCORE_ADMIN_ACCESS</h1>
+                <p class="text-[10px] opacity-50 tracking-[2px]">ROOT_SESSION: <span id="session_id" class="text-red-400">ACTIVE</span> // LEVEL_10_ENCRYPTION</p>
             </div>
             <nav class="flex gap-2">
-                <a href="index.html" class="nav-btn">📊 Monitoring</a>
-                <a href="#" class="nav-btn nav-active">💎 Wallets</a>
-                <a href="settings.html" class="nav-btn">⚙️ Core Settings</a>
+                <a href="../index.html" class="nav-btn">📊 Public Monitor</a>
+                <a href="#" class="nav-btn nav-active">⚡ Root Control</a>
             </nav>
         </header>
 
         <div class="grid grid-cols-12 gap-6">
             
-            <div class="col-span-12 lg:col-span-4 space-y-4">
+            <div class="col-span-12 lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Total Net Worth</h3>
-                    <div class="flex items-baseline gap-2">
-                        <span id="total_balance" class="text-4xl font-bold text-emerald-400">0.00</span>
-                        <span class="text-sm opacity-50">TON</span>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-cyan-900/50">
-                        <div class="flex justify-between text-[10px] mb-1">
-                            <span>USD_EQUIV</span>
-                            <span class="text-cyan-400">≈ $0.00</span>
+                    <h2 class="text-sm terminal-text mb-4 uppercase tracking-widest">Core Engine Settings</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] text-gray-500 block mb-1">BOT_TOKEN_OVERRIDE</label>
+                            <input type="password" class="input-quantum" placeholder="••••••••••••••••">
                         </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 block mb-1">SYSTEM_IDENTIFIER</label>
+                            <input type="text" class="input-quantum" placeholder="NEURAL-PULSE-NL">
+                        </div>
+                        <button class="btn-action w-full mt-2">Update Global Config</button>
                     </div>
                 </div>
 
-                <div class="quantum-card p-6 border-l-4 border-amber-500">
-                    <h3 class="text-[10px] text-amber-500 mb-4 uppercase tracking-widest">Quick Actions</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="action-btn p-3">Withdraw</button>
-                        <button class="action-btn p-3">Transfer</button>
+                <div class="quantum-card p-6 admin-card-danger">
+                    <h2 class="text-sm text-red-500 mb-4 uppercase tracking-widest font-bold">Emergency Protocol</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button class="border border-red-900 p-3 text-[10px] hover:bg-red-900 transition">REBOOT_CORE</button>
+                        <button class="border border-red-900 p-3 text-[10px] hover:bg-red-900 transition">PURGE_CACHE</button>
                     </div>
                 </div>
             </div>
 
-            <div class="col-span-12 lg:col-span-8">
-                <div class="quantum-card p-6 h-full">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xs terminal-text tracking-[4px] uppercase">Active_Assets_Matrix</h2>
-                        <button class="text-[10px] border border-cyan-900 px-3 py-1 hover:bg-cyan-900/30 transition">ADD_WALLET +</button>
+            <div class="col-span-12 lg:col-span-8 space-y-6">
+                <div class="quantum-card p-4 flex flex-col h-[500px]">
+                    <div class="flex justify-between items-center border-b border-cyan-900 pb-2 mb-4">
+                        <h2 class="text-xs terminal-text uppercase tracking-widest">Admin_System_Terminal</h2>
+                        <span class="text-[10px] text-cyan-800">CONNECTED_VIA_WS</span>
+                    </div>
+                    
+                    <div id="admin-log" class="flex-1 overflow-y-auto text-[11px] space-y-2 font-mono text-cyan-600 mb-4">
+                        <div>[SYSTEM] Root session authorized at <span id="auth_time"></span></div>
+                        <div class="text-green-500">[OK] Checking database integrity... 100%</div>
+                        <div class="text-yellow-500">[WARN] Minor latency jitter detected on Node_NL</div>
                     </div>
 
-                    <div class="space-y-4">
-                        <div class="p-4 border border-cyan-900/30 bg-cyan-900/5 hover:bg-cyan-900/10 transition group">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-bold uppercase">Main Storage</span>
-                                        <span class="status-tag">PRIMARY</span>
-                                    </div>
-                                    <div class="text-[9px] text-gray-500 mt-1 uppercase">ID: 8842-XQ</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-lg font-bold text-emerald-400">0.00 TON</div>
-                                    <div class="text-[9px] opacity-30">LAST_SYNC: JUST NOW</div>
-                                </div>
-                            </div>
-                            <div class="wallet-addr font-mono">
-                                EQD_EXAMPLE_ADDRESS_777_QUANCORE_V4_PULSE_NETWORK
-                            </div>
-                        </div>
-
-                        <div class="p-4 border border-cyan-900/30 bg-cyan-900/5 hover:bg-cyan-900/10 transition">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-bold uppercase">DeDust LP Vault</span>
-                                        <span class="text-[9px] px-2 border border-cyan-800 text-cyan-800">POOL_NODE</span>
-                                    </div>
-                                    <div class="text-[9px] text-gray-500 mt-1 uppercase">ID: 1102-LP</div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-lg font-bold text-emerald-400">0.00 TON</div>
-                                    <div class="text-[9px] opacity-30">LAST_SYNC: 12M AGO</div>
-                                </div>
-                            </div>
-                            <div class="wallet-addr font-mono opacity-60">
-                                EQB_DEDUST_STAKING_CONTRACT_ADDRESS_V3_OPTIMIZED
-                            </div>
-                        </div>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-cyan-400">$</span>
+                        <input type="text" id="terminal-input" 
+                               class="w-full bg-black/40 border border-cyan-900 pl-8 p-2 text-cyan-400 font-mono text-sm outline-none focus:border-cyan-500" 
+                               placeholder="Enter root command...">
                     </div>
+                </div>
+
+                <div class="quantum-card p-6">
+                    <h2 class="text-xs terminal-text mb-4 uppercase tracking-widest">Active_User_Sessions</h2>
+                    <table class="w-full text-left text-[11px]">
+                        <thead>
+                            <tr class="text-gray-500 border-b border-cyan-900/30">
+                                <th class="pb-2">USER_ID</th>
+                                <th class="pb-2">IP_ADDRESS</th>
+                                <th class="pb-2">LAST_CMD</th>
+                                <th class="pb-2 text-right">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-cyan-100" id="user-table-body">
+                            <tr class="border-b border-cyan-900/10">
+                                <td class="py-2">#99281</td>
+                                <td class="py-2">94.156.131.235</td>
+                                <td class="py-2">/get_stats</td>
+                                <td class="py-2 text-right text-green-500 font-bold">ONLINE</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
         </div>
-
-        <footer class="mt-8 pt-4 border-t border-cyan-900/30 flex justify-between items-center">
-            <div class="text-[9px] text-gray-600 uppercase tracking-[3px]">Secure Protocol Layer 4.1</div>
-            <div class="text-[9px] text-cyan-900">ENCRYPTION: AES-256-GCM</div>
-        </footer>
     </div>
+
+    <script>
+        document.getElementById('auth_time').innerText = new Date().toLocaleString();
+
+        const terminal = document.getElementById('admin-log');
+        const input = document.getElementById('terminal-input');
+
+        function pushLog(msg, color = 'text-cyan-600') {
+            const div = document.createElement('div');
+            div.className = color;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = input.value;
+                pushLog(`> EXECUTING: ${cmd}`, 'text-white font-bold');
+                
+                // Имитация ответа сервера
+                setTimeout(() => {
+                    if(cmd === 'help') {
+                        pushLog("Available: reboot, clear_logs, list_users, sys_info", "text-yellow-500");
+                    } else {
+                        pushLog(`Error: Command '${cmd}' requires higher clearance or is not defined.`, "text-red-500");
+                    }
+                }, 500);
+                
+                input.value = '';
+            }
+        });
+
+        // Пинг сервера для обновления таблицы
+        async function updateAdminStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                if(data.recent_actions && data.recent_actions.length > 0) {
+                   // Здесь можно динамически обновлять таблицу
+                }
+            } catch (e) {
+                console.log("Admin API Sync Error");
+            }
+        }
+
+        setInterval(updateAdminStats, 5000);
+    </script>
 </body>
 </html>
