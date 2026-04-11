@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Импорт функций из твоего модуля database.py
+# Импорт функций из модуля database.py
 from database import (
     init_db, get_stats_for_web, register_visit, 
     save_wallet_state, log_ai_action, update_remote_config, 
@@ -65,7 +65,6 @@ class OmniNeuralOverlord:
 
     def get_static_path(self):
         """Определение пути к папке static согласно структуре проекта."""
-        # Проверка стандартного пути в Docker и локально
         paths_to_check = ["/app/static", "./static", "static"]
         for p in paths_to_check:
             if os.path.exists(p):
@@ -100,7 +99,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS для стабильной работы API
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -126,21 +124,34 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     try:
-        # Сбор данных из БД
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config()
         
-        # Регистрация трафика
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
+
+        # Формируем список действий (кошельков) для таблицы
+        # Извлекаем данные из db_stats['recent_actions'] или db_stats['states']
+        raw_actions = db_stats.get('recent_actions', []) or db_stats.get('states', [])
+        
+        formatted_actions = []
+        for item in raw_actions:
+            # Маппинг данных из БД под формат фронтенда
+            formatted_actions.append({
+                "address": item.get("address", "Unknown"),
+                "amount": float(item.get("balance", 0)),
+                "qc": float(item.get("qc", 0)) or (float(item.get("balance", 0)) * 137.5),
+                "status": "SUCCESS",
+                "type": "Quantum Node"
+            })
 
         return {
             "balance": float(db_stats.get('balance', overlord.current_balance)), 
-            "qc_balance": float(db_stats.get('balance', 0)) * 137.5, # Курс QC
+            "qc_balance": float(db_stats.get('balance', 0)) * 137.5,
             "traffic": db_stats.get('traffic', 0), 
-            "roi_24h": db_stats.get('roi_24h', 0.0),
-            "cpu": db_stats.get('cpu', random.randint(32, 45)),
-            "connections": db_stats.get('connections', 0),
-            "recent_actions": db_stats.get('recent_actions', []),
+            "roi_24h": db_stats.get('roi_24h', 2.58),
+            "cpu": random.randint(32, 45),
+            "connections": db_stats.get('connections', len(formatted_actions)),
+            "recent_actions": formatted_actions, # ПЕРЕДАЕМ ОБРАБОТАННЫЙ СПИСОК
             "config": {
                 "referral_commission": current_cfg.get('referral_commission', 15),
                 "yield_percentage": current_cfg.get('yield_percentage', 75),
@@ -154,31 +165,26 @@ async def get_stats(request: Request):
         }
     except Exception as e:
         log(f"API Error: {e}", "ERROR")
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "recent_actions": []}
 
 @app.post("/api/update_config")
 async def handle_update_config(request: Request):
-    # В этой версии принимаем обновления без жесткой куки-блокировки для работы ползунков
     data = await request.json()
     if await update_remote_config(data):
-        log(f"CONFIG: Параметры [Ref: {data.get('referral_commission')}%] синхронизированы", "SUCCESS")
-        await sync_config() # Сразу обновляем в памяти
+        log(f"CONFIG: Параметры синхронизированы", "SUCCESS")
+        await sync_config() 
         return {"status": "success"}
     return JSONResponse({"status": "error"}, status_code=500)
 
-# Монтирование статики (скрипты, стили)
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-# Роут для обслуживания картинок и файлов из корня /static
 @app.get("/{filename}")
 async def serve_static_files(filename: str):
-    # Поиск в корне static
     file_path = os.path.join(overlord.get_static_path(), filename)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # Поиск в static/images
     img_path = os.path.join(overlord.get_static_path(), "images", filename)
     if os.path.isfile(img_path):
         return FileResponse(img_path)
@@ -213,25 +219,23 @@ async def core_worker():
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # Сохраняем состояние в БД для отображения на фронте
+                        # Сохраняем состояние
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        # Имитация ИИ-аналитики
                         if random.random() > 0.9:
                             await log_ai_action(
                                 strategy={'cmd': 'SCAN', 'amt': 0, 'reason': 'System Check'},
                                 market={'ton_price': 5.4, 'load': 'stable'}
                             )
 
-                        # Проверка изменения мнемоники (динамическое переключение)
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Замечена новая конфигурация. Рестарт воркера.", "WARNING")
+                            log("CORE: Рестарт воркера (новая конфигурация).", "WARNING")
                             break
                             
                         await asyncio.sleep(30) 
@@ -245,7 +249,6 @@ async def core_worker():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Quantum Overlord PRO V4.1 активен на порту {port}", "CORE")
     uvicorn.run(
         app, 
         host="0.0.0.0", 
