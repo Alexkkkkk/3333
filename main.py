@@ -59,7 +59,7 @@ except ImportError:
     async def get_market_state(): return {}
     async def get_stats_for_web(): return {}
     async def load_remote_config(): return {}
-    async def update_remote_config(*args): pass
+    async def update_remote_config(*args): return False
 
 load_dotenv()
 
@@ -154,7 +154,7 @@ async def serve_admin():
     static_dir = overlord.get_static_path()
     check_files = [
         os.path.join(static_dir, "admin.html"),
-        os.path.join(static_dir, "admin", "admin.html")
+        os.path.join(static_dir, "admin/admin.html")
     ]
     for p in check_files:
         if os.path.exists(p):
@@ -169,12 +169,10 @@ async def serve_static_files(filename: str):
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # Поиск в подпапках (images)
     if filename.endswith(('.png', '.jpg', '.svg', '.ico', '.json')):
         img_path = os.path.join(static_dir, "images", filename)
         if os.path.exists(img_path): return FileResponse(img_path)
 
-    # Специальная обработка манифеста TON Connect
     if filename == "tonconnect-manifest.json":
         manifest_path = os.path.join(static_dir, filename)
         if os.path.exists(manifest_path): return FileResponse(manifest_path)
@@ -186,17 +184,23 @@ async def serve_static_files(filename: str):
 @app.get("/api/stats")
 async def get_stats():
     try:
-        # Получаем реальные данные из БД, если она включена
         db_stats = await get_stats_for_web() if DB_ENABLED else {}
+        # Получаем текущие настройки для синхронизации фронтенда
+        current_cfg = await load_remote_config() if DB_ENABLED else {}
         
         metrics = {
             'balance': f"{overlord.current_balance:.2f}",
             'traffic': round(random.uniform(400, 800), 2),
-            'cpu': random.randint(20, 45),
-            'ram': random.randint(60, 85),
+            'cpu': random.randint(18, 32),
+            'ram': random.randint(60, 75),
             'ping': random.randint(15, 25),
             'connections': random.randint(800, 1200),
             'recent_actions': db_stats.get('recent_actions', []),
+            'config': {
+                'referral_commission': current_cfg.get('referral_commission', 15),
+                'yield_percentage': current_cfg.get('yield_percentage', 75),
+                'gas_limit_min': current_cfg.get('gas_limit_min', 0.2)
+            },
             'engine': {
                 "core_id": overlord.core_id,
                 "uptime": round(time.time() - overlord.session_start),
@@ -204,7 +208,6 @@ async def get_stats():
             }
         }
         
-        # Если в БД есть реальный баланс (сумма профита), перезаписываем
         if 'total_profit' in db_stats:
             metrics['balance'] = f"{db_stats['total_profit']:.2f}"
             
@@ -212,6 +215,23 @@ async def get_stats():
     except Exception as e:
         log(f"API Error: {e}", "TRACE")
         return {"status": "error", "details": str(e)}
+
+@app.post("/api/update_config")
+async def handle_update_config(request: Request):
+    """Принимает новые параметры стратегии с фронтенда"""
+    if not DB_ENABLED:
+        raise HTTPException(status_code=503, detail="Database disabled")
+    try:
+        data = await request.json()
+        success = await update_remote_config(data)
+        if success:
+            log(f"CONFIG: Параметры обновлены: {data}", "SUCCESS")
+            # Сразу обновляем локальный конфиг overlord
+            await overlord.update_config_from_db()
+            return {"status": "success"}
+        return JSONResponse({"status": "error"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
 
 @app.post("/api/login")
 async def handle_login(request: Request):
@@ -226,12 +246,10 @@ async def handle_login(request: Request):
     except: return JSONResponse({"status": "error"}, status_code=400)
 
 # --- MOUNT ---
-# Монтируем статику в конце, чтобы роуты выше имели приоритет
 app.mount("/static", StaticFiles(directory=overlord.get_static_path()), name="static")
 
 # --- CORE WORKER ---
 async def core_worker():
-    # 1. Инициализация БД
     retry = 0
     while DB_ENABLED and retry < 10:
         try:
@@ -243,7 +261,6 @@ async def core_worker():
             log(f"DB: Waiting for connection (Attempt {retry}/10)...", "WARNING")
             await asyncio.sleep(5)
 
-    # 2. Основной цикл TON Core
     while overlord.is_active:
         try:
             await overlord.update_config_from_db()
@@ -253,30 +270,26 @@ async def core_worker():
                 await asyncio.sleep(10)
                 continue
 
-            # Подключение к блокчейну
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
                     overlord.last_status = "BAD_MNEMONIC"
-                    log("Критическая ошибка: Мнемоника содержит менее 12 слов", "ERROR")
+                    log("Ошибка: Мнемоника < 12 слов", "ERROR")
                     await asyncio.sleep(30); continue
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
                 log(f"CORE ACTIVE: {wallet.address}", "SUCCESS")
                 
-                # Heartbeat цикл внутри активного соединения
                 while overlord.is_active:
                     try:
-                        # Обновляем баланс из блокчейна
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # Проверяем, не изменились ли настройки в БД
                         old_mne = overlord.mnemonic
                         await overlord.update_config_from_db()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Обнаружена новая мнемоника, перезапуск сессии...", "WARNING")
+                            log("CORE: Новая мнемоника, рестарт...", "WARNING")
                             break
                             
                         await asyncio.sleep(30)
@@ -291,7 +304,6 @@ async def core_worker():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Quantum Overlord V4.1 запущен на порту {port}", "CORE")
-    # Параметры для стабильной работы на Bothost/Docker
     uvicorn.run(
         app, 
         host="0.0.0.0", 
