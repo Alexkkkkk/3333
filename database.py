@@ -14,13 +14,12 @@ async def get_pool():
     db_url = os.getenv('DATABASE_URL')
     if _pool is None:
         if not db_url:
-            # Если URL не задан, используем заглушку для локальных тестов (опционально)
             raise ValueError("🚨 DATABASE_URL is not set in environment variables!")
         
         _pool = await asyncpg.create_pool(
             db_url,
-            min_size=10,
-            max_size=50,
+            min_size=5,
+            max_size=20, # Оптимально для Pro-тарифа Bothost
             command_timeout=60,
             max_queries=100000,
             max_inactive_connection_lifetime=300.0
@@ -69,8 +68,7 @@ async def init_db():
             )
         ''')
 
-        # Инициализация базового генома (активный конфиг)
-        # ВАЖНО: Сюда можно добавить начальную мнемонику или API ключи
+        # Инициализация базового генома
         await conn.execute('''
             INSERT INTO quantum_genome (key, val, is_shadow) 
             VALUES ('active_core', '{"risk": 0.1, "agression": 0.5, "min_liq": 1000, "mnemonic": ""}', FALSE)
@@ -89,7 +87,6 @@ async def log_ai_action(strategy, market, success_metric=0.0):
     """Запись действия с оценкой вознаграждения (Reward)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Расчет Reward: успех + объем
         reward = success_metric if strategy.get('cmd') != 'WAIT' else 0.01
         
         await conn.execute('''
@@ -99,56 +96,47 @@ async def log_ai_action(strategy, market, success_metric=0.0):
              int(strategy.get('urgency', 1)), strategy.get('reason'), 
              json.dumps(market), float(reward))
         
-        # Авто-очистка: храним опыт за 7 дней (чтобы не раздувать БД на Bothost)
+        # Авто-очистка: храним опыт за 7 дней
         await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
 
 async def evolve_system():
-    """
-    Генетический алгоритм: создает 'теневую' версию конфига, 
-    мутирует её и проверяет, лучше ли она текущей.
-    """
+    """Генетический алгоритм: мутация конфига."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Средний профит за последний час
         current_perf = await conn.fetchval('''
             SELECT AVG(reward_score) FROM neural_mm_logs 
             WHERE timestamp > NOW() - INTERVAL '1 hour'
         ''') or 0.0
 
-        # Загружаем активный конфиг
         active = await conn.fetchrow("SELECT val FROM quantum_genome WHERE key = 'active_core' AND is_shadow = FALSE LIMIT 1")
         if not active: return
 
         genome = json.loads(active['val'])
-        
-        # МУТАЦИЯ: Создаем теневой конфиг
         shadow_genome = genome.copy()
+        
         for k in shadow_genome:
-            # Мутируем только числовые параметры, не трогаем мнемонику
             if k != "mnemonic" and isinstance(shadow_genome[k], (int, float)):
                 shadow_genome[k] *= random.uniform(0.95, 1.05)
 
-        # Сохраняем мутацию в тень
         await conn.execute('''
             INSERT INTO quantum_genome (key, val, is_shadow) 
             VALUES ('active_core_shadow', $1, TRUE)
             ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = CURRENT_TIMESTAMP
         ''', json.dumps(shadow_genome))
 
-        # Логика Reality Swap: если профит отрицательный, переключаемся на тень
         if current_perf < -0.3:
             print("💫 [DATABASE] Reality Collapse! Swapping to Shadow Genome.")
             await conn.execute('''
                 UPDATE quantum_genome 
-                SET val = (SELECT val FROM quantum_genome WHERE is_shadow = TRUE),
+                SET val = (SELECT val FROM quantum_genome WHERE is_shadow = TRUE AND key = 'active_core_shadow'),
                     updated_at = CURRENT_TIMESTAMP
-                WHERE is_shadow = FALSE
+                WHERE is_shadow = FALSE AND key = 'active_core'
             ''')
 
-# --- УПРАВЛЕНИЕ КОНФИГУРАЦИЕЙ (Синхронизация с main.py) ---
+# --- УПРАВЛЕНИЕ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
-    """Загрузка активного конфига для OmniNeuralOverlord."""
+    """Загрузка активного конфига."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow('''
@@ -170,10 +158,9 @@ async def update_remote_config(new_config):
         return True
 
 async def add_profit_record(amount):
-    """Фиксация прибыли с автоматическим расчетом долей (Nexus Distribution)."""
+    """Фиксация прибыли."""
     pool = await get_pool()
     shares = {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
-    
     amount = float(amount)
     async with pool.acquire() as conn:
         await conn.execute('''
@@ -186,7 +173,7 @@ async def add_profit_record(amount):
         await log_ai_action({'cmd': 'PROFIT_TAKE', 'amt': amount, 'reason': 'System Gain'}, {}, success_metric=1.0)
 
 async def get_market_state():
-    """Предиктивный анализ тренда на основе истории."""
+    """Предиктивный анализ тренда."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         history = await conn.fetch('''
@@ -209,27 +196,25 @@ async def get_market_state():
         }
 
 async def get_stats_for_web():
-    """Сбор данных для фронтенда (Singularity Visualizer)."""
+    """Сбор данных для фронтенда."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Общая прибыль
-        stats = await conn.fetchrow('''
-            SELECT SUM(total_amount) as total_profit FROM profit_distribution
-        ''')
-        
-        # Распределение команд
-        cmd_stats = await conn.fetch('''
-            SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd
-        ''')
-        
-        # Последние действия
+        stats = await conn.fetchrow('SELECT SUM(total_amount) as total_profit FROM profit_distribution')
+        cmd_stats = await conn.fetch('SELECT cmd, COUNT(*) as count FROM neural_mm_logs GROUP BY cmd')
         recent = await conn.fetch('''
             SELECT cmd, amount, reward_score, timestamp 
             FROM neural_mm_logs ORDER BY timestamp DESC LIMIT 5
         ''')
         
+        actions = []
+        for r in recent:
+            item = dict(r)
+            # Сериализация даты для JSON
+            item['timestamp'] = item['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+            actions.append(item)
+        
         return {
             "total_profit": float(stats['total_profit'] or 0),
             "strategy_distribution": {r['cmd']: r['count'] for r in cmd_stats},
-            "recent_actions": [dict(r) for r in recent]
+            "recent_actions": actions
         }
