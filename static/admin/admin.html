@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM | NEURAL MONITOR V4</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>QUANTUM | WALLET CORE V4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
@@ -13,6 +12,7 @@
             --bg: #05080a; 
             --panel: rgba(10, 15, 20, 0.8); 
             --border: rgba(0, 210, 255, 0.2); 
+            --emerald: #10b981;
         }
         
         body { 
@@ -71,271 +71,141 @@
             box-shadow: 0 0 15px var(--accent);
         }
 
-        .status-pill {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid #10b981;
-            color: #10b981;
-            padding: 2px 8px;
-            font-size: 10px;
-            border-radius: 2px;
-        }
-
         .terminal-text {
             color: var(--accent);
             text-shadow: 0 0 5px var(--accent);
         }
 
-        #log-container::-webkit-scrollbar { width: 4px; }
-        #log-container::-webkit-scrollbar-thumb { background: var(--border); }
+        .wallet-addr {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px dashed var(--border);
+            padding: 10px;
+            font-size: 12px;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .action-btn {
+            background: rgba(0, 210, 255, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            transition: 0.2s;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+
+        .action-btn:hover {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .status-tag {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--emerald);
+            color: var(--emerald);
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-[1600px] mx-auto">
+    <div class="max-w-[1200px] mx-auto">
         
         <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-cyan-900 pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tighter terminal-text uppercase">QUANCORE_OS_V4.1</h1>
-                <p class="text-[10px] opacity-50 tracking-[2px]">CORE_ID: <span id="core_id_display">LOADING...</span> // SECURE_LINE_ACTIVE</p>
+                <h1 class="text-3xl font-bold tracking-tighter terminal-text uppercase">WALLET_VAULT_V4.1</h1>
+                <p class="text-[10px] opacity-50 tracking-[2px]">ENCRYPTED_ASSETS // TON_NETWORK_LINK</p>
             </div>
             <nav class="flex gap-2">
-                <a href="#" class="nav-btn nav-active">📊 Monitoring</a>
-                <a href="wallets.html" class="nav-btn">💎 Wallets</a>
+                <a href="index.html" class="nav-btn">📊 Monitoring</a>
+                <a href="#" class="nav-btn nav-active">💎 Wallets</a>
                 <a href="settings.html" class="nav-btn">⚙️ Core Settings</a>
             </nav>
         </header>
 
-        <div class="grid grid-cols-12 gap-4">
+        <div class="grid grid-cols-12 gap-6">
             
-            <div class="col-span-12 lg:col-span-3 space-y-4">
-                <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">System Status</h3>
-                    <div class="flex justify-between items-end">
-                        <span id="system_status" class="text-2xl font-bold text-green-500">INITIALIZING</span>
-                        <span class="status-pill animate-pulse">LIVE</span>
+            <div class="col-span-12 lg:col-span-4 space-y-4">
+                <div class="quantum-card p-6">
+                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Total Net Worth</h3>
+                    <div class="flex items-baseline gap-2">
+                        <span id="total_balance" class="text-4xl font-bold text-emerald-400">0.00</span>
+                        <span class="text-sm opacity-50">TON</span>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-cyan-900/50">
+                        <div class="flex justify-between text-[10px] mb-1">
+                            <span>USD_EQUIV</span>
+                            <span class="text-cyan-400">≈ $0.00</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Active Connections</h3>
-                    <div class="flex justify-between items-end">
-                        <span id="conn_val" class="text-3xl font-bold terminal-text">0</span>
-                        <div class="text-[10px] text-cyan-700">STABLE_LINK</div>
+                <div class="quantum-card p-6 border-l-4 border-amber-500">
+                    <h3 class="text-[10px] text-amber-500 mb-4 uppercase tracking-widest">Quick Actions</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="action-btn p-3">Withdraw</button>
+                        <button class="action-btn p-3">Transfer</button>
                     </div>
                 </div>
+            </div>
 
-                <div class="quantum-card p-4">
-                    <h3 class="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Resource Allocation</h3>
+            <div class="col-span-12 lg:col-span-8">
+                <div class="quantum-card p-6 h-full">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xs terminal-text tracking-[4px] uppercase">Active_Assets_Matrix</h2>
+                        <button class="text-[10px] border border-cyan-900 px-3 py-1 hover:bg-cyan-900/30 transition">ADD_WALLET +</button>
+                    </div>
+
                     <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1"><span>CPU_LOAD</span><span id="cpu_label" class="text-cyan-400">0%</span></div>
-                            <div class="w-full bg-cyan-900/30 h-1"><div id="cpu_bar" class="bg-cyan-400 h-full transition-all duration-500" style="width: 0%"></div></div>
+                        <div class="p-4 border border-cyan-900/30 bg-cyan-900/5 hover:bg-cyan-900/10 transition group">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-bold uppercase">Main Storage</span>
+                                        <span class="status-tag">PRIMARY</span>
+                                    </div>
+                                    <div class="text-[9px] text-gray-500 mt-1 uppercase">ID: 8842-XQ</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-emerald-400">0.00 TON</div>
+                                    <div class="text-[9px] opacity-30">LAST_SYNC: JUST NOW</div>
+                                </div>
+                            </div>
+                            <div class="wallet-addr font-mono">
+                                EQD_EXAMPLE_ADDRESS_777_QUANCORE_V4_PULSE_NETWORK
+                            </div>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1"><span>MEM_STACK</span><span id="ram_label" class="text-purple-400">0%</span></div>
-                            <div class="w-full bg-purple-900/30 h-1"><div id="ram_bar" class="bg-purple-500 h-full transition-all duration-500" style="width: 0%"></div></div>
+
+                        <div class="p-4 border border-cyan-900/30 bg-cyan-900/5 hover:bg-cyan-900/10 transition">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-bold uppercase">DeDust LP Vault</span>
+                                        <span class="text-[9px] px-2 border border-cyan-800 text-cyan-800">POOL_NODE</span>
+                                    </div>
+                                    <div class="text-[9px] text-gray-500 mt-1 uppercase">ID: 1102-LP</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-emerald-400">0.00 TON</div>
+                                    <div class="text-[9px] opacity-30">LAST_SYNC: 12M AGO</div>
+                                </div>
+                            </div>
+                            <div class="wallet-addr font-mono opacity-60">
+                                EQB_DEDUST_STAKING_CONTRACT_ADDRESS_V3_OPTIMIZED
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="quantum-card p-4 h-[350px] flex flex-col">
-                    <h3 class="text-[10px] text-gray-500 mb-2 uppercase border-b border-cyan-900 pb-2">Kernel_Logs</h3>
-                    <div id="log-container" class="text-[9px] font-mono space-y-1 overflow-y-auto flex-1 text-cyan-700 mt-2">
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-span-12 lg:col-span-6 space-y-4">
-                <div class="quantum-card p-6 h-[450px]">
-                    <div class="flex justify-between items-start mb-4">
-                        <h2 class="text-xs terminal-text tracking-[4px] uppercase">Global_Traffic_Feed</h2>
-                        <div class="text-right">
-                            <div id="traffic_val" class="text-2xl font-bold">0.00 Mbps</div>
-                            <div class="text-[10px] text-gray-500">WALLET_BAL: <span id="balance_val" class="text-emerald-400">0.00</span> TON</div>
-                        </div>
-                    </div>
-                    <canvas id="trafficChart"></canvas>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="quantum-card p-4 h-[234px]">
-                        <h3 class="text-[10px] text-amber-500 mb-2 uppercase tracking-widest">Integrity Stream</h3>
-                        <canvas id="integrityChart"></canvas>
-                    </div>
-                    <div class="quantum-card p-4 h-[234px]">
-                        <h3 class="text-[10px] text-purple-500 mb-2 uppercase tracking-widest">Packet Response</h3>
-                        <canvas id="responseChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-span-12 lg:col-span-3 space-y-4">
-                <div class="quantum-card p-4">
-                    <h2 class="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Latency Visualizer</h2>
-                    <div class="h-[250px]">
-                        <canvas id="latencyChart"></canvas>
-                    </div>
-                    <div class="mt-4 text-center border-t border-cyan-900 pt-4">
-                        <span id="latency_val" class="text-4xl font-bold text-orange-500">0</span>
-                        <span class="text-xs opacity-50 ml-1">MS</span>
-                    </div>
-                </div>
-
-                <div class="quantum-card p-6 border-l-4 border-emerald-500 bg-emerald-500/5">
-                    <h3 class="text-[10px] text-emerald-500 mb-2 uppercase tracking-widest">Stability Index</h3>
-                    <div id="stability_val" class="text-4xl font-bold">99.9%</div>
-                    <p class="text-[9px] text-gray-500 mt-2 leading-relaxed">System operational. No anomalies detected. All nodes reporting nominal values via Pytoniq Core.</p>
                 </div>
             </div>
 
         </div>
+
+        <footer class="mt-8 pt-4 border-t border-cyan-900/30 flex justify-between items-center">
+            <div class="text-[9px] text-gray-600 uppercase tracking-[3px]">Secure Protocol Layer 4.1</div>
+            <div class="text-[9px] text-cyan-900">ENCRYPTION: AES-256-GCM</div>
+        </footer>
     </div>
-
-    <script>
-        Chart.defaults.color = 'rgba(0, 210, 255, 0.5)';
-        Chart.defaults.font.family = "'Share Tech Mono'";
-
-        const createLineChart = (id, color, tension = 0.4) => {
-            const ctx = document.getElementById(id).getContext('2d');
-            const grad = ctx.createLinearGradient(0, 0, 0, 400);
-            grad.addColorStop(0, color.replace('1)', '0.3)'));
-            grad.addColorStop(1, color.replace('1)', '0)'));
-
-            return new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(30).fill(''),
-                    datasets: [{
-                        data: Array(30).fill(0),
-                        borderColor: color,
-                        borderWidth: 2,
-                        fill: true,
-                        backgroundColor: grad,
-                        tension: tension,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: { duration: 0 },
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: 'rgba(0, 210, 255, 0.05)' }, ticks: { display: false } },
-                        x: { display: false }
-                    }
-                }
-            });
-        };
-
-        const trafficChart = createLineChart('trafficChart', 'rgba(0, 210, 255, 1)');
-        const integrityChart = createLineChart('integrityChart', 'rgba(251, 191, 36, 1)', 0.1);
-        const responseChart = createLineChart('responseChart', 'rgba(168, 85, 247, 1)');
-        
-        const latencyChart = new Chart(document.getElementById('latencyChart').getContext('2d'), {
-            type: 'radar',
-            data: {
-                labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                datasets: [{
-                    data: [10, 20, 15, 25, 10, 30, 20, 10],
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.2)',
-                    borderWidth: 1,
-                    pointRadius: 2
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
-                scales: { 
-                    r: { 
-                        angleLines: { color: 'rgba(0, 210, 255, 0.1)' },
-                        grid: { color: 'rgba(0, 210, 255, 0.1)' },
-                        ticks: { display: false },
-                        pointLabels: { color: 'rgba(0, 210, 255, 0.5)', font: { size: 8 } }
-                    } 
-                }
-            }
-        });
-
-        function addLog(msg, type = "SYS_MSG") {
-            const container = document.getElementById('log-container');
-            const time = new Date().toLocaleTimeString();
-            const log = document.createElement('div');
-            log.className = "mb-1 border-l border-cyan-900 pl-2 animate-pulse";
-            log.innerHTML = `<span class="opacity-30 text-[8px]">[${time}]</span> <span class="text-cyan-400">${type}:</span> ${msg}`;
-            container.prepend(log);
-            if(container.childNodes.length > 25) container.lastChild.remove();
-        }
-
-        // --- СИНХРОНИЗАЦИЯ С БД ---
-        let lastActionId = 0;
-
-        async function fetchSystemData() {
-            try {
-                const response = await fetch('/api/stats');
-                if (!response.ok) throw new Error('DB_OFFLINE');
-                const data = await response.json();
-
-                // 1. Обновление текстовых полей
-                document.getElementById('core_id_display').innerText = data.engine?.core_id || "NEURAL-PULSE-NL";
-                document.getElementById('system_status').innerText = data.engine?.status || "RUNNING";
-                document.getElementById('system_status').className = "text-2xl font-bold text-green-500";
-                
-                document.getElementById('conn_val').innerText = data.connections || 0;
-                document.getElementById('balance_val').innerText = data.balance || "0.00";
-                document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2) + " Mbps";
-                document.getElementById('latency_val').innerText = data.ping || 0;
-
-                // 2. Ресурсные бары
-                const cpu = data.cpu || 0;
-                const ram = data.ram || 0;
-                document.getElementById('cpu_bar').style.width = cpu + "%";
-                document.getElementById('cpu_label').innerText = cpu + "%";
-                document.getElementById('ram_bar').style.width = ram + "%";
-                document.getElementById('ram_label').innerText = ram + "%";
-
-                // 3. Графики
-                const updateChart = (chart, val) => {
-                    chart.data.datasets[0].data.shift();
-                    chart.data.datasets[0].data.push(val);
-                    chart.update('none');
-                };
-                updateChart(trafficChart, data.traffic);
-                updateChart(integrityChart, cpu);
-                updateChart(responseChart, ram);
-
-                // 4. Обработка реальных действий из БД (recent_actions)
-                if (data.recent_actions && data.recent_actions.length > 0) {
-                    // Берем самое свежее действие
-                    const latest = data.recent_actions[0];
-                    // Если это новое действие (проверка по упрощенному принципу)
-                    if (Math.random() > 0.7) { 
-                        addLog(`CMD: ${latest.cmd} | REWARD: ${latest.reward_score}`, "DATABASE");
-                    }
-                }
-
-                // Декоративные логи (если БД молчит)
-                if(Math.random() > 0.9) {
-                    const deco = ["SYNC_COMPLETE", "BUFFER_CLEARED", "CORE_HEARTBEAT_OK"];
-                    addLog(deco[Math.floor(Math.random()*deco.length)], "SYS");
-                }
-
-            } catch (err) {
-                console.error("Link error:", err);
-                document.getElementById('system_status').innerText = "LINK_LOST";
-                document.getElementById('system_status').className = "text-2xl font-bold text-red-500";
-            }
-        }
-
-        // Интервал 2 секунды для баланса между нагрузкой и скоростью
-        setInterval(fetchSystemData, 2000);
-        
-        // Стартовая инициализация
-        addLog("QUANCORE OS V4.1 INITIALIZED", "CORE");
-        addLog("CONNECTING TO POSTGRESQL CLUSTER...", "DB");
-        
-        fetchSystemData();
-    </script>
 </body>
 </html>
