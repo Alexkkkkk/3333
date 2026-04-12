@@ -60,7 +60,6 @@
 
         .terminal-text { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
         
-        /* Стили кнопок навигации */
         .nav-link {
             display: flex;
             align-items: center;
@@ -98,6 +97,14 @@
         }
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
+
+        /* Анимация пульсации для логов */
+        @keyframes pulse-opacity {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .pulse-log { animation: pulse-opacity 2s infinite; }
     </style>
 </head>
 <body class="p-3 md:p-8">
@@ -171,7 +178,7 @@
                 <div class="quantum-card p-8">
                     <div class="flex justify-between items-start mb-6">
                         <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Neural_Traffic_Analysis</h2>
-                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">DATA_FLOW</span>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-log">DATA_FLOW_LIVE</span>
                     </div>
                     <div class="h-[250px]"><canvas id="trafficChart"></canvas></div>
                 </div>
@@ -207,8 +214,8 @@
                                 <span class="text-blue-400">STABLE</span>
                             </div>
                             <div class="flex justify-between text-[10px] font-mono">
-                                <span class="text-slate-500 uppercase">Node_Uptime</span>
-                                <span class="text-slate-300">99.9%</span>
+                                <span class="text-slate-500 uppercase">Uptime_Counter</span>
+                                <span id="uptime_display" class="text-slate-300">00:00:00</span>
                             </div>
                         </div>
                     </div>
@@ -229,6 +236,7 @@
             buttonRootId: 'ton-connect-button'
         });
 
+        // Работа с графиками
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
             g.addColorStop(0, color + '33');
@@ -251,7 +259,7 @@
             data: {
                 labels: Array(30).fill(''),
                 datasets: [{
-                    data: Array(30).fill(0),
+                    data: Array(30).fill(0).map(() => Math.random() * 20 + 40),
                     borderColor: '#00d2ff',
                     borderWidth: 2,
                     pointRadius: 0,
@@ -269,7 +277,7 @@
             data: {
                 labels: Array(15).fill(''),
                 datasets: [{
-                    data: Array(15).fill(0),
+                    data: Array(15).fill(0).map(() => Math.floor(Math.random() * 10)),
                     backgroundColor: '#00ff95',
                     borderRadius: 4
                 }]
@@ -294,6 +302,7 @@
             options: commonOptions
         });
 
+        // Логирование
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             if(!container) return;
@@ -302,13 +311,29 @@
             let color = "text-blue-400";
             if(type === "OK") color = "text-green-400";
             if(type === "ERR") color = "text-red-500";
+            if(type === "SYNC") color = "text-purple-400";
+            
             log.innerHTML = `<span class="opacity-30">[${time}]</span> <span class="${color} font-bold">${type}</span> <span class="text-slate-300 ml-2">${msg}</span>`;
             container.prepend(log);
+            
+            if (container.children.length > 50) container.lastChild.remove();
         }
 
+        // Аптайм
+        let startTime = Date.now();
+        setInterval(() => {
+            const diff = Math.floor((Date.now() - startTime) / 1000);
+            const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            const s = String(diff % 60).padStart(2, '0');
+            document.getElementById('uptime_display').innerText = `${h}:${m}:${s}`;
+        }, 1000);
+
+        // Синхронизация данных
         async function syncData() {
             try {
                 const res = await fetch('/api/stats');
+                if (!res.ok) throw new Error("Offline");
                 const data = await res.json();
                 
                 document.getElementById('conn_val').innerText = data.connections || 0;
@@ -318,33 +343,61 @@
                 document.getElementById('cpu_bar').style.width = (data.cpu || 0) + '%';
                 document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2);
 
-                [trafficChart, visitorChart, walletChart].forEach(chart => {
-                    chart.data.datasets[0].data.shift();
-                });
-
-                trafficChart.data.datasets[0].data.push(data.traffic || (Math.random()*20 + 40));
-                visitorChart.data.datasets[0].data.push(data.visitors || Math.floor(Math.random()*10 + 5));
-                walletChart.data.datasets[0].data.push(data.connections || Math.floor(Math.random()*3));
-
-                trafficChart.update('none');
-                visitorChart.update('none');
-                walletChart.update('none');
+                updateCharts(data.traffic, data.visitors, data.connections);
+                if(Math.random() > 0.8) addLog("Data packet synchronized successfully", "OK");
 
             } catch(e) {
-                const randomTraffic = (Math.random() * 50 + 20).toFixed(2);
-                document.getElementById('traffic_val').innerText = randomTraffic;
-                trafficChart.data.datasets[0].data.shift();
-                trafficChart.data.datasets[0].data.push(randomTraffic);
-                trafficChart.update('none');
+                // Демо-режим если API недоступен
+                const mockTraffic = (Math.random() * 20 + 45).toFixed(2);
+                const mockCPU = Math.floor(Math.random() * 15 + 5);
+                
+                document.getElementById('traffic_val').innerText = mockTraffic;
+                document.getElementById('cpu_label').innerText = mockCPU + '%';
+                document.getElementById('cpu_bar').style.width = mockCPU + '%';
+                
+                updateCharts(parseFloat(mockTraffic), Math.floor(Math.random()*5), null);
+                
+                if(Math.random() > 0.95) addLog("Background neural-drift detected", "SYNC");
             }
+        }
+
+        function updateCharts(t, v, c) {
+            [trafficChart, visitorChart, walletChart].forEach(chart => {
+                chart.data.datasets[0].data.shift();
+            });
+
+            trafficChart.data.datasets[0].data.push(t || (Math.random()*10 + 40));
+            visitorChart.data.datasets[0].data.push(v || Math.floor(Math.random()*3));
+            walletChart.data.datasets[0].data.push(c || walletChart.data.datasets[0].data[walletChart.data.datasets[0].data.length-1]);
+
+            trafficChart.update('none');
+            visitorChart.update('none');
+            walletChart.update('none');
         }
 
         setInterval(syncData, 3000);
 
+        // Инициализация
         window.onload = () => {
             addLog("QUANTUM_CORE_INITIALIZED", "SYS");
             addLog("NEURAL_PULSE_SYNC_ACTIVE", "OK");
             addLog("MONITORING_MODE_ENABLED", "SYS");
+            
+            // Имитация активности логов
+            const randomEvents = [
+                "Index buffer cleared",
+                "New uplink established",
+                "Neural nodes balanced",
+                "Traffic encryption verified",
+                "Mem-stack optimized"
+            ];
+            
+            setInterval(() => {
+                if(Math.random() > 0.7) {
+                    const msg = randomEvents[Math.floor(Math.random()*randomEvents.length)];
+                    addLog(msg, "SYS");
+                }
+            }, 8000);
         };
     </script>
 </body>
