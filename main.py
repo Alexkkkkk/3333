@@ -76,6 +76,7 @@ class OmniNeuralOverlord:
         return base_dir
 
 overlord = OmniNeuralOverlord()
+static_dir = overlord.get_static_path()
 
 async def sync_config():
     """Синхронизация параметров между БД и памятью приложения."""
@@ -97,7 +98,7 @@ async def lifespan(app: FastAPI):
         await sync_config()
         # Запуск фонового потока мониторинга TON
         worker_task = asyncio.create_task(core_worker())
-        log("SYS: Quantum Core Online", "SUCCESS")
+        log(f"SYS: Quantum Core Online ({overlord.core_id})", "SUCCESS")
         yield
     finally:
         overlord.is_active = False
@@ -123,7 +124,7 @@ async def read_index(request: Request):
     # Регистрируем визит в БД
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     
-    path = os.path.join(overlord.get_static_path(), "index.html")
+    path = os.path.join(static_dir, "index.html")
     if os.path.exists(path):
         return FileResponse(path)
     return JSONResponse({"error": "Index not found"}, status_code=404)
@@ -149,13 +150,13 @@ async def get_stats(request: Request):
                 "address": item.get("address", "Unknown Node"),
                 "amount": bal,
                 "qc": float(item.get("qc", bal * 137.5)),
-                "status": item.get("status", "ACTIVE"),
+                "status": item.get("status", "SUCCESS"),
                 "type": item.get("type", "MAINNET")
             })
 
         return {
-            "balance": float(overlord.current_balance), 
-            "qc_balance": float(overlord.current_balance * 137.5),
+            "balance": round(float(overlord.current_balance), 2), 
+            "qc_balance": round(float(overlord.current_balance * 137.5), 2),
             "traffic": db_stats.get('traffic', 0), 
             "roi": db_stats.get('roi_24h', 0.0),
             "cpu": random.randint(32, 45),
@@ -184,31 +185,33 @@ async def handle_update_config(request: Request):
             await sync_config() 
             log("CONFIG: Ядро перенастроено", "SUCCESS")
             return {"status": "success"}
-    except:
-        pass
+    except Exception as e:
+        log(f"Config Update Error: {e}", "TRACE")
     return JSONResponse({"status": "error"}, status_code=500)
 
 # Монтируем статику (стили, скрипты, манифест)
-static_dir = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-@app.get("/{filename}")
-async def serve_root_files(filename: str):
-    """Маршрутизатор для файлов в корне, картинок и редиректов."""
-    # 1. Поиск в корне папки static (index.html, manifest и т.д.)
-    file_path = os.path.join(static_dir, filename)
+@app.get("/{path:path}")
+async def serve_all_files(path: str):
+    """Универсальный роутер для файлов, картинок и SPA-путей."""
+    # 1. Проверка в корне static
+    file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # 2. Автоматический поиск в папке images
-    img_path = os.path.join(static_dir, "images", filename)
-    if os.path.isfile(img_path):
-        return FileResponse(img_path)
+    # 2. Поиск в папке images
+    if path.startswith("images/") or not "/" in path:
+        img_name = path.replace("images/", "")
+        img_path = os.path.join(static_dir, "images", img_name)
+        if os.path.isfile(img_path):
+            return FileResponse(img_path)
     
-    # 3. Fallback: если файл не найден, отдаем главную (для SPA)
+    # 3. Fallback на index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
+    
     return JSONResponse({"error": "Not Found"}, status_code=404)
 
 # --- CORE WORKER (TON MONITORING) ---
@@ -233,6 +236,7 @@ async def core_worker():
 
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
+                log(f"CORE: Подключен кошелек {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
@@ -247,18 +251,18 @@ async def core_worker():
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        # Эмуляция обучения ИИ
-                        if random.random() > 0.8:
+                        # Эмуляция обучения ИИ в логи
+                        if random.random() > 0.85:
                             await log_ai_action(
                                 strategy={'cmd': 'SYNC', 'amt': overlord.current_balance, 'reason': 'Pulse Check'},
                                 market={'status': 'stable', 'net': 'mainnet'}
                             )
 
-                        # Проверка смены мнемоники
+                        # Проверка смены мнемоники в БД
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Переподключение к новому кошельку...", "WARNING")
+                            log("CORE: Обнаружена новая мнемоника, переподключение...", "WARNING")
                             break
                             
                         await asyncio.sleep(20) 
