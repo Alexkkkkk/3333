@@ -37,6 +37,16 @@
         @keyframes draw { to { stroke-dashoffset: 0; } }
         
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        /* Стилизация select под дизайн */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M6 9l6 6 6-6'%3e%3c/path%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 0.8em;
+            padding-right: 1.5rem !important;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -91,14 +101,19 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <input type="number" id="amtIn" placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-white placeholder:text-white/5">
-                        <div class="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] justify-center">
-                            <span id="tIn" class="text-sm text-white font-black italic">TON</span>
-                        </div>
+                        <select id="tokenIn" onchange="updateTokens()" class="bg-white/5 text-sm text-white font-black italic px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] outline-none cursor-pointer hover:bg-white/10 transition-all">
+                            <option value="TON">TON</option>
+                            <option value="QC">QC</option>
+                            <option value="USDT">USDT</option>
+                            <option value="NOT">NOT</option>
+                            <option value="DOGS">DOGS</option>
+                            <option value="GRAM">GRAM</option>
+                        </select>
                     </div>
                 </div>
 
                 <div class="flex justify-center -my-4 relative z-20">
-                    <button onclick="switchTokens()" class="bg-cyan-500 p-3 rounded-2xl shadow-lg shadow-cyan-500/20 hover:scale-110 active:scale-90 transition-all border-4 border-[#050b10] group">
+                    <button onclick="reverseRoute()" class="bg-cyan-500 p-3 rounded-2xl shadow-lg shadow-cyan-500/20 hover:scale-110 active:scale-90 transition-all border-4 border-[#050b10] group">
                         <svg class="w-5 h-5 text-black group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
                             <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
                         </svg>
@@ -112,9 +127,14 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <input type="number" id="amtOut" readonly placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-cyan-400 placeholder:text-cyan-400/10">
-                        <div class="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] justify-center">
-                            <span id="tOut" class="text-sm text-white font-black italic">QC</span>
-                        </div>
+                        <select id="tokenOut" onchange="calculate()" class="bg-white/5 text-sm text-white font-black italic px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] outline-none cursor-pointer hover:bg-white/10 transition-all">
+                            <option value="QC">QC</option>
+                            <option value="TON">TON</option>
+                            <option value="USDT">USDT</option>
+                            <option value="NOT">NOT</option>
+                            <option value="DOGS">DOGS</option>
+                            <option value="GRAM">GRAM</option>
+                        </select>
                     </div>
                 </div>
 
@@ -142,7 +162,7 @@
             </div>
             <div id="terminal" class="terminal-scroll h-24 overflow-y-auto font-mono text-[9px] space-y-1 opacity-60">
                 <p class="text-cyan-500">> System Ready</p>
-                <p class="text-slate-500">> Link established with DeDust pools...</p>
+                <p class="text-slate-500">> Multi-Asset Liquidity Bridge active...</p>
             </div>
         </div>
     </main>
@@ -171,15 +191,22 @@
     </nav>
 
     <script>
+        // --- DATA CONFIG ---
+        const COIN_DATA = {
+            'TON':   { price: 5.40,  balance: 15.45 },
+            'QC':    { price: 0.012, balance: 4500.00 },
+            'USDT':  { price: 1.00,  balance: 100.00 },
+            'NOT':   { price: 0.007, balance: 50000 },
+            'DOGS':  { price: 0.0006, balance: 120000 },
+            'GRAM':  { price: 0.008, balance: 8500 }
+        };
+
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
         const state = {
-            isTontoQC: true,
-            rate: 450.00,
-            balance: 0.00,
             wallet: null,
             fee: 0.012
         };
@@ -187,6 +214,8 @@
         const ui = {
             in: document.getElementById('amtIn'),
             out: document.getElementById('amtOut'),
+            tIn: document.getElementById('tokenIn'),
+            tOut: document.getElementById('tokenOut'),
             btn: document.getElementById('actionBtn'),
             bal: document.getElementById('balDisplay'),
             rate: document.getElementById('rateLabel'),
@@ -196,6 +225,7 @@
             priceStatus: document.getElementById('priceStatus')
         };
 
+        // --- CORE FUNCTIONS ---
         function log(msg, color = 'slate-500') {
             const p = document.createElement('p');
             p.className = `text-${color}`;
@@ -203,41 +233,52 @@
             p.innerText = `[${time}] > ${msg}`;
             ui.terminal.appendChild(p);
             ui.terminal.scrollTop = ui.terminal.scrollHeight;
-            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.firstChild);
+            if (ui.terminal.childElementCount > 10) ui.terminal.removeChild(ui.terminal.firstChild);
         }
-
-        async function syncWithCore() {
-            try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                const drift = (Math.random() * 0.4 - 0.2); 
-                state.rate = 450.00 + (data.roi * 1.5) + drift;
-                ui.priceStatus.innerText = `ROI ${data.roi}% ${data.roi >= 0 ? '▲' : '▼'}`;
-                ui.priceStatus.className = `text-[10px] font-bold mono ${data.roi >= 0 ? 'text-green-400' : 'text-red-400'}`;
-                calculate();
-            } catch (e) {
-                // Если API недоступно, создаем симуляцию для фронтенда
-                const drift = (Math.random() * 0.1 - 0.05);
-                state.rate += drift;
-                calculate();
-            }
-        }
-        setInterval(syncWithCore, 5000);
 
         function calculate() {
-            const val = parseFloat(ui.in.value) || 0;
-            const res = state.isTontoQC ? val * state.rate : val / state.rate;
-            ui.out.value = val > 0 ? res.toFixed(state.isTontoQC ? 2 : 5) : "";
+            const valIn = parseFloat(ui.in.value) || 0;
+            const symIn = ui.tIn.value;
+            const symOut = ui.tOut.value;
+
+            // Кросс-курс через USD
+            const exchangeRate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
+            const res = valIn * exchangeRate;
             
-            ui.rate.innerText = `1 ${state.isTontoQC ? 'TON' : 'QC'} ≈ ${state.isTontoQC ? state.rate.toFixed(2) : (1/state.rate).toFixed(6)} ${state.isTontoQC ? 'QC' : 'TON'}`;
+            // Динамическая точность
+            const precision = COIN_DATA[symOut].price < 0.1 ? 4 : 2;
+            ui.out.value = valIn > 0 ? res.toFixed(precision) : "";
             
-            const imp = (val / (state.balance || 100)) * 1.8;
-            ui.impact.innerText = val > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
-            ui.impact.className = `text-[9px] font-bold mono ${imp > 2 ? 'text-red-500' : 'text-green-500'}`;
+            ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(precision)} ${symOut}`;
             
-            state.fee = 0.01 + (Math.random() * 0.005);
-            ui.gas.innerText = `~${state.fee.toFixed(3)} TON`;
+            const imp = (valIn / (COIN_DATA[symIn].balance || 1)) * 2.1;
+            ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
+            ui.impact.className = `text-[9px] font-bold mono ${imp > 3 ? 'text-red-500' : 'text-green-500'}`;
+            
             checkBtn();
+        }
+
+        function updateTokens() {
+            const sym = ui.tIn.value;
+            ui.bal.innerText = COIN_DATA[sym].balance.toLocaleString();
+            log(`Source asset shifted to ${sym}`, 'cyan-500');
+            calculate();
+        }
+
+        function reverseRoute() {
+            const temp = ui.tIn.value;
+            ui.tIn.value = ui.tOut.value;
+            ui.tOut.value = temp;
+            ui.in.value = "";
+            updateTokens();
+        }
+
+        function setMax() {
+            const sym = ui.tIn.value;
+            let amount = COIN_DATA[sym].balance;
+            if(sym === 'TON') amount = Math.max(0, amount - 0.05); // Газ
+            ui.in.value = amount;
+            calculate();
         }
 
         function checkBtn() {
@@ -247,9 +288,10 @@
                 return;
             }
             const val = parseFloat(ui.in.value) || 0;
+            const sym = ui.tIn.value;
             if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
-            else if(val > state.balance) { ui.btn.innerText = "Insufficient Balance"; ui.btn.disabled = true; }
-            else { ui.btn.innerText = "Execute Swap"; ui.btn.disabled = false; }
+            else if(val > COIN_DATA[sym].balance) { ui.btn.innerText = "Insufficient Balance"; ui.btn.disabled = true; }
+            else { ui.btn.innerText = `Swap ${sym}`; ui.btn.disabled = false; }
         }
 
         ui.in.oninput = calculate;
@@ -257,82 +299,39 @@
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
-            const amount = parseFloat(ui.in.value);
-            const receive = parseFloat(ui.out.value);
-            const addr = state.wallet.account.address;
-
-            log(`Initiating broadcast to Nexus Node...`, 'cyan-500');
+            const symIn = ui.tIn.value;
+            const symOut = ui.tOut.value;
+            
+            log(`Routing ${symIn} -> ${symOut} via Nexus...`, 'cyan-500');
             ui.btn.disabled = true;
             ui.btn.innerText = "Broadcasting...";
 
             try {
                 await new Promise(r => setTimeout(r, 2000));
+                log(`Success: Bridge broadcast complete`, 'green-400');
                 
-                await fetch('/api/wallet/sync', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        address: addr,
-                        balance: state.isTontoQC ? (state.balance - amount) : (state.balance + receive),
-                        qc: state.isTontoQC ? receive : amount
-                    })
-                });
-
-                log(`Nexus link established. Hash: ${Math.random().toString(16).slice(2,12)}`, 'green-400');
-                
-                state.balance -= amount;
-                ui.bal.innerText = state.balance.toFixed(2);
+                // Эмуляция списания
+                COIN_DATA[symIn].balance -= parseFloat(ui.in.value);
                 ui.in.value = "";
-                calculate();
-                alert("QUANCORE: Quantum Swap Executed");
-
+                updateTokens();
+                alert("QUANCORE: Quantum Transaction Executed");
             } catch (e) {
-                log("Critical: Node Sync Failed", "red-500");
+                log("Node Error", "red-500");
                 checkBtn();
             }
         }
 
-        function switchTokens() {
-            state.isTontoQC = !state.isTontoQC;
-            document.getElementById('tIn').innerText = state.isTontoQC ? 'TON' : 'QC';
-            document.getElementById('tOut').innerText = state.isTontoQC ? 'QC' : 'TON';
-            
-            // Тестовый баланс для переключения
-            state.balance = state.isTontoQC ? 15.45 : 4500.00;
-            ui.bal.innerText = state.balance.toFixed(2);
-            
-            ui.in.value = "";
-            log(`Route shifted to ${state.isTontoQC ? 'TON/QC' : 'QC/TON'}`, 'purple-400');
-            calculate();
-        }
-
-        function setMax() {
-            const safe = state.isTontoQC ? 0.05 : 0;
-            ui.in.value = Math.max(0, state.balance - safe).toFixed(2);
-            calculate();
-        }
-
-        tonConnectUI.onStatusChange(async (w) => {
+        // --- LISTENERS & BG ---
+        tonConnectUI.onStatusChange((w) => {
             state.wallet = w;
             if(w) {
-                log(`Handshake: Node ${w.account.address.slice(0,6)} initialized`, "green-400");
-                try {
-                    const res = await fetch('/api/stats');
-                    const data = await res.json();
-                    state.balance = data.balance || 15.45;
-                } catch(e) {
-                    state.balance = 15.45;
-                }
-                ui.bal.innerText = state.balance.toFixed(2);
+                log(`Handshake: Node ${w.account.address.slice(0,6)} online`, "green-400");
             } else {
-                log("Node Offline", "red-400");
-                state.balance = 0;
-                ui.bal.innerText = "0.00";
+                log("Node Disconnected", "red-400");
             }
-            checkBtn();
+            updateTokens();
         });
 
-        // Background Particles
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let pts = [];
@@ -353,6 +352,9 @@
             requestAnimationFrame(draw);
         };
         window.onresize = init; init(); draw();
+        
+        // Стартовая инициализация
+        updateTokens();
     </script>
 </body>
 </html>
