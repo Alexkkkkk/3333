@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Импорт функций из твоего модуля database.py
+# Импорт функций из модуля database.py
 from database import (
     init_db, get_stats_for_web, register_visit, 
     save_wallet_state, log_ai_action, update_remote_config, 
@@ -52,18 +52,14 @@ class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.session_start = time.time()
-        # Генерация уникального ID ядра для сессии
+        # Уникальный ID сессии для отладки
         self.core_id = f"QC-CORE-{os.urandom(2).hex().upper()}"
-        
-        self.admin_login = os.getenv("ADMIN_LOGIN", "admin")
-        self.admin_pass = os.getenv("ADMIN_PASS", "quantum2026")
-        
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
 
     def get_static_path(self):
-        """Интеллектуальный поиск папки static."""
+        """Интеллектуальный поиск папки static с авто-созданием."""
         base_dir = os.path.dirname(os.path.abspath(__file__))
         paths_to_check = [
             os.path.join(base_dir, "static"),
@@ -73,13 +69,16 @@ class OmniNeuralOverlord:
         for p in paths_to_check:
             if os.path.exists(p):
                 return os.path.abspath(p)
-        return base_dir
+        
+        static_p = os.path.join(base_dir, "static")
+        os.makedirs(static_p, exist_ok=True)
+        return static_p
 
 overlord = OmniNeuralOverlord()
 static_dir = overlord.get_static_path()
 
 async def sync_config():
-    """Синхронизация параметров между БД и памятью приложения."""
+    """Синхронизация мнемоники и настроек из PostgreSQL в память RAM."""
     try:
         cfg = await load_remote_config()
         if cfg and cfg.get('mnemonic'):
@@ -89,14 +88,14 @@ async def sync_config():
         log(f"Sync Config Fail: {e}", "TRACE")
     return False
 
-# --- LIFESPAN (Управление жизненным циклом) ---
+# --- LIFESPAN (Жизненный цикл приложения) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log("SYS: Подключение к PostgreSQL Nexus...", "INFO")
     try:
         await init_db()
         await sync_config()
-        # Запуск фонового потока мониторинга TON
+        # Запуск фонового процесса мониторинга блокчейна
         worker_task = asyncio.create_task(core_worker())
         log(f"SYS: Quantum Core Online ({overlord.core_id})", "SUCCESS")
         yield
@@ -107,7 +106,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Настройка CORS
+# Настройка CORS для работы с внешними кошельками и запросами
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -116,14 +115,13 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- ROUTES ---
+# --- API ROUTES ---
 
 @app.get("/")
 @app.get("/index.html")
 async def read_index(request: Request):
-    # Регистрируем визит в БД
+    """Главная страница с регистрацией визита."""
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
-    
     path = os.path.join(static_dir, "index.html")
     if os.path.exists(path):
         return FileResponse(path)
@@ -131,16 +129,12 @@ async def read_index(request: Request):
 
 @app.get("/api/stats")
 async def get_stats(request: Request):
-    """Основной эндпоинт для обновления данных на фронтенде."""
+    """Сбор всей аналитики для приборной панели (Dashboard)."""
     try:
-        # Трекинг активности
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
-
-        # Получаем данные из аналитики БД
         db_stats = await get_stats_for_web()
-        current_cfg = await load_remote_config()
+        current_cfg = await load_remote_config() or {}
         
-        # Форматируем последние действия для таблицы
         raw_actions = db_stats.get('recent_actions', [])
         formatted_actions = []
         
@@ -176,9 +170,24 @@ async def get_stats(request: Request):
         log(f"API Error: {e}", "ERROR")
         return {"status": "offline", "balance": 0.0, "recent_actions": []}
 
+@app.post("/api/wallet/sync")
+async def sync_wallet(request: Request):
+    """Эндпоинт для мгновенного сохранения данных кошелька с фронтенда."""
+    try:
+        data = await request.json()
+        await save_wallet_state(
+            address=data.get("address"),
+            balance=data.get("balance", 0.0),
+            qc=data.get("qc", 0.0)
+        )
+        log(f"SYNC: Данные кошелька {data.get('address')[:8]}... обновлены", "SUCCESS")
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
 @app.post("/api/update_config")
 async def handle_update_config(request: Request):
-    """Обновление настроек из админ-панели."""
+    """Обновление настроек системы (мнемоника, проценты) из админки."""
     try:
         data = await request.json()
         if await update_remote_config(data):
@@ -189,35 +198,42 @@ async def handle_update_config(request: Request):
         log(f"Config Update Error: {e}", "TRACE")
     return JSONResponse({"status": "error"}, status_code=500)
 
+# --- РОУТИНГ СТАТИКИ И SPA ---
+
 # Монтируем статику (стили, скрипты, манифест)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
 async def serve_all_files(path: str):
-    """Универсальный роутер для файлов, картинок и SPA-путей."""
-    # 1. Проверка в корне static
+    """Универсальный обработчик файлов и SPA-путей."""
+    # 1. Простая проверка файла в static
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # 2. Поиск в папке images
+    # 2. Поиск в images (поддержка коротких путей)
     if path.startswith("images/") or not "/" in path:
         img_name = path.replace("images/", "")
         img_path = os.path.join(static_dir, "images", img_name)
         if os.path.isfile(img_path):
             return FileResponse(img_path)
     
-    # 3. Fallback на index.html
+    # 3. Поддержка SPA (например, /swap отдаст swap.html)
+    html_path = os.path.join(static_dir, f"{path}.html")
+    if os.path.exists(html_path):
+        return FileResponse(html_path)
+    
+    # 4. Fallback: если путь не найден, отдаем главную (index.html)
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
     return JSONResponse({"error": "Not Found"}, status_code=404)
 
-# --- CORE WORKER (TON MONITORING) ---
+# --- CORE WORKER (Фоновый мониторинг блокчейна) ---
 
 async def core_worker():
-    """Фоновый процесс связи с блокчейном TON."""
+    """Фоновый процесс связи с сетью TON Mainnet."""
     log("CORE: Мониторинг TON запущен", "INFO")
     while overlord.is_active:
         try:
@@ -232,37 +248,39 @@ async def core_worker():
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
                     overlord.last_status = "MNEMONIC_ERR"
-                    await asyncio.sleep(30); continue
+                    await asyncio.sleep(30)
+                    continue
 
+                # Подключение к кошельку через мнемонику
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Подключен кошелек {wallet.address}", "SUCCESS")
+                log(f"CORE: Подключен системный узел {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
-                        # Получение реального баланса из сети
+                        # Получение баланса и перевод из нано-токенов в TON
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # Сохраняем состояние в PostgreSQL
+                        # Сохранение состояния в PostgreSQL для аналитики
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        # Эмуляция обучения ИИ в логи
+                        # Эмуляция активности ИИ-ядра
                         if random.random() > 0.85:
                             await log_ai_action(
                                 strategy={'cmd': 'SYNC', 'amt': overlord.current_balance, 'reason': 'Pulse Check'},
                                 market={'status': 'stable', 'net': 'mainnet'}
                             )
 
-                        # Проверка смены мнемоники в БД
+                        # Реакция на изменение настроек в БД
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Обнаружена новая мнемоника, переподключение...", "WARNING")
+                            log("CORE: Конфигурация изменена, перезапуск узла...", "WARNING")
                             break
                             
                         await asyncio.sleep(20) 
@@ -273,6 +291,8 @@ async def core_worker():
             log(f"Global Loop Error: {e}", "ERROR")
             overlord.last_status = "RECONNECTING"
             await asyncio.sleep(10)
+
+# --- ТОЧКА ВХОДА ---
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
