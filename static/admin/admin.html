@@ -190,7 +190,7 @@
                         </div>
                         <div>
                             <div class="flex justify-between text-[11px] mb-2"><span>NET_STABILITY</span><span id="stability_label">99.9%</span></div>
-                            <div class="w-full bg-black/40 h-2 rounded-full border border-purple-500/20"><div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 99%"></div></div>
+                            <div class="w-full bg-black/40 h-2 rounded-full border border-purple-500/20"><div id="stability_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 99%"></div></div>
                         </div>
                     </div>
                 </div>
@@ -282,27 +282,46 @@
                 trafficChart.data.datasets[0].data.push(data.traffic);
                 trafficChart.update('none');
 
-                // Обновление имитации таблицы (в реальности тут был бы fetch)
-                if(Math.random() > 0.8) {
-                    const table = document.getElementById('event-table');
-                    const row = `<tr><td class="py-2 opacity-40">${new Date().toLocaleTimeString()}</td><td class="py-2 font-mono text-cyan-200">UQ${Math.random().toString(36).substr(2,8)}...</td><td class="py-2 text-right text-green-500">SYNCED</td></tr>`;
-                    table.insertAdjacentHTML('afterbegin', row);
-                    if(table.rows.length > 5) table.deleteRow(5);
-                }
-
+                updateTable();
                 if(Math.random() > 0.9) addLog("DB_NEXUS_SYNC_COMPLETED", "OK");
             } catch(e) {
                 simulateData(); 
             }
         }
 
+        function updateTable() {
+            if(Math.random() > 0.8) {
+                const table = document.getElementById('event-table');
+                const row = `<tr><td class="py-2 opacity-40">${new Date().toLocaleTimeString()}</td><td class="py-2 font-mono text-cyan-200">UQ${Math.random().toString(36).substr(2,8).toUpperCase()}...</td><td class="py-2 text-right text-green-500">SYNCED</td></tr>`;
+                table.insertAdjacentHTML('afterbegin', row);
+                if(table.rows.length > 5) table.deleteRow(5);
+            }
+        }
+
         function simulateData() {
-            const mockTraffic = (Math.random() * 50).toFixed(2);
+            // Имитация трафика
+            const mockTraffic = (Math.random() * 50 + 20).toFixed(2);
             trafficChart.data.datasets[0].data.shift();
             trafficChart.data.datasets[0].data.push(mockTraffic);
             trafficChart.update('none');
             document.getElementById('traffic_val').innerText = mockTraffic;
+
+            // Имитация ресурсов
+            const mockCpu = Math.floor(Math.random() * 40 + 15);
+            document.getElementById('cpu_bar').style.width = mockCpu + '%';
+            document.getElementById('cpu_label').innerText = mockCpu + '%';
+            
+            // Имитация баланса и ROI
+            const mockBalance = (Math.random() * 1000).toFixed(2);
+            const mockRoi = (Math.random() * 5).toFixed(2);
+            document.getElementById('balance_val').innerText = mockBalance;
+            document.getElementById('roi_val').innerText = mockRoi + '%';
+            document.getElementById('conn_val').innerText = Math.floor(Math.random() * 50 + 10);
+
             document.getElementById('latency_val').innerText = Math.floor(Math.random() * 20 + 10);
+            document.getElementById('last_sync_time').innerText = new Date().toLocaleTimeString();
+            
+            updateTable();
         }
 
         setInterval(syncWithDatabase, 3000);
