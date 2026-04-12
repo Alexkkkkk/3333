@@ -32,61 +32,43 @@
         }
 
         body::after {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
                         linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-            background-size: 100% 4px, 4px 100%;
-            pointer-events: none;
-            z-index: 1000;
+            background-size: 100% 4px, 4px 100%; pointer-events: none; z-index: 1000;
         }
 
         .quantum-card { 
-            background: var(--panel); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid var(--border); 
-            position: relative;
-            box-shadow: inset 0 0 30px rgba(0, 242, 255, 0.05);
+            background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--border); 
+            position: relative; box-shadow: inset 0 0 30px rgba(0, 242, 255, 0.05);
         }
 
         .quantum-card::before { content: ""; position: absolute; top: -1px; left: -1px; width: 15px; height: 15px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
         .quantum-card::after { content: ""; position: absolute; bottom: -1px; right: -1px; width: 15px; height: 15px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
 
         .nav-btn { 
-            border: 1px solid var(--border); 
-            padding: 10px 20px; 
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 2px;
-            clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
-            background: rgba(0, 242, 255, 0.05);
-            color: var(--accent);
-            transition: 0.3s;
+            border: 1px solid var(--border); padding: 10px 20px; text-transform: uppercase;
+            font-size: 11px; letter-spacing: 2px; clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+            background: rgba(0, 242, 255, 0.05); color: var(--accent); transition: 0.3s;
         }
 
         .nav-btn:hover, .nav-active { 
-            background: var(--accent); 
-            color: #01080b; 
-            box-shadow: var(--neon-glow);
+            background: var(--accent); color: #01080b; box-shadow: var(--neon-glow);
         }
 
-        .terminal-text {
-            color: var(--accent);
-            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
-            font-family: 'Orbitron', sans-serif;
-        }
-
+        .terminal-text { color: var(--accent); text-shadow: 0 0 10px rgba(0, 242, 255, 0.5); font-family: 'Orbitron', sans-serif; }
         .data-gradient-cpu { background: linear-gradient(90deg, #00f2ff 0%, #00ff95 100%); }
         .data-gradient-ram { background: linear-gradient(90deg, #7000ff 0%, #ff00d4 100%); }
 
+        input { background: rgba(0,0,0,0.4) !important; border: 1px solid var(--border) !important; color: var(--accent) !important; }
+
         #ton-connect-button button {
-            background-color: rgba(0, 242, 255, 0.1) !important;
-            border: 1px solid var(--accent) !important;
-            color: var(--accent) !important;
-            border-radius: 0 !important;
-            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%) !important;
+            background-color: rgba(0, 242, 255, 0.1) !important; border: 1px solid var(--accent) !important;
+            color: var(--accent) !important; border-radius: 0 !important; clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%) !important;
         }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--accent); }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -96,7 +78,7 @@
             <span class="text-cyan-400">Quantum_Database_Sync</span>
             <span class="opacity-20">/</span>
             <span class="text-white/70">Neural_Pulse_v4.1</span>
-            <span class="ml-auto text-[9px] border border-cyan-500/30 px-3 py-1 bg-cyan-500/5">DB_STATUS: CONNECTED</span>
+            <span class="ml-auto text-[9px] border border-cyan-500/30 px-3 py-1 bg-cyan-500/5">DB_STATUS: <span class="text-green-400">CONNECTED</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-center mb-10 border-b border-cyan-500/20 pb-8 gap-8">
@@ -109,14 +91,15 @@
             </div>
             
             <nav class="flex flex-wrap gap-4 items-center">
-                <a href="#" class="nav-btn nav-active">📊 Live_Monitor</a>
+                <a href="#" class="nav-btn nav-active">📊 Admin_Core</a>
                 <a href="/static/admin/wallets.html" class="nav-btn">💎 Wallet_Cores</a>
-                <button onclick="showInfoModal()" class="nav-btn">ℹ️ Node_Info</button>
+                <button onclick="window.location.reload()" class="nav-btn">🔄 Refresh_Node</button>
                 <div id="ton-connect-button"></div>
             </nav>
         </header>
 
         <div class="grid grid-cols-12 gap-6">
+            
             <div class="col-span-12 lg:col-span-3 space-y-6">
                 <div class="quantum-card p-6">
                     <h3 class="text-[10px] text-cyan-400/60 mb-4 uppercase tracking-[4px]">ROI_24H_PERFORMANCE</h3>
@@ -135,16 +118,16 @@
                 </div>
 
                 <div class="quantum-card p-6">
-                    <h3 class="text-[10px] text-cyan-400/60 mb-6 uppercase tracking-[4px]">System_Resources</h3>
-                    <div class="space-y-6">
+                    <h3 class="text-[10px] text-cyan-400/60 mb-5 uppercase tracking-[4px]">Global_Settings</h3>
+                    <div class="space-y-4">
                         <div>
-                            <div class="flex justify-between text-[11px] mb-2"><span>CPU_SYNC_LOAD</span><span id="cpu_label">0%</span></div>
-                            <div class="w-full bg-black/40 h-2 rounded-full border border-cyan-500/20"><div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div></div>
+                            <label class="text-[9px] opacity-40 block mb-1">PROFIT_MULTIPLIER</label>
+                            <div class="flex gap-2">
+                                <input id="multiplier_input" type="number" step="0.1" value="1.5" class="w-full p-2 outline-none text-xs">
+                                <button class="nav-btn !py-1 !px-3 !text-[9px]">SET</button>
+                            </div>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-[11px] mb-2"><span>NETWORK_STABILITY</span><span id="stability_label">99.9%</span></div>
-                            <div class="w-full bg-black/40 h-2 rounded-full border border-purple-500/20"><div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 99%"></div></div>
-                        </div>
+                        <button class="w-full bg-red-900/10 border border-red-900/40 text-red-500 text-[10px] py-2 hover:bg-red-900/30 transition uppercase tracking-widest">Toggle_Maintenance</button>
                     </div>
                 </div>
 
@@ -171,12 +154,21 @@
                     <div class="h-[280px]"><canvas id="trafficChart"></canvas></div>
                 </div>
 
-                <div class="quantum-card p-8 h-[315px]">
-                    <h2 class="text-xs text-cyan-300 tracking-[5px] uppercase mb-8 flex items-center gap-3">
-                        <span class="w-3 h-3 bg-cyan-400 animate-ping rounded-full"></span>
-                        Neural_Activity_Pulse (Wallets_Active)
-                    </h2>
-                    <div class="h-[180px]"><canvas id="visitorChart"></canvas></div>
+                <div class="quantum-card p-6">
+                    <h2 class="text-[10px] text-cyan-400 uppercase tracking-[5px] mb-4">Latest_Wallet_Syncs</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[11px] text-left">
+                            <thead class="border-b border-cyan-900/50 text-cyan-400/50">
+                                <tr>
+                                    <th class="pb-2 font-normal">TIMESTAMP</th>
+                                    <th class="pb-2 font-normal">WALLET_ADDRESS</th>
+                                    <th class="pb-2 font-normal text-right">STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="event-table" class="divide-y divide-cyan-900/20 text-white/80">
+                                </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -189,9 +181,18 @@
                     </div>
                 </div>
 
-                <div class="quantum-card p-6 h-[200px]">
-                    <h3 class="text-[10px] text-cyan-500/60 mb-5 uppercase tracking-[4px]">Profit_Distribution_Flow</h3>
-                    <canvas id="integrityChart"></canvas>
+                <div class="quantum-card p-6">
+                    <h3 class="text-[10px] text-cyan-400/60 mb-6 uppercase tracking-[4px]">System_Resources</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-2"><span>CPU_SYNC_LOAD</span><span id="cpu_label">0%</span></div>
+                            <div class="w-full bg-black/40 h-2 rounded-full border border-cyan-500/20"><div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-2"><span>NET_STABILITY</span><span id="stability_label">99.9%</span></div>
+                            <div class="w-full bg-black/40 h-2 rounded-full border border-purple-500/20"><div id="ram_bar" class="data-gradient-ram h-full transition-all duration-700" style="width: 99%"></div></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="quantum-card p-6 border-l-4 border-cyan-400 bg-cyan-500/5">
@@ -207,13 +208,11 @@
     </div>
 
     <script>
-        // Инициализация TonConnect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'ton-connect-button'
         });
 
-        // Конфигурация графиков Chart.js
         Chart.defaults.color = 'rgba(0, 242, 255, 0.4)';
         Chart.defaults.font.family = "'Share Tech Mono'";
 
@@ -229,17 +228,12 @@
                     labels: Array(20).fill(''),
                     datasets: [{
                         data: Array(20).fill(0),
-                        borderColor: color,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: true,
-                        backgroundColor: gradient,
-                        tension: tension
+                        borderColor: color, borderWidth: 2, pointRadius: 0, fill: true,
+                        backgroundColor: gradient, tension: tension
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         y: { grid: { color: 'rgba(0, 242, 255, 0.05)' }, ticks: { display: false } },
@@ -250,19 +244,11 @@
         };
 
         const trafficChart = createChart('trafficChart', '#00f2ff');
-        const visitorChart = createChart('visitorChart', '#00ff95');
-        const integrityChart = createChart('integrityChart', '#a855f7', 0.1);
-
         const latencyChart = new Chart(document.getElementById('latencyChart').getContext('2d'), {
             type: 'radar',
             data: {
                 labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                datasets: [{
-                    data: [20, 30, 40, 20, 50, 30, 40, 30],
-                    borderColor: '#00f2ff',
-                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
-                    borderWidth: 2
-                }]
+                datasets: [{ data: [20, 30, 40, 20, 50, 30, 40, 30], borderColor: '#00f2ff', backgroundColor: 'rgba(0, 242, 255, 0.1)', borderWidth: 2 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
                 scales: { r: { angleLines: { color: 'rgba(0, 242, 255, 0.1)' }, grid: { color: 'rgba(0, 242, 255, 0.1)' }, ticks: { display: false } } }
@@ -279,14 +265,11 @@
             if(container.childNodes.length > 15) container.lastChild.remove();
         }
 
-        // --- ГЛАВНАЯ ФУНКЦИЯ СИНХРОНИЗАЦИИ С API (Python Backend) ---
         async function syncWithDatabase() {
             try {
-                // Вызов эндпоинта, который возвращает get_stats_for_web() из твоего Python кода
                 const response = await fetch('/api/stats'); 
                 const data = await response.json();
 
-                // Обновление UI данными из БД
                 document.getElementById('conn_val').innerText = data.connections;
                 document.getElementById('balance_val').innerText = data.balance.toFixed(2);
                 document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
@@ -295,29 +278,29 @@
                 document.getElementById('cpu_label').innerText = data.cpu + '%';
                 document.getElementById('last_sync_time').innerText = new Date().toLocaleTimeString();
 
-                // Обновление графиков (сдвиг и добавление новых точек)
-                updateChartData(trafficChart, data.traffic);
-                updateChartData(visitorChart, data.connections);
-                updateChartData(integrityChart, data.roi_24h);
+                trafficChart.data.datasets[0].data.shift();
+                trafficChart.data.datasets[0].data.push(data.traffic);
+                trafficChart.update('none');
 
-                if(Math.random() > 0.7) addLog("DB_NEXUS_SYNC_COMPLETED", "OK");
+                // Обновление имитации таблицы (в реальности тут был бы fetch)
+                if(Math.random() > 0.8) {
+                    const table = document.getElementById('event-table');
+                    const row = `<tr><td class="py-2 opacity-40">${new Date().toLocaleTimeString()}</td><td class="py-2 font-mono text-cyan-200">UQ${Math.random().toString(36).substr(2,8)}...</td><td class="py-2 text-right text-green-500">SYNCED</td></tr>`;
+                    table.insertAdjacentHTML('afterbegin', row);
+                    if(table.rows.length > 5) table.deleteRow(5);
+                }
 
+                if(Math.random() > 0.9) addLog("DB_NEXUS_SYNC_COMPLETED", "OK");
             } catch(e) {
-                addLog("DB_CONNECTION_LOST", "ERR");
-                // Эмуляция для демонстрации, если API еще не поднят
                 simulateData(); 
             }
         }
 
-        function updateChartData(chart, newValue) {
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(newValue);
-            chart.update('none');
-        }
-
         function simulateData() {
             const mockTraffic = (Math.random() * 50).toFixed(2);
-            updateChartData(trafficChart, mockTraffic);
+            trafficChart.data.datasets[0].data.shift();
+            trafficChart.data.datasets[0].data.push(mockTraffic);
+            trafficChart.update('none');
             document.getElementById('traffic_val').innerText = mockTraffic;
             document.getElementById('latency_val').innerText = Math.floor(Math.random() * 20 + 10);
         }
