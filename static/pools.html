@@ -21,6 +21,7 @@
             color: white; 
             overflow-x: hidden;
             perspective: 1000px;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
@@ -57,15 +58,16 @@
         /* Кнопки */
         .btn-quantum {
             position: relative; overflow: hidden;
-            transition: all 0.3s;
+            transition: all 0.2s;
             text-transform: uppercase;
             font-weight: 900;
             letter-spacing: 0.1em;
         }
+        .btn-quantum:active { transform: scale(0.96); }
 
         .cyan-glow { text-shadow: 0 0 15px var(--cyan); }
 
-        /* Новая навигация */
+        /* Навигация */
         .fixed-bottom-nav {
             position: fixed;
             bottom: 24px;
@@ -73,7 +75,7 @@
             transform: translateX(-50%);
             width: 92%;
             max-width: 500px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(6, 182, 212, 0.2);
             border-radius: 2rem;
@@ -87,7 +89,7 @@
         .nav-item a {
             display: flex;
             flex-direction: column;
-            items: center;
+            align-items: center;
             text-align: center;
             color: #64748b;
             text-decoration: none;
@@ -106,25 +108,25 @@
             filter: drop-shadow(0 0 8px var(--cyan));
         }
 
-        /* Иконки (заглушки через SVG для надежности) */
-        .nav-icon { width: 24px; height: 24px; margin: 0 auto; }
+        .nav-icon { width: 22px; height: 22px; }
 
         /* Бегущая строка */
         .ticker-container {
             position: fixed; bottom: 100px; left: 0; width: 100%;
             background: rgba(0, 0, 0, 0.5);
             padding: 6px 0; z-index: 50; overflow: hidden;
+            border-top: 1px solid rgba(6, 182, 212, 0.05);
         }
         .ticker-text {
             display: inline-block; white-space: nowrap;
             animation: ticker-anim 40s infinite linear;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 8px; color: #334155;
+            font-size: 8px; color: #475569;
         }
         @keyframes ticker-anim { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     </style>
 </head>
-<body class="selection:bg-cyan-500/30">
+<body class="selection:bg-cyan-500/30 antialiased">
     <div class="hologram-grid"></div>
     <canvas id="bg-canvas"></canvas>
 
@@ -145,7 +147,7 @@
         <a href="index.html" class="flex items-center gap-4 group">
             <div class="w-12 h-12 relative">
                 <div class="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl"></div>
-                <img src="/images/logo.png" alt="Logo" class="w-12 h-12 relative z-10 brightness-125">
+                <img src="images/logo.png" alt="Logo" class="w-12 h-12 relative z-10 brightness-125" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2592/2592171.png'">
             </div>
             <div>
                 <h1 class="text-2xl font-black italic uppercase leading-none tracking-tighter">QUAN<span class="text-cyan-400 cyan-glow">POOLS</span></h1>
@@ -156,14 +158,14 @@
     </header>
 
     <main class="max-w-xl mx-auto px-6 pb-40 relative z-10">
-        <div class="quantum-card rounded-[2.5rem] p-8 mb-8 overflow-hidden" id="card-balance">
+        <div class="quantum-card rounded-[2.5rem] p-8 mb-8 overflow-hidden">
             <p class="text-[9px] text-slate-500 font-black uppercase tracking-[0.5em] mb-4">Total Liquidity Locked</p>
             <div class="flex items-end justify-between mb-8">
                 <div>
                     <h2 class="text-5xl font-black italic tracking-tighter mono" id="total-balance">$0.<span class="text-2xl text-cyan-500/40">00</span></h2>
                     <div class="flex items-center gap-2 mt-3">
                         <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                        <span class="text-[9px] text-green-400 font-bold mono">CORE_SYNC_ACTIVE</span>
+                        <span class="text-[9px] text-green-400 font-bold mono uppercase">Core_Sync_Active</span>
                     </div>
                 </div>
                 <div class="w-24 h-12">
@@ -176,17 +178,17 @@
             </div>
         </div>
 
-        <div class="quantum-card rounded-[2rem] p-6 mb-6" id="card-pool-qc">
+        <div class="quantum-card rounded-[2rem] p-6 mb-6">
             <div class="flex justify-between items-start mb-6">
                 <div class="flex items-center gap-4">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-black text-[9px]">QC</div>
-                        <div class="w-6 h-[1px] bg-white/10"></div>
-                        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-[9px]">TON</div>
+                        <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-black text-[10px] shadow-lg shadow-orange-500/20">QC</div>
+                        <div class="w-4 h-[1px] bg-white/10"></div>
+                        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-[10px] shadow-lg shadow-blue-600/20">TON</div>
                     </div>
                     <div>
                         <h4 class="text-lg font-black italic">QC / TON</h4>
-                        <p class="text-[7px] text-cyan-400 font-bold tracking-widest">POOL_V3_ACTIVE</p>
+                        <p class="text-[7px] text-cyan-400 font-bold tracking-widest uppercase">Pool_V3_Active</p>
                     </div>
                 </div>
                 <div class="text-right">
@@ -194,43 +196,43 @@
                     <p class="text-[7px] text-slate-500 font-black uppercase">Est. APR</p>
                 </div>
             </div>
-            <button onclick="stake('QC_TON')" class="btn-quantum w-full bg-white text-black py-3 rounded-xl text-[9px]">Provide Liquidity</button>
+            <button onclick="stake('QC_TON')" class="btn-quantum w-full bg-white text-black py-3 rounded-xl text-[9px] hover:bg-cyan-400 transition-colors">Provide Liquidity</button>
         </div>
     </main>
 
     <div class="ticker-container">
         <div class="ticker-text">
-            SYSTEM_STATUS: OK ... NODES_ACTIVE: 12 ... NEW_DEPOSIT: 500 TON ... QC_PRICE: STABLE ... QUANTUM_FLOW_SYNCHRONIZED ...
+            SYSTEM_STATUS: OK ... NODES_ACTIVE: 12 ... NEW_DEPOSIT: 500 TON ... QC_PRICE: STABLE ... QUANTUM_FLOW_SYNCHRONIZED ... PROTOCOL_V3_RUNNING ...
         </div>
     </div>
 
     <nav class="fixed-bottom-nav">
         <div class="nav-item">
-            <a href="/index.html">
+            <a href="index.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span>HOME</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/swap.html">
+            <a href="swap.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                 <span>SWAP</span>
             </a>
         </div>
         <div class="nav-item active">
-            <a href="/forge.html">
-                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <a href="staking.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 <span>FORGE</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/assets.html">
+            <a href="assets.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 <span>DATA</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/admin">
+            <a href="operator.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 <span>OPERATOR</span>
             </a>
@@ -238,8 +240,9 @@
     </nav>
 
     <script>
+        // TonConnect Initialization
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -247,12 +250,17 @@
         function updateMetrics() {
             const now = new Date();
             const ms = Math.floor(now.getMilliseconds() / 10).toString().padStart(2, '0');
-            document.getElementById('sys-clock').innerText = now.toLocaleTimeString() + ':' + ms;
-            document.getElementById('ping').innerText = Math.floor(Math.random() * 5 + 15);
+            const clockEl = document.getElementById('sys-clock');
+            if(clockEl) clockEl.innerText = now.toLocaleTimeString() + ':' + ms;
+            
+            const pingEl = document.getElementById('ping');
+            if(pingEl) pingEl.innerText = Math.floor(Math.random() * 5 + 15);
             
             const apr = document.getElementById('apr-value');
-            const current = parseFloat(apr.innerText);
-            apr.innerText = (current + (Math.random() - 0.5) * 0.02).toFixed(2) + '%';
+            if(apr) {
+                const current = parseFloat(apr.innerText);
+                apr.innerText = (current + (Math.random() - 0.5) * 0.02).toFixed(2) + '%';
+            }
         }
         setInterval(updateMetrics, 100);
 
@@ -260,50 +268,68 @@
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
+        
+        function resize() { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-        for(let i=0; i<30; i++) particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            v: Math.random() * 0.3 + 0.1
-        });
+        for(let i=0; i<35; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                v: Math.random() * 0.2 + 0.05,
+                s: Math.random() * 1 + 0.5
+            });
+        }
 
         function animateBG() {
             ctx.clearRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
             particles.forEach(p => {
-                p.y -= p.v; if(p.y < 0) p.y = canvas.height;
-                ctx.beginPath(); ctx.arc(p.x, p.y, 0.8, 0, Math.PI*2); ctx.fill();
+                p.y -= p.v; 
+                if(p.y < 0) p.y = canvas.height;
+                ctx.beginPath(); 
+                ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); 
+                ctx.fill();
             });
             requestAnimationFrame(animateBG);
         }
         animateBG();
 
+        // Mini Chart Renderer
         function drawChart(id, color) {
             const c = document.getElementById(id);
+            if(!c) return;
             const ctx = c.getContext('2d');
             c.width = 100; c.height = 50;
-            let pts = Array.from({length: 10}, () => Math.random() * 30 + 10);
+            let pts = Array.from({length: 12}, () => Math.random() * 25 + 15);
+            
             function draw() {
                 ctx.clearRect(0,0,c.width,c.height);
                 ctx.beginPath();
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
-                pts.shift(); pts.push(Math.random() * 30 + 10);
-                pts.forEach((p, i) => ctx.lineTo(i * 11, p));
+                ctx.lineJoin = 'round';
+                pts.shift(); 
+                pts.push(Math.random() * 25 + 15);
+                ctx.moveTo(0, pts[0]);
+                pts.forEach((p, i) => ctx.lineTo(i * 9, p));
                 ctx.stroke();
-                setTimeout(draw, 300);
+                setTimeout(draw, 400);
             }
             draw();
         }
         drawChart('balanceChart', '#06b6d4');
 
-        function stake(id) {
+        function stake(poolId) {
             if (!tonConnectUI.connected) {
-                alert("CONNECT_WALLET_REQUIRED"); return;
+                tonConnectUI.openModal();
+                return;
             }
-            console.log("Staking into:", id);
+            console.log("Staking transaction initialized for:", poolId);
         }
     </script>
 </body>
