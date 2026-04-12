@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QUANTUM | NEURAL MONITOR V4.1</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js" crossorigin="anonymous"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
     <style>
         :root { 
             --panel-bg: rgba(13, 17, 23, 0.8);
@@ -26,6 +29,7 @@
             background-image: radial-gradient(circle at 50% 10%, #1a2638 0%, #050a12 80%);
             background-attachment: fixed;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
         .grid-overlay {
@@ -35,12 +39,13 @@
                               linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
             background-size: 40px 40px;
             z-index: -1;
-            opacity: 0.2;
+            opacity: 0.15;
         }
 
+        /* Scanline Effect */
         body::after {
             content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
             background-size: 100% 4px; pointer-events: none; z-index: 1000;
         }
 
@@ -50,7 +55,7 @@
             border: 1px solid var(--border-color);
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .b-blue { border-left: 4px solid var(--neon-blue); }
@@ -65,26 +70,28 @@
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            border: 1px solid rgba(0, 210, 255, 0.2);
+            border: 1px solid rgba(0, 210, 255, 0.1);
             border-radius: 12px;
-            background: rgba(0, 210, 255, 0.05);
+            background: rgba(0, 210, 255, 0.03);
             font-family: 'Share Tech Mono', monospace;
             font-size: 11px;
             text-transform: uppercase;
             color: #00d2ff;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .nav-link:hover {
-            background: rgba(0, 210, 255, 0.15);
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+            background: rgba(0, 210, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.15);
             transform: translateY(-1px);
+            border-color: rgba(0, 210, 255, 0.3);
         }
 
         .nav-link.active {
             border-color: var(--neon-blue);
-            background: rgba(0, 210, 255, 0.2);
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+            background: rgba(0, 210, 255, 0.15);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+            color: #fff;
         }
         
         #ton-connect-button button {
@@ -94,79 +101,90 @@
             border-radius: 12px !important; 
             font-size: 11px !important;
             font-family: 'Share Tech Mono' !important;
+            transition: all 0.2s ease !important;
+        }
+
+        #ton-connect-button button:hover {
+            background-color: rgba(0, 210, 255, 0.15) !important;
         }
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
 
         @keyframes pulse-opacity {
             0% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.4; }
             100% { opacity: 1; }
         }
         .pulse-log { animation: pulse-opacity 2s infinite; }
+
+        /* Custom Scrollbar for Logs */
+        #log-container::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-track { background: transparent; }
+        #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
     </style>
 </head>
-<body class="p-3 md:p-8">
+<body class="p-4 md:p-8">
     <div class="grid-overlay"></div>
 
     <div class="max-w-[1400px] mx-auto">
         
-        <div class="flex items-center gap-4 text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
-            <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5">
-            <span>Quantum_Database_Monitoring_System</span>
+        <div class="flex items-center gap-4 text-[9px] md:text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
+            <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5 object-contain">
+            <span class="hidden sm:inline">Quantum_Database_Monitoring_System</span>
+            <span class="sm:hidden">Q_D_M_S</span>
             <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400">SYNC_ACTIVE</span></span>
         </div>
 
-        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
             <div>
-                <h1 class="text-4xl font-bold terminal-text uppercase">Quancore_<span class="text-blue-500">OS</span></h1>
-                <p class="text-[10px] text-slate-500 mt-2 font-mono">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.1.0</span> // NEURAL_UPLINK_ACTIVE</p>
+                <h1 class="text-3xl md:text-4xl font-bold terminal-text uppercase">Quancore_<span class="text-blue-500">OS</span></h1>
+                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.1.0</span> // NEURAL_UPLINK_READY</p>
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
                 <a href="/" class="nav-link active">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     Monitor
                 </a>
                 <a href="/admin/wallets.html" class="nav-link">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                     Wallets
                 </a>
                 <a href="/admin/settings.html" class="nav-link">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     Settings
                 </a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-            <div class="quantum-card b-green p-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div class="quantum-card b-green p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Visitors</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="visitor_val" class="text-3xl font-bold terminal-text text-green-400">--</span>
+                    <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">--</span>
                 </div>
             </div>
 
-            <div class="quantum-card b-blue p-6">
+            <div class="quantum-card b-blue p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Wallets_Linked</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="conn_val" class="text-3xl font-bold terminal-text text-blue-400">--</span>
+                    <span id="conn_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">--</span>
                 </div>
             </div>
 
-            <div class="quantum-card b-purple p-6">
+            <div class="quantum-card b-purple p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Throughput</h3>
                 <div class="flex items-baseline gap-2">
-                    <span id="traffic_val" class="text-3xl font-bold terminal-text text-purple-400">0.00</span>
-                    <span class="text-[10px] text-purple-600 font-mono">MBPS</span>
+                    <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.00</span>
+                    <span class="text-[10px] text-purple-600 font-mono">MB/S</span>
                 </div>
             </div>
 
-            <div class="quantum-card b-yellow p-6">
+            <div class="quantum-card b-yellow p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Total_Equity</h3>
                 <div class="flex items-baseline gap-2">
-                    <span id="balance_val" class="text-3xl font-bold terminal-text text-yellow-500">0.00</span>
+                    <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
                 </div>
             </div>
@@ -174,12 +192,12 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
             <div class="lg:col-span-8 space-y-8">
-                <div class="quantum-card p-8">
+                <div class="quantum-card p-6 md:p-8">
                     <div class="flex justify-between items-start mb-6">
                         <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Neural_Traffic_Analysis</h2>
                         <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-log">DATA_FLOW_LIVE</span>
                     </div>
-                    <div class="h-[250px]"><canvas id="trafficChart"></canvas></div>
+                    <div class="h-[280px] w-full"><canvas id="trafficChart"></canvas></div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -203,12 +221,12 @@
                                 <span>CPU_SYNC_LOAD</span>
                                 <span id="cpu_label" class="text-green-400 font-bold">0%</span>
                             </div>
-                            <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div>
+                            <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700 ease-out" style="width: 0%"></div>
                             </div>
                         </div>
-                        <div class="pt-4 border-t border-white/5">
-                            <div class="flex justify-between text-[10px] mb-2 font-mono">
+                        <div class="pt-4 border-t border-white/5 space-y-3">
+                            <div class="flex justify-between text-[10px] font-mono">
                                 <span class="text-slate-500 uppercase">Memory_Allocation</span>
                                 <span class="text-blue-400">STABLE</span>
                             </div>
@@ -222,7 +240,7 @@
 
                 <div class="quantum-card p-6">
                     <h3 class="text-[11px] terminal-text text-blue-400 mb-4 uppercase border-b border-white/5 pb-3">Kernel_Database_Events</h3>
-                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-44 overflow-y-auto pr-4 text-slate-400">
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-56 overflow-y-auto pr-2 text-slate-400 scroll-smooth">
                     </div>
                 </div>
             </div>
@@ -230,30 +248,40 @@
     </div>
 
     <script>
-        // Инициализация TON Connect
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
-            buttonRootId: 'ton-connect-button'
-        });
+        // Инициализация TON Connect с проверкой
+        let tonConnectUI;
+        try {
+            tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+                buttonRootId: 'ton-connect-button'
+            });
+        } catch (e) {
+            console.error("TON Connect Init Error:", e);
+        }
 
-        // Конфигурация графиков
+        // Вспомогательная функция для градиентов
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
-            g.addColorStop(0, color + '33');
+            g.addColorStop(0, color + '44');
             g.addColorStop(1, color + '00');
             return g;
         }
 
         const commonOptions = {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, 
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { 
                 x: { display: false },
-                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#475569', font: { size: 9 } } }
+                y: { 
+                    grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false }, 
+                    ticks: { color: '#475569', font: { size: 9, family: 'Share Tech Mono' } } 
+                }
             },
-            animation: { duration: 0 } // Отключаем анимацию для real-time эффекта
+            animation: { duration: 0 }
         };
 
+        // Трафик
         const trafficCtx = document.getElementById('trafficChart').getContext('2d');
         const trafficChart = new Chart(trafficCtx, {
             type: 'line',
@@ -272,6 +300,7 @@
             options: commonOptions
         });
 
+        // Визиты
         const visitorCtx = document.getElementById('visitorChart').getContext('2d');
         const visitorChart = new Chart(visitorCtx, {
             type: 'bar',
@@ -286,6 +315,7 @@
             options: commonOptions
         });
 
+        // Кошельки
         const walletCtx = document.getElementById('walletChart').getContext('2d');
         const walletChart = new Chart(walletCtx, {
             type: 'line',
@@ -303,33 +333,43 @@
             options: commonOptions
         });
 
-        // Логирование
+        // Логирование (добавление новых записей вверх)
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             if(!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
-            let color = "text-blue-400";
-            if(type === "OK") color = "text-green-400";
-            if(type === "ERR") color = "text-red-500";
-            if(type === "SYNC") color = "text-purple-400";
             
-            log.innerHTML = `<span class="opacity-30">[${time}]</span> <span class="${color} font-bold">${type}</span> <span class="text-slate-300 ml-2">${msg}</span>`;
+            const colors = {
+                "OK": "text-green-400",
+                "ERR": "text-red-500",
+                "SYNC": "text-purple-400",
+                "SYS": "text-blue-400"
+            };
+            const color = colors[type] || "text-slate-400";
+            
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5 transition-all duration-500 opacity-0";
+            log.innerHTML = `<span class="opacity-30 text-[9px]">[${time}]</span> <span class="${color} font-bold">${type}</span> <span class="text-slate-300 ml-2">${msg}</span>`;
+            
             container.prepend(log);
-            if (container.children.length > 50) container.lastChild.remove();
+            setTimeout(() => log.classList.remove('opacity-0'), 10);
+
+            if (container.children.length > 40) container.lastChild.remove();
         }
 
-        // Таймер аптайма
+        // Аптайм
         let startTime = Date.now();
         setInterval(() => {
+            const uptimeEl = document.getElementById('uptime_display');
+            if (!uptimeEl) return;
             const diff = Math.floor((Date.now() - startTime) / 1000);
             const h = String(Math.floor(diff / 3600)).padStart(2, '0');
             const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
             const s = String(diff % 60).padStart(2, '0');
-            document.getElementById('uptime_display').innerText = `${h}:${m}:${s}`;
+            uptimeEl.innerText = `${h}:${m}:${s}`;
         }, 1000);
 
-        // ГЛАВНАЯ ФУНКЦИЯ: Получение реальных данных из Python API
+        // Синхронизация данных
         async function syncData() {
             try {
                 const res = await fetch('/api/stats');
@@ -337,53 +377,67 @@
                 
                 const data = await res.json();
                 
-                // 1. Обновляем текстовые значения
-                document.getElementById('conn_val').innerText = data.connections ?? 0;
-                document.getElementById('balance_val').innerText = (data.balance ?? 0).toFixed(2);
-                document.getElementById('visitor_val').innerText = data.visitors ?? 0;
-                document.getElementById('cpu_label').innerText = (data.cpu ?? 0) + '%';
-                document.getElementById('cpu_bar').style.width = (data.cpu ?? 0) + '%';
-                document.getElementById('traffic_val').innerText = (data.traffic ?? 0).toFixed(2);
+                // Обновление UI
+                const setTxt = (id, val) => {
+                    const el = document.getElementById(id);
+                    if(el) el.innerText = val;
+                };
+
+                setTxt('conn_val', data.connections ?? 0);
+                setTxt('balance_val', (data.balance ?? 0).toFixed(2));
+                setTxt('visitor_val', data.visitors ?? 0);
+                setTxt('traffic_val', (data.traffic ?? 0).toFixed(2));
                 
-                // 2. Обновляем графики
-                updateCharts(data.traffic, data.visitors, data.connections);
+                // CPU бар
+                const cpu = Math.min(Math.max(data.cpu ?? 0, 0), 100);
+                setTxt('cpu_label', cpu + '%');
+                const cpuBar = document.getElementById('cpu_bar');
+                if(cpuBar) cpuBar.style.width = cpu + '%';
                 
-                // 3. Индикация статуса
-                document.getElementById('status_indicator').innerText = "SYNC_ACTIVE";
-                document.getElementById('status_indicator').className = "text-green-400";
+                // Обновление графиков
+                updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
+                
+                // Обновление статуса
+                const statusInd = document.getElementById('status_indicator');
+                if(statusInd) {
+                    statusInd.innerText = "SYNC_ACTIVE";
+                    statusInd.className = "text-green-400";
+                }
 
             } catch(e) {
-                console.error("Sync Error:", e);
+                console.warn("Uplink Lost:", e.message);
+                const statusInd = document.getElementById('status_indicator');
+                if(statusInd) {
+                    statusInd.innerText = "CONNECTION_LOST";
+                    statusInd.className = "text-red-500 pulse-log";
+                }
                 addLog("DATABASE_OFFLINE: Retrying uplink...", "ERR");
-                document.getElementById('status_indicator').innerText = "CONNECTION_LOST";
-                document.getElementById('status_indicator').className = "text-red-500";
             }
         }
 
         function updateCharts(t, v, c) {
-            // Сдвигаем данные влево
-            trafficChart.data.datasets[0].data.shift();
-            visitorChart.data.datasets[0].data.shift();
-            walletChart.data.datasets[0].data.shift();
+            const targets = [
+                {chart: trafficChart, value: t},
+                {chart: visitorChart, value: v},
+                {chart: walletChart, value: c}
+            ];
 
-            // Добавляем новые реальные значения
-            trafficChart.data.datasets[0].data.push(t ?? 0);
-            visitorChart.data.datasets[0].data.push(v ?? 0);
-            walletChart.data.datasets[0].data.push(c ?? 0);
-
-            // Рендерим изменения
-            trafficChart.update('none');
-            visitorChart.update('none');
-            walletChart.update('none');
+            targets.forEach(target => {
+                if(target.chart && target.chart.data.datasets[0]) {
+                    target.chart.data.datasets[0].data.shift();
+                    target.chart.data.datasets[0].data.push(target.value);
+                    target.chart.update('none');
+                }
+            });
         }
 
-        // Интервал обновления (3 секунды)
+        // Главный цикл
         setInterval(syncData, 3000);
 
         window.onload = () => {
             addLog("QUANTUM_CORE_INITIALIZED", "SYS");
             addLog("NEURAL_PULSE_SYNC_ACTIVE", "OK");
-            syncData(); // Первый запуск сразу
+            syncData(); 
         };
     </script>
 </body>
