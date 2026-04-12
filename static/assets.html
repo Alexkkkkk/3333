@@ -7,12 +7,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
         
         body { 
             font-family: 'Space Grotesk', sans-serif;
             background-color: #050b10;
             overflow-x: hidden;
+            color: #cbd5e1;
         }
         .mono { font-family: 'JetBrains Mono', monospace; }
         
@@ -24,47 +25,39 @@
             background: rgba(10, 20, 30, 0.7);
             backdrop-filter: blur(15px);
             border: 1px solid rgba(6, 182, 212, 0.2);
-        }
-
-        .asset-glow {
-            position: relative;
-        }
-        .asset-glow::after {
-            content: '';
-            position: absolute;
-            inset: -1px;
-            background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent);
-            animation: slide 3s infinite;
-        }
-        @keyframes slide {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
         }
 
         .nav-active {
             color: #06b6d4;
             filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.5));
         }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        .animate-pulse-soft { animation: pulse-soft 3s infinite; }
     </style>
 </head>
-<body class="text-slate-300">
+<body class="selection:bg-cyan-500/30">
     <canvas id="bg-canvas"></canvas>
     
     <header class="p-6 flex justify-between items-center relative z-50">
         <a href="index.html" class="flex items-center gap-2 group">
             <div class="relative">
                 <div class="absolute inset-0 bg-cyan-500/20 blur-lg rounded-full animate-pulse"></div>
-                <img src="/static/images/logo.png" alt="Logo" class="w-10 h-10 relative z-10 brightness-110" onerror="this.src='https://cdn-icons-png.flaticon.com/512/7038/7038131.png'">
+                <img src="images/logo.png" alt="Logo" class="w-10 h-10 relative z-10 brightness-110" onerror="this.src='https://cdn-icons-png.flaticon.com/512/7038/7038131.png'">
             </div>
             <h1 class="text-xl font-black italic text-white uppercase tracking-tighter">QUAN<span class="text-cyan-400">CORE</span></h1>
         </a>
-        <div id="connectBtn"></div>
+        <div id="connectBtn" class="scale-90"></div>
     </header>
 
     <main class="max-w-lg mx-auto px-4 pb-40 relative z-10">
         <div class="glass-card p-8 rounded-[2.5rem] mb-8 relative overflow-hidden group">
-            <div class="absolute top-0 right-0 p-4 opacity-10">
-                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <svg class="w-24 h-24 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             
             <p class="text-[9px] text-cyan-400 font-black uppercase tracking-[0.4em] mb-2">Total Net Worth</p>
@@ -100,14 +93,14 @@
                 </div>
                 <div class="text-right">
                     <p class="font-black text-white text-lg mono italic" id="asset-ton-bal">0.00</p>
-                    <p class="text-[9px] text-cyan-500 font-bold mono">~ $0.00</p>
+                    <p class="text-[9px] text-cyan-500 font-bold mono" id="asset-ton-usd">~ $0.00</p>
                 </div>
             </div>
 
             <div class="glass-card p-5 rounded-3xl flex justify-between items-center transition-all duration-500 hover:translate-x-1 hover:border-purple-500/50">
                 <div class="flex items-center gap-4">
                     <div class="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center border border-purple-500/20">
-                        <span class="text-purple-400 font-black italic">Q</span>
+                        <span class="text-purple-400 font-black italic text-xl">Q</span>
                     </div>
                     <div>
                         <p class="font-black text-white text-sm tracking-tight uppercase">Quantum</p>
@@ -116,13 +109,13 @@
                 </div>
                 <div class="text-right">
                     <p class="font-black text-white text-lg mono italic">450,000</p>
-                    <p class="text-[9px] text-purple-500 font-bold mono">STAKED</p>
+                    <p class="text-[9px] text-purple-500 font-bold mono uppercase">Staked</p>
                 </div>
             </div>
 
             <div class="py-10 text-center relative">
-                <div class="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                <span class="relative z-10 bg-[#050b10] px-4 text-[8px] text-slate-600 uppercase tracking-[0.5em] mono">Secure Data Link Active</span>
+                <div class="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-20"></div>
+                <span class="relative z-10 bg-[#050b10] px-4 text-[8px] text-slate-600 uppercase tracking-[0.5em] mono animate-pulse-soft">Secure Data Link Active</span>
             </div>
         </div>
     </main>
@@ -145,13 +138,14 @@
             <svg class="w-6 h-6 mb-1 relative z-10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             <span class="text-[8px] font-black uppercase relative z-10">Data</span>
         </div>
-        <a href="/admin" class="flex-1 flex flex-col items-center py-3 text-slate-500 hover:text-white transition-all">
+        <a href="operator.html" class="flex-1 flex flex-col items-center py-3 text-slate-500 hover:text-white transition-all">
             <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <span class="text-[8px] font-black uppercase">Operator</span>
         </a>
     </nav>
 
     <script>
+        // Инициализация TonConnect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
@@ -159,6 +153,7 @@
 
         const TON_PRICE = 5.45;
 
+        // Обновление балансов из API
         async function updateAssetInfo() {
             try {
                 const response = await fetch('/api/stats');
@@ -166,15 +161,21 @@
                 
                 if (data.balance) {
                     const tonBal = parseFloat(data.balance);
+                    const tonInUsd = tonBal * TON_PRICE;
+                    
                     document.getElementById('asset-ton-bal').innerText = tonBal.toFixed(2);
-                    const total = (tonBal * TON_PRICE + 120.50).toLocaleString(); 
-                    document.getElementById('total-value').innerText = `$${total}`;
+                    document.getElementById('asset-ton-usd').innerText = `~ $${tonInUsd.toFixed(2)}`;
+                    
+                    // Расчет общей стоимости (баланс + условные активы для вида)
+                    const totalValue = tonInUsd + 120.50;
+                    document.getElementById('total-value').innerText = `$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 }
             } catch (e) {
-                console.warn("CORE_LINK_INTERRUPTED: Retrying...");
+                console.warn("CORE_LINK_PENDING: API not responding yet.");
             }
         }
 
+        // Фоновая анимация (Canvas)
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let parts = [];
@@ -205,6 +206,8 @@
         window.onresize = init;
         init();
         draw();
+        
+        // Интервалы
         updateAssetInfo();
         setInterval(updateAssetInfo, 10000);
     </script>
