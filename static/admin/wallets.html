@@ -44,6 +44,13 @@
             border-radius: 24px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.5);
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quantum-card:hover {
+            border-color: rgba(0, 210, 255, 0.4);
+            transform: translateY(-2px);
         }
 
         .nav-btn { 
@@ -96,7 +103,7 @@
             font-size: 10px;
             transition: all 0.2s;
         }
-        .action-btn:hover { background: var(--neon-blue); color: black; border-color: var(--neon-blue); }
+        .action-btn:hover { background: var(--neon-blue); color: black; border-color: var(--neon-blue); transform: scale(1.1); }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -110,11 +117,44 @@
             position: absolute; width: 100%; height: 2px;
             background: linear-gradient(to right, transparent, var(--neon-blue), transparent);
             opacity: 0.1; animation: scanline 8s linear infinite;
+            pointer-events: none;
+        }
+
+        .row-update { animation: highlight-blue 1.5s ease-out; }
+        @keyframes highlight-blue {
+            0% { background: rgba(0, 210, 255, 0.2); }
+            100% { background: transparent; }
+        }
+
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--panel);
+            border: 1px solid var(--neon-blue);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: white;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="grid-bg"></div>
+    <div id="toast-container"></div>
     
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col lg:flex-row justify-between items-center mb-10 gap-6">
@@ -130,13 +170,14 @@
             </div>
             <nav class="flex gap-4">
                 <a href="/static/admin/admin.html" class="nav-btn">📊 MONITORING</a>
-                <a href="/static/admin/wallets.html" class="nav-btn nav-active">💎 WALLETS</a>
+                <a href="#" class="nav-btn nav-active">💎 WALLETS</a>
                 <a href="/static/admin/settings.html" class="nav-btn">⚙️ DISTRIBUTION</a>
             </nav>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="quantum-card p-6 border-l-4 border-blue-500">
+                <div class="scanline"></div>
                 <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Total Wallets</p>
                 <div class="flex items-baseline gap-2">
                     <span id="stat_wallets" class="text-3xl stat-value text-white">0</span>
@@ -144,6 +185,7 @@
                 </div>
             </div>
             <div class="quantum-card p-6 border-l-4 border-green-500">
+                <div class="scanline"></div>
                 <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Total Equity (QC)</p>
                 <div class="flex items-baseline gap-2">
                     <span id="stat_qc" class="text-3xl stat-value text-green-400">0</span>
@@ -151,6 +193,7 @@
                 </div>
             </div>
             <div class="quantum-card p-6 border-l-4 border-yellow-500">
+                <div class="scanline"></div>
                 <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Protocol Yield (24h)</p>
                 <div class="flex items-baseline gap-2">
                     <span id="stat_roi" class="text-3xl stat-value text-yellow-400">0.00</span>
@@ -158,6 +201,7 @@
                 </div>
             </div>
             <div class="quantum-card p-6 border-l-4 border-purple-500">
+                <div class="scanline"></div>
                 <p class="text-[10px] text-gray-500 font-mono uppercase mb-2">Active Sessions</p>
                 <div class="flex items-baseline gap-2">
                     <span id="stat_users" class="text-3xl stat-value text-purple-400">0</span>
@@ -253,6 +297,19 @@
         let growthChart;
         let lastActionAddress = null;
 
+        // Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast border-${type === 'error' ? 'red-500' : 'blue-500'}`;
+            toast.innerHTML = `<span class="mr-2">${type === 'error' ? '⚠️' : 'ℹ️'}</span> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const term = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#wallet-rows tr');
@@ -288,10 +345,10 @@
 
                 const tbody = document.getElementById('wallet-rows');
                 if (data.recent_actions && data.recent_actions.length > 0) {
-                    tbody.innerHTML = data.recent_actions.map(w => {
+                    const newContent = data.recent_actions.map(w => {
                         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         return `
-                        <tr class="hover:bg-white/[0.03] transition-colors border-b border-white/5">
+                        <tr class="hover:bg-white/[0.03] transition-colors border-b border-white/5 row-update">
                             <td class="py-4">
                                 <div class="flex flex-col">
                                     <span class="text-blue-400 font-bold font-mono tracking-wider">${formatAddress(w.address)}</span>
@@ -308,18 +365,22 @@
                             <td class="text-gray-500 text-[11px] font-mono">${time}</td>
                             <td>
                                 <div class="flex gap-2">
-                                    <button class="action-btn" title="View Details">👁️</button>
-                                    <button class="action-btn" title="Lock Asset" style="color:#ef4444">🔒</button>
+                                    <button onclick="showToast('Decrypting node: ' + '${w.address.slice(0,8)}...')" class="action-btn" title="View Details">👁️</button>
+                                    <button onclick="showToast('Locking asset protocol...', 'error')" class="action-btn" title="Lock Asset" style="color:#ef4444">🔒</button>
                                 </div>
                             </td>
                         </tr>`;
                     }).join('');
+                    
+                    tbody.innerHTML = newContent;
 
                     const latest = data.recent_actions[0];
                     if (latest && latest.address !== lastActionAddress) {
                         addLogEntry(latest);
                         lastActionAddress = latest.address;
                     }
+                } else if (tbody.children.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-gray-600 font-mono">No active nodes detected in current uplink...</td></tr>';
                 }
 
                 if (growthChart) {
@@ -328,10 +389,9 @@
                     growthChart.update('none');
                 }
             } catch (err) {
-                console.error("Dashboard Error:", err);
                 syncInd.className = "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
-                syncStat.innerText = "Offline";
-                syncStat.className = "text-red-500";
+                syncStat.innerText = "Connection Error";
+                syncStat.className = "text-red-500 animate-pulse";
             }
         }
 
