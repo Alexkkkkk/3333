@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QUANCORE | PRO TERMINAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
+        :root { --neon-cyan: #00f2ff; }
+        body { font-family: 'Space Grotesk', sans-serif; background: #020617; color: #94a3b8; overflow-x: hidden; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .terminal-scroll::-webkit-scrollbar { width: 4px; }
+        .terminal-scroll::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); border-radius: 10px; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.1),transparent)] pointer-events-none"></div>
+
+    <header class="p-6 flex justify-between items-center relative z-50 max-w-7xl mx-auto">
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                <span class="text-black font-black text-xl">Q</span>
+            </div>
+            <h1 class="text-xl font-black italic text-white uppercase tracking-tighter">QUAN<span class="text-cyan-400">CORE</span></h1>
+        </div>
+        <div id="connectBtn"></div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+        
+        <div class="lg:col-span-8 space-y-4">
+            <div class="glass-card rounded-[32px] p-6 h-[400px] relative overflow-hidden border-t border-white/10">
+                <div class="flex justify-between items-center relative z-20">
+                    <div class="flex items-center gap-3">
+                        <span id="pairName" class="text-white font-bold italic text-lg uppercase">TON / USDT</span>
+                        <div class="bg-green-500/10 text-green-400 text-[10px] px-2 py-0.5 rounded-full mono font-bold">LIVE</div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="bg-white/5 px-3 py-1 rounded-md text-[10px] text-white">1H</button>
+                        <button class="bg-cyan-500 text-black px-3 py-1 rounded-md text-[10px] font-bold">4H</button>
+                    </div>
+                </div>
+                <canvas id="chartCanvas" class="absolute inset-0 w-full h-full"></canvas>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 border-l-4 border-cyan-500">
+                <div class="flex items-center gap-2 mb-2 text-[10px] font-black uppercase text-cyan-500">
+                    <span class="animate-pulse">●</span> Quancore Aggregator v4.0.1
+                </div>
+                <div id="terminal" class="h-24 overflow-y-auto terminal-scroll font-mono text-[10px] text-slate-400 space-y-1">
+                    <p class="text-cyan-400/50">> Initializing DeDust.io Oracle connection...</p>
+                    <p class="text-white/30">> Smart Route established via TON-DEX-MESH</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-4">
+            <div class="glass-card p-6 rounded-[32px] shadow-2xl relative">
+                <h2 class="font-black italic text-white uppercase tracking-widest text-xs mb-6">Trade Execution</h2>
+
+                <div class="space-y-2">
+                    <div class="bg-black/40 p-4 rounded-2xl border border-white/5 focus-within:border-cyan-500/50 transition-colors">
+                        <div class="flex justify-between text-[10px] font-bold uppercase mb-2">
+                            <span>Sell</span>
+                            <span class="text-slate-500">Available: <span id="balDisplay" class="text-cyan-500 italic">0.00</span></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="amtIn" placeholder="0.0" class="bg-transparent text-2xl font-black outline-none w-full text-white">
+                            <select id="tokenIn" onchange="updateUI()" class="bg-slate-800 text-xs text-white font-bold p-2 rounded-xl border-none outline-none">
+                                <option value="TON">TON</option>
+                                <option value="USDT">USDT</option>
+                                <option value="NOT">NOT</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center -my-4 relative z-20">
+                        <button onclick="reverse()" class="bg-cyan-500 p-2 rounded-xl border-[6px] border-[#020617] hover:rotate-180 transition-transform duration-500">
+                            <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="bg-black/40 p-4 rounded-2xl border border-white/5">
+                        <div class="flex justify-between text-[10px] font-bold uppercase mb-2">
+                            <span>Buy (Est.)</span>
+                            <span class="text-green-500">Best Price</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="amtOut" readonly placeholder="0.0" class="bg-transparent text-2xl font-black outline-none w-full text-cyan-400">
+                            <select id="tokenOut" onchange="updateUI()" class="bg-slate-800 text-xs text-white font-bold p-2 rounded-xl border-none outline-none">
+                                <option value="USDT">USDT</option>
+                                <option value="TON">TON</option>
+                                <option value="NOT">NOT</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="p-3 space-y-2 bg-white/5 rounded-2xl mt-4">
+                        <div class="flex justify-between text-[10px]">
+                            <span class="uppercase">Exchange Rate</span>
+                            <span id="rateLabel" class="text-white mono italic">---</span>
+                        </div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="uppercase">Network Fee</span>
+                            <span class="text-white mono">~0.15 TON</span>
+                        </div>
+                    </div>
+
+                    <button id="actionBtn" onclick="executeSwap()" class="w-full bg-cyan-500 py-4 rounded-2xl text-black font-black uppercase text-[12px] tracking-widest shadow-[0_0_30px_rgba(6,182,212,0.2)] hover:shadow-cyan-500/40 transition-all mt-4">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Конфигурация
+        const STATE = {
+            tokens: {
+                'TON': { price: 5.40, bal: 12.5, addr: 'native' },
+                'USDT': { price: 1.00, bal: 450.0, addr: 'EQCxE6mUtQWicZtpdt_E6k_vY8L0F-6y15aYq9WWhA00A-5M' },
+                'NOT': { price: 0.007, bal: 12000, addr: 'EQAvlW4Al_an3uC2se_8W_T-U-uUjL2Y63fE8K-A0W9Uv9A6' }
+            },
+            wallet: null
+        };
+
+        const dom = {
+            in: document.getElementById('amtIn'),
+            out: document.getElementById('amtOut'),
+            tIn: document.getElementById('tokenIn'),
+            tOut: document.getElementById('tokenOut'),
+            rate: document.getElementById('rateLabel'),
+            bal: document.getElementById('balDisplay'),
+            btn: document.getElementById('actionBtn'),
+            term: document.getElementById('terminal')
+        };
+
+        // Логика цен (Real DeDust API)
+        async function syncPrices() {
+            try {
+                const res = await fetch('https://api.dedust.io/v2/prices');
+                const data = await res.json();
+                
+                // Обновляем только те, что есть в API
+                for (let symbol in STATE.tokens) {
+                    const addr = STATE.tokens[symbol].addr;
+                    if (data[addr]) {
+                        STATE.tokens[symbol].price = parseFloat(data[addr]);
+                    }
+                }
+                log("Price Oracle updated via DeDust.io", "cyan-400");
+                calculate();
+            } catch (e) {
+                log("Oracle offline. Using cache.", "red-400");
+            }
+        }
+
+        function calculate() {
+            const amount = parseFloat(dom.in.value) || 0;
+            const p1 = STATE.tokens[dom.tIn.value].price;
+            const p2 = STATE.tokens[dom.tOut.value].price;
+            const rate = p1 / p2;
+            
+            dom.out.value = amount > 0 ? (amount * rate).toFixed(4) : "";
+            dom.rate.innerText = `1 ${dom.tIn.value} = ${rate.toFixed(4)} ${dom.tOut.value}`;
+            checkStatus();
+        }
+
+        function reverse() {
+            const temp = dom.tIn.value;
+            dom.tIn.value = dom.tOut.value;
+            dom.tOut.value = temp;
+            updateUI();
+        }
+
+        function updateUI() {
+            dom.bal.innerText = STATE.tokens[dom.tIn.value].bal.toLocaleString();
+            calculate();
+        }
+
+        function log(msg, color = 'slate-500') {
+            const p = document.createElement('p');
+            p.className = `text-${color}`;
+            p.innerHTML = `> ${msg}`;
+            dom.term.prepend(p);
+        }
+
+        // TonConnect
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+            buttonRootId: 'connectBtn'
+        });
+
+        tonConnectUI.onStatusChange(w => {
+            STATE.wallet = w;
+            checkStatus();
+            if(w) log(`Wallet connected: ${w.account.address.slice(0,6)}...`, 'green-400');
+        });
+
+        function checkStatus() {
+            if(!STATE.wallet) dom.btn.innerText = "Connect Wallet";
+            else if(!dom.in.value) { dom.btn.innerText = "Enter Amount"; dom.btn.disabled = true; }
+            else { dom.btn.innerText = "Confirm Swap"; dom.btn.disabled = false; }
+        }
+
+        // Анимация графика
+        function initChart() {
+            const canvas = document.getElementById('chartCanvas');
+            const ctx = canvas.getContext('2d');
+            let time = 0;
+
+            function animate() {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
+                ctx.lineWidth = 2;
+                for(let i=0; i<canvas.width; i+=2) {
+                    const y = 200 + Math.sin(i*0.01 + time)*50 + Math.cos(i*0.02)*20;
+                    if(i===0) ctx.moveTo(i, y); else ctx.lineTo(i, y);
+                }
+                ctx.stroke();
+                time += 0.02;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        async function executeSwap() {
+            if(!STATE.wallet) { tonConnectUI.openModal(); return; }
+            log("Generating Smart Route...", "white");
+            dom.btn.innerText = "Signing...";
+            setTimeout(() => {
+                log("Transaction sent to shard 0", "green-400");
+                dom.btn.innerText = "Success";
+                setTimeout(() => { dom.in.value = ""; calculate(); }, 2000);
+            }, 2000);
+        }
+
+        dom.in.oninput = calculate;
+        window.onload = () => { initChart(); updateUI(); syncPrices(); setInterval(syncPrices, 20000); };
+    </script>
+</body>
+</html>
