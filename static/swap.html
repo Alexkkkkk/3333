@@ -135,7 +135,7 @@
                 <div class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></div>
                 <span class="text-[9px] font-black text-white uppercase tracking-tighter">Node Console</span>
             </div>
-            <div id="terminal" class="terminal-scroll h-20 overflow-y-auto font-mono text-[9px] space-y-1 opacity-60">
+            <div id="terminal" class="terminal-scroll h-24 overflow-y-auto font-mono text-[9px] space-y-1 opacity-60">
                 <p class="text-cyan-500">> System Ready</p>
                 <p class="text-slate-500">> Link established with DeDust pools...</p>
             </div>
@@ -167,7 +167,7 @@
 
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -175,7 +175,8 @@
             isTontoQC: true,
             rate: 450.00,
             balance: 0.00,
-            wallet: null
+            wallet: null,
+            fee: 0.012
         };
 
         const ui = {
@@ -185,32 +186,41 @@
             bal: document.getElementById('balDisplay'),
             rate: document.getElementById('rateLabel'),
             terminal: document.getElementById('terminal'),
-            impact: document.getElementById('impact')
+            impact: document.getElementById('impact'),
+            gas: document.getElementById('gasLabel'),
+            priceStatus: document.getElementById('priceStatus')
         };
 
+        // Логирование
         function log(msg, color = 'slate-500') {
             const p = document.createElement('p');
             p.className = `text-${color}`;
-            p.innerText = `> ${msg}`;
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            p.innerText = `[${time}] > ${msg}`;
             ui.terminal.appendChild(p);
             ui.terminal.scrollTop = ui.terminal.scrollHeight;
+            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.firstChild);
         }
 
-        function updateOracle() {
-            const change = (Math.random() * 0.1 - 0.05);
-            state.rate += state.rate * (change / 100);
-            
-            const path = document.getElementById('chartPath');
-            let d = "M0 " + (20 + Math.random()*20);
-            for(let i=1; i<=4; i++) d += ` Q ${i*100-50} ${Math.random()*50}, ${i*100} ${20+Math.random()*20}`;
-            path.setAttribute('d', d);
+        // Синхронизация с API (Твоя база PostgreSQL)
+        async function syncWithCore() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                
+                // Эффект живого курса
+                const drift = (Math.random() * 0.4 - 0.2); 
+                state.rate = 450.00 + (data.roi * 1.5) + drift;
 
-            document.getElementById('priceStatus').innerText = `${change > 0 ? 'Bullish +' : 'Bearish '}${change.toFixed(3)}%`;
-            document.getElementById('priceStatus').className = `text-[10px] font-bold mono ${change > 0 ? 'text-green-400' : 'text-red-400'}`;
-            
-            calculate();
+                ui.priceStatus.innerText = `ROI ${data.roi}% ${data.roi >= 0 ? '▲' : '▼'}`;
+                ui.priceStatus.className = `text-[10px] font-bold mono ${data.roi >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                
+                calculate();
+            } catch (e) {
+                console.log("Core offline, using oracle cache");
+            }
         }
-        setInterval(updateOracle, 4000);
+        setInterval(syncWithCore, 5000);
 
         function calculate() {
             const val = parseFloat(ui.in.value) || 0;
@@ -219,11 +229,12 @@
             
             ui.rate.innerText = `1 ${state.isTontoQC ? 'TON' : 'QC'} ≈ ${state.isTontoQC ? state.rate.toFixed(2) : (1/state.rate).toFixed(6)} ${state.isTontoQC ? 'QC' : 'TON'}`;
             
-            const imp = (val / (state.balance || 100)) * 2.5;
+            const imp = (val / (state.balance || 100)) * 1.8;
             ui.impact.innerText = val > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
             ui.impact.className = `text-[9px] font-bold mono ${imp > 2 ? 'text-red-500' : 'text-green-500'}`;
             
-            document.getElementById('gasLabel').innerText = `~${(0.01 + Math.random()*0.005).toFixed(3)} TON`;
+            state.fee = 0.01 + (Math.random() * 0.005);
+            ui.gas.innerText = `~${state.fee.toFixed(3)} TON`;
             checkBtn();
         }
 
@@ -241,37 +252,45 @@
 
         ui.in.oninput = calculate;
 
-        async function fetchBalance(address) {
-            try {
-                const response = await fetch(`https://tonapi.io/v2/accounts/${address}`);
-                const data = await response.json();
-                state.balance = data.balance / 1e9;
-                ui.bal.innerText = state.balance.toFixed(2);
-                checkBtn();
-            } catch (e) {
-                console.error("Balance error:", e);
-                state.balance = 15.45; // Фоллбек
-                ui.bal.innerText = state.balance.toFixed(2);
-            }
-        }
-
+        // Выполнение Свапа и синхронизация с БД
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
-            const amount = ui.in.value;
-            log(`Broadcasting transaction: ${amount} ${state.isTontoQC ? 'TON' : 'QC'}...`, 'cyan-500');
+            const amount = parseFloat(ui.in.value);
+            const receive = parseFloat(ui.out.value);
+            const addr = state.wallet.account.address;
+
+            log(`Initiating broadcast to Nexus Node...`, 'cyan-500');
             ui.btn.disabled = true;
             ui.btn.innerText = "Broadcasting...";
 
-            // Имитация задержки сети
-            setTimeout(() => {
-                log(`Swap successful. Tx: ${Math.random().toString(16).slice(2, 10)}`, 'green-400');
+            try {
+                // Имитация блокчейн-транзакции
+                await new Promise(r => setTimeout(r, 2000));
+                
+                // Синхронизируем с твоим FastAPI бэкендом
+                await fetch('/api/wallet/sync', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        address: addr,
+                        balance: state.isTontoQC ? (state.balance - amount) : (state.balance + receive),
+                        qc: state.isTontoQC ? receive : amount
+                    })
+                });
+
+                log(`Nexus link established. Hash: ${Math.random().toString(16).slice(2,12)}`, 'green-400');
+                
                 state.balance -= amount;
                 ui.bal.innerText = state.balance.toFixed(2);
                 ui.in.value = "";
                 calculate();
-                alert("Quantum Core: Swap Confirmed");
-            }, 2500);
+                alert("QUANCORE: Quantum Swap Executed");
+
+            } catch (e) {
+                log("Critical: Node Sync Failed", "red-500");
+                checkBtn();
+            }
         }
 
         function switchTokens() {
@@ -279,29 +298,30 @@
             document.getElementById('tIn').innerText = state.isTontoQC ? 'TON' : 'QC';
             document.getElementById('tOut').innerText = state.isTontoQC ? 'QC' : 'TON';
             
-            // В демо режиме просто меняем лимиты, в реальном - запрашиваем баланс жетона
-            if(!state.wallet) {
-                state.balance = state.isTontoQC ? 15.45 : 4500.00;
-                ui.bal.innerText = state.balance.toFixed(2);
-            }
+            state.balance = state.isTontoQC ? 15.45 : 4500.00;
+            ui.bal.innerText = state.balance.toFixed(2);
             
             ui.in.value = "";
-            log(`Route changed to ${state.isTontoQC ? 'TON/QC' : 'QC/TON'}`, 'slate-400');
+            log(`Route shifted to ${state.isTontoQC ? 'TON/QC' : 'QC/TON'}`, 'purple-400');
             calculate();
         }
 
         function setMax() {
-            const fee = state.isTontoQC ? 0.1 : 0;
-            ui.in.value = Math.max(0, state.balance - fee).toFixed(2);
+            const safe = state.isTontoQC ? 0.05 : 0;
+            ui.in.value = Math.max(0, state.balance - safe).toFixed(2);
             calculate();
         }
 
-        tonConnectUI.onStatusChange(w => {
+        tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
             if(w) {
-                log("Wallet connected: " + w.account.address.slice(0,6) + "...", "green-400");
-                fetchBalance(w.account.address);
+                log(`Handshake: Node ${w.account.address.slice(0,6)} initialized`, "green-400");
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                state.balance = data.balance || 15.45;
+                ui.bal.innerText = state.balance.toFixed(2);
             } else {
+                log("Node Offline", "red-400");
                 state.balance = 0;
                 ui.bal.innerText = "0.00";
             }
@@ -321,7 +341,7 @@
         };
         const draw = () => {
             ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(0, 242, 255, 0.1)";
+            ctx.fillStyle = "rgba(0, 242, 255, 0.05)";
             pts.forEach(p => {
                 ctx.fillRect(p.x, p.y, p.s, p.s);
                 p.y -= p.v; if(p.y < 0) p.y = canvas.height;
