@@ -98,7 +98,6 @@
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
 
-        /* Анимация пульсации для логов */
         @keyframes pulse-opacity {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -115,7 +114,7 @@
         <div class="flex items-center gap-4 text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
             <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5">
             <span>Quantum_Database_Monitoring_System</span>
-            <span class="ml-auto">CORE_STATUS: <span class="text-green-400">READ_ONLY_ACCESS</span></span>
+            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400">SYNC_ACTIVE</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6">
@@ -145,14 +144,14 @@
             <div class="quantum-card b-green p-6">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Visitors</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="visitor_val" class="text-3xl font-bold terminal-text text-green-400">0</span>
+                    <span id="visitor_val" class="text-3xl font-bold terminal-text text-green-400">--</span>
                 </div>
             </div>
 
             <div class="quantum-card b-blue p-6">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Wallets_Linked</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="conn_val" class="text-3xl font-bold terminal-text text-blue-400">0</span>
+                    <span id="conn_val" class="text-3xl font-bold terminal-text text-blue-400">--</span>
                 </div>
             </div>
 
@@ -231,12 +230,13 @@
     </div>
 
     <script>
+        // Инициализация TON Connect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
             buttonRootId: 'ton-connect-button'
         });
 
-        // Работа с графиками
+        // Конфигурация графиков
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
             g.addColorStop(0, color + '33');
@@ -250,7 +250,8 @@
             scales: { 
                 x: { display: false },
                 y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#475569', font: { size: 9 } } }
-            }
+            },
+            animation: { duration: 0 } // Отключаем анимацию для real-time эффекта
         };
 
         const trafficCtx = document.getElementById('trafficChart').getContext('2d');
@@ -259,7 +260,7 @@
             data: {
                 labels: Array(30).fill(''),
                 datasets: [{
-                    data: Array(30).fill(0).map(() => Math.random() * 20 + 40),
+                    data: Array(30).fill(0),
                     borderColor: '#00d2ff',
                     borderWidth: 2,
                     pointRadius: 0,
@@ -277,7 +278,7 @@
             data: {
                 labels: Array(15).fill(''),
                 datasets: [{
-                    data: Array(15).fill(0).map(() => Math.floor(Math.random() * 10)),
+                    data: Array(15).fill(0),
                     backgroundColor: '#00ff95',
                     borderRadius: 4
                 }]
@@ -315,11 +316,10 @@
             
             log.innerHTML = `<span class="opacity-30">[${time}]</span> <span class="${color} font-bold">${type}</span> <span class="text-slate-300 ml-2">${msg}</span>`;
             container.prepend(log);
-            
             if (container.children.length > 50) container.lastChild.remove();
         }
 
-        // Аптайм
+        // Таймер аптайма
         let startTime = Date.now();
         setInterval(() => {
             const diff = Math.floor((Date.now() - startTime) / 1000);
@@ -329,75 +329,61 @@
             document.getElementById('uptime_display').innerText = `${h}:${m}:${s}`;
         }, 1000);
 
-        // Синхронизация данных
+        // ГЛАВНАЯ ФУНКЦИЯ: Получение реальных данных из Python API
         async function syncData() {
             try {
                 const res = await fetch('/api/stats');
-                if (!res.ok) throw new Error("Offline");
+                if (!res.ok) throw new Error("HTTP_ERROR_" + res.status);
+                
                 const data = await res.json();
                 
-                document.getElementById('conn_val').innerText = data.connections || 0;
-                document.getElementById('balance_val').innerText = (data.balance || 0).toFixed(2);
-                document.getElementById('visitor_val').innerText = data.visitors || 0;
-                document.getElementById('cpu_label').innerText = (data.cpu || 0) + '%';
-                document.getElementById('cpu_bar').style.width = (data.cpu || 0) + '%';
-                document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2);
-
+                // 1. Обновляем текстовые значения
+                document.getElementById('conn_val').innerText = data.connections ?? 0;
+                document.getElementById('balance_val').innerText = (data.balance ?? 0).toFixed(2);
+                document.getElementById('visitor_val').innerText = data.visitors ?? 0;
+                document.getElementById('cpu_label').innerText = (data.cpu ?? 0) + '%';
+                document.getElementById('cpu_bar').style.width = (data.cpu ?? 0) + '%';
+                document.getElementById('traffic_val').innerText = (data.traffic ?? 0).toFixed(2);
+                
+                // 2. Обновляем графики
                 updateCharts(data.traffic, data.visitors, data.connections);
-                if(Math.random() > 0.8) addLog("Data packet synchronized successfully", "OK");
+                
+                // 3. Индикация статуса
+                document.getElementById('status_indicator').innerText = "SYNC_ACTIVE";
+                document.getElementById('status_indicator').className = "text-green-400";
 
             } catch(e) {
-                // Демо-режим если API недоступен
-                const mockTraffic = (Math.random() * 20 + 45).toFixed(2);
-                const mockCPU = Math.floor(Math.random() * 15 + 5);
-                
-                document.getElementById('traffic_val').innerText = mockTraffic;
-                document.getElementById('cpu_label').innerText = mockCPU + '%';
-                document.getElementById('cpu_bar').style.width = mockCPU + '%';
-                
-                updateCharts(parseFloat(mockTraffic), Math.floor(Math.random()*5), null);
-                
-                if(Math.random() > 0.95) addLog("Background neural-drift detected", "SYNC");
+                console.error("Sync Error:", e);
+                addLog("DATABASE_OFFLINE: Retrying uplink...", "ERR");
+                document.getElementById('status_indicator').innerText = "CONNECTION_LOST";
+                document.getElementById('status_indicator').className = "text-red-500";
             }
         }
 
         function updateCharts(t, v, c) {
-            [trafficChart, visitorChart, walletChart].forEach(chart => {
-                chart.data.datasets[0].data.shift();
-            });
+            // Сдвигаем данные влево
+            trafficChart.data.datasets[0].data.shift();
+            visitorChart.data.datasets[0].data.shift();
+            walletChart.data.datasets[0].data.shift();
 
-            trafficChart.data.datasets[0].data.push(t || (Math.random()*10 + 40));
-            visitorChart.data.datasets[0].data.push(v || Math.floor(Math.random()*3));
-            walletChart.data.datasets[0].data.push(c || walletChart.data.datasets[0].data[walletChart.data.datasets[0].data.length-1]);
+            // Добавляем новые реальные значения
+            trafficChart.data.datasets[0].data.push(t ?? 0);
+            visitorChart.data.datasets[0].data.push(v ?? 0);
+            walletChart.data.datasets[0].data.push(c ?? 0);
 
+            // Рендерим изменения
             trafficChart.update('none');
             visitorChart.update('none');
             walletChart.update('none');
         }
 
+        // Интервал обновления (3 секунды)
         setInterval(syncData, 3000);
 
-        // Инициализация
         window.onload = () => {
             addLog("QUANTUM_CORE_INITIALIZED", "SYS");
             addLog("NEURAL_PULSE_SYNC_ACTIVE", "OK");
-            addLog("MONITORING_MODE_ENABLED", "SYS");
-            
-            // Имитация активности логов
-            const randomEvents = [
-                "Index buffer cleared",
-                "New uplink established",
-                "Neural nodes balanced",
-                "Traffic encryption verified",
-                "Mem-stack optimized"
-            ];
-            
-            setInterval(() => {
-                if(Math.random() > 0.7) {
-                    const msg = randomEvents[Math.floor(Math.random()*randomEvents.length)];
-                    addLog(msg, "SYS");
-                }
-            }, 8000);
+            syncData(); // Первый запуск сразу
         };
     </script>
 </body>
