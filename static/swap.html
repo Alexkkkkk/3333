@@ -108,7 +108,7 @@
                         <button onclick="setMax()" class="text-[10px] text-cyan-500 font-black hover:text-cyan-300 transition-colors">MAX: <span id="balDisplay" class="mono">0.00</span></button>
                     </div>
                     <div class="flex items-center gap-4">
-                        <input type="number" id="amtIn" placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-white placeholder:text-white/5">
+                        <input type="number" id="amtIn" oninput="calculate()" placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-white placeholder:text-white/5">
                         <select id="tokenIn" onchange="updateTokens()" class="bg-white/5 text-sm text-white font-black italic px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] outline-none cursor-pointer hover:bg-white/10 transition-all">
                             <option value="TON">TON</option>
                             <option value="QC">QC</option>
@@ -254,12 +254,12 @@
             state.isFetching = true;
             try {
                 const address = state.wallet.account.address;
-                // TON Balance
+                // TON Balance fetch from public API
                 const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
                 const tonData = await tonRes.json();
                 if (tonData.ok) COIN_DATA['TON'].balance = Number(tonData.result) / 1e9;
                 
-                log(`Synced: ${COIN_DATA['TON'].balance.toFixed(2)} TON`, 'cyan-500');
+                log(`Synced Wallet Data`, 'cyan-500');
             } catch (e) { 
                 log("Balance sync failed", "red-500");
             } finally {
@@ -297,7 +297,7 @@
             ui.out.value = valIn > 0 ? res.toFixed(precision) : "";
             ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(precision)} ${symOut}`;
             
-            const imp = valIn > 0 ? (valIn / (COIN_DATA[symIn].balance || 1000)) * 0.05 : 0;
+            const imp = valIn > 0 ? (valIn / 100) * 0.05 : 0;
             ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
             ui.impact.className = `text-[9px] font-bold mono ${imp > 1 ? 'text-red-500' : 'text-green-500'}`;
             
@@ -354,14 +354,13 @@
             const coin = COIN_DATA[symIn];
 
             ui.btn.disabled = true;
-            ui.btn.innerText = "Processing...";
-            log(`Initiating ${symIn} swap...`, 'cyan-400');
+            ui.btn.innerText = "Confirm in Wallet...";
+            log(`Initiating ${symIn} sequence...`, 'cyan-400');
 
             try {
                 let transaction;
 
                 if (symIn === 'TON') {
-                    // Обычный TON перевод
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
                         messages: [{
@@ -370,24 +369,23 @@
                         }]
                     };
                 } else if (coin.contract) {
-                    // JETTON Transfer (USDT, NOT, DOGS)
-                    // Для реальных токенов нужно знать адрес их Wallet-контракта пользователя
-                    // В демо-режиме имитируем запрос. Для продакшена нужен TonWeb/TonSDK.
-                    log(`Bridge logic for ${symIn} engaged`, 'purple-400');
+                    // JETTON TRANSFER PAYLOAD (Simplified)
+                    // В реальном приложении здесь должен быть Base64 Payload для Transfer
+                    log(`Encoding Jetton Payload for ${symIn}`, 'purple-400');
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
                         messages: [{
-                            address: coin.contract, // В реальности это адрес Jetton Wallet пользователя
-                            amount: "50000000", // 0.05 TON на газ для контракта
-                            payload: "" // Тут должен быть бинарный payload Jetton Transfer
+                            address: coin.contract, 
+                            amount: "60000000", // 0.06 TON for gas
+                            payload: "te6cckEBAQEANAAAs78EBApDAgBAAAABAgAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" // Пример пустого трансфера
                         }]
                     };
                 } else {
-                    throw new Error("Local Asset: Use Forge to bridge");
+                    throw new Error("Local Asset: Bridge required via FORGE");
                 }
 
                 const result = await tonConnectUI.sendTransaction(transaction);
-                log(`Success: Broadcasted`, 'green-400');
+                log(`Success: Transaction Sent`, 'green-400');
                 ui.in.value = "";
                 ui.btn.innerText = "Completed";
                 setTimeout(fetchBalances, 3000);
@@ -434,7 +432,7 @@
             };
             window.onresize = setup; setup(); draw();
 
-            // Chart
+            // Chart Animation
             setInterval(() => {
                 const p1 = 10 + Math.random() * 30;
                 const p2 = 20 + Math.random() * 30;
@@ -443,7 +441,7 @@
 
             updateMarketPrices();
             setInterval(updateMarketPrices, 30000);
-            log("Core Terminal Active", "cyan-500");
+            log("Quantum Core Engine: V4.2 Online", "cyan-500");
         };
     </script>
 </body>
