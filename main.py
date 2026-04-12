@@ -4,6 +4,7 @@ import json
 import time
 import sys
 import random
+import hashlib
 import traceback
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -23,7 +24,7 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-# Импорт функций из модуля database.py
+# Импорт функций из модуля database.py (обновленного ранее)
 from database import (
     init_db, get_stats_for_web, register_visit, 
     save_wallet_state, log_ai_action, update_remote_config, 
@@ -65,6 +66,7 @@ class OmniNeuralOverlord:
         self.current_balance = 0.0
 
     def get_static_path(self):
+        """Определяет корректный путь к папке static с учетом структуры Bothost."""
         base_dir = os.path.dirname(os.path.abspath(__file__))
         paths_to_check = [
             os.path.join(base_dir, "static"),
@@ -74,6 +76,8 @@ class OmniNeuralOverlord:
         for p in paths_to_check:
             if os.path.exists(p):
                 return os.path.abspath(p)
+        
+        # Если папки нет, создаем ее (безопасный режим)
         static_p = os.path.join(base_dir, "static")
         os.makedirs(static_p, exist_ok=True)
         return static_p
@@ -82,6 +86,7 @@ overlord = OmniNeuralOverlord()
 static_dir = overlord.get_static_path()
 
 async def sync_config():
+    """Синхронизация локальных параметров с БД."""
     try:
         cfg = await load_remote_config()
         if cfg and cfg.get('mnemonic'):
@@ -91,15 +96,19 @@ async def sync_config():
         log(f"Sync Config Fail: {e}", "TRACE")
     return False
 
-# --- LIFESPAN ---
+# --- LIFESPAN (Запуск и Остановка) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log("SYS: Подключение к Quancore Nexus DB...", "INFO")
     try:
+        # Инициализация базы данных и пула
         await init_db()
         await sync_config()
+        
+        # Запуск фонового воркера мониторинга TON
         worker_task = asyncio.create_task(core_worker())
         log(f"SYS: Quantum Core Online ({overlord.core_id})", "SUCCESS")
+        
         yield
     finally:
         overlord.is_active = False
@@ -108,6 +117,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Настройка CORS
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -121,6 +131,7 @@ app.add_middleware(
 @app.get("/")
 @app.get("/index.html")
 async def read_index(request: Request):
+    """Главная страница с регистрацией визита."""
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     path = os.path.join(static_dir, "index.html")
     if os.path.exists(path):
@@ -129,11 +140,16 @@ async def read_index(request: Request):
 
 @app.get("/api/stats")
 async def get_stats(request: Request):
+    """Отдача статистики для фронтенда."""
     try:
+        # Регистрируем активность в БД
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
+        
+        # Тянем данные из PostgreSQL
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config() or {}
         
+        # Форматируем лог последних действий
         raw_actions = db_stats.get('recent_actions', [])
         formatted_actions = []
         for item in raw_actions:
@@ -146,7 +162,7 @@ async def get_stats(request: Request):
                 "type": item.get("type", "MAINNET")
             })
 
-        # Защита от отсутствия psutil
+        # Нагрузка системы
         if PSUTIL_AVAILABLE:
             cpu_usage = psutil.cpu_percent()
         else:
@@ -158,7 +174,7 @@ async def get_stats(request: Request):
             "traffic": round(db_stats.get('traffic', random.uniform(42.0, 48.0)), 2), 
             "roi": db_stats.get('roi_24h', 0.0),
             "cpu": cpu_usage,
-            "visitors": db_stats.get('visitors', 1),
+            "visitors": db_stats.get('traffic', 1), # Используем трафик как счетчик
             "connections": db_stats.get('connections', random.randint(5, 12)),
             "recent_actions": formatted_actions,
             "engine": {
@@ -177,6 +193,7 @@ async def get_stats(request: Request):
 
 @app.post("/api/wallet/sync")
 async def sync_wallet(request: Request):
+    """Прием данных о кошельке от фронтенда."""
     try:
         data = await request.json()
         address = data.get("address")
@@ -186,43 +203,45 @@ async def sync_wallet(request: Request):
                 balance=data.get("balance", 0.0),
                 qc=data.get("qc", 0.0)
             )
-            log(f"SYNC: Кошелек {address[:8]}... сохранен", "SUCCESS")
+            log(f"SYNC: Node {address[:8]}... synchronized", "SUCCESS")
             return {"status": "success"}
         return JSONResponse({"status": "error"}, status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
-# --- РОУТИНГ СТАТИКИ ---
+# --- РОУТИНГ СТАТИКИ И ИЗОБРАЖЕНИЙ ---
 
+# Монтируем папку static для доступа к CSS/JS
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
 async def serve_all_files(path: str):
+    """Интеллектуальный поиск файлов и изображений."""
     file_path = os.path.join(static_dir, path)
     
-    # 1. Прямой поиск файла
+    # 1. Прямой поиск
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # 2. Поиск в папке images (если запрос без /static/)
-    if "images/" in path or path.endswith(('.png', '.jpg', '.jpeg', '.svg', '.gif')):
-        img_name = path.split("/")[-1]
-        img_path = os.path.join(static_dir, "images", img_name)
-        if os.path.isfile(img_path):
-            return FileResponse(img_path)
+    # 2. Поиск в images (если фронтенд просит images/logo.png напрямую)
+    img_name = path.split("/")[-1]
+    img_path = os.path.join(static_dir, "images", img_name)
+    if os.path.isfile(img_path):
+        return FileResponse(img_path)
 
-    # 3. HTML файлы
+    # 3. HTML Fallback
     html_path = os.path.join(static_dir, f"{path}.html")
     if os.path.exists(html_path):
         return FileResponse(html_path)
     
-    # 4. Fallback на index
+    # 4. Возврат на главную
     index_path = os.path.join(static_dir, "index.html")
     return FileResponse(index_path) if os.path.exists(index_path) else JSONResponse({"error": "Not Found"}, status_code=404)
 
-# --- CORE WORKER ---
+# --- CORE WORKER (Блокчейн мониторинг) ---
 
 async def core_worker():
+    """Фоновый процесс работы с TON."""
     log("CORE: Мониторинг TON запущен", "INFO")
     while overlord.is_active:
         try:
@@ -248,29 +267,36 @@ async def core_worker():
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
+                        # Сохраняем баланс админ-кошелька
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        if random.random() > 0.9:
+                        # Редкое логирование действий ИИ (для логов в БД)
+                        if random.random() > 0.95:
                             await log_ai_action(
-                                strategy={'cmd': 'CHECK', 'bal': overlord.current_balance},
-                                market={'status': 'online'}
+                                strategy={'cmd': 'SCAN', 'bal': overlord.current_balance},
+                                market={'status': 'stable'}
                             )
 
+                        # Проверяем не сменилась ли мнемоника в БД
                         old_mne = overlord.mnemonic
                         await sync_config()
-                        if overlord.mnemonic != old_mne: break
+                        if overlord.mnemonic != old_mne: 
+                            log("CORE: Мнемоника обновлена, перезагрузка кошелька...", "WARNING")
+                            break
                             
-                        await asyncio.sleep(20) 
+                        await asyncio.sleep(30) 
                     except Exception as e:
                         log(f"Heartbeat Error: {e}", "TRACE")
                         break
         except Exception as e:
             log(f"Global Loop Error: {e}", "ERROR")
             await asyncio.sleep(10)
+
+# --- ЗАПУСК СЕРВЕРА ---
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
