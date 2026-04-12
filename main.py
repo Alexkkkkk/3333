@@ -5,6 +5,7 @@ import time
 import sys
 import random
 import traceback
+import psutil  # Рекомендуется: pip install psutil
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -17,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # Импорт функций из модуля database.py
+# Убедитесь, что эти функции корректно работают в database.py
 from database import (
     init_db, get_stats_for_web, register_visit, 
     save_wallet_state, log_ai_action, update_remote_config, 
@@ -114,6 +116,7 @@ app.add_middleware(
 @app.get("/")
 @app.get("/index.html")
 async def read_index(request: Request):
+    # Регистрируем визит при входе на главную
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     path = os.path.join(static_dir, "index.html")
     if os.path.exists(path):
@@ -123,14 +126,16 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     try:
-        # Регистрация визита при каждом запросе статы для актуальности Live_Visitors
+        # 1. Регистрация активности для Live_Visitors
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
+        
+        # 2. Получение данных из БД
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config() or {}
         
+        # 3. Форматирование действий
         raw_actions = db_stats.get('recent_actions', [])
         formatted_actions = []
-        
         for item in raw_actions:
             bal = float(item.get("amount", 0))
             formatted_actions.append({
@@ -141,13 +146,17 @@ async def get_stats(request: Request):
                 "type": item.get("type", "MAINNET")
             })
 
+        # 4. Сборка финального ответа
+        # Используем psutil для реального CPU, если нет - рандом в узком диапазоне
+        cpu_usage = psutil.cpu_percent() if 'psutil' in sys.modules else random.randint(12, 28)
+
         return {
             "balance": round(float(overlord.current_balance), 2), 
             "qc_balance": round(float(overlord.current_balance * 137.5), 2),
-            "traffic": db_stats.get('traffic', random.uniform(20.0, 80.0)), 
+            "traffic": round(db_stats.get('traffic', random.uniform(42.0, 48.0)), 2), 
             "roi": db_stats.get('roi_24h', 0.0),
-            "cpu": random.randint(32, 45),
-            "visitors": db_stats.get('visitors', 0),
+            "cpu": cpu_usage,
+            "visitors": db_stats.get('visitors', 1), # Минимум 1 (сам пользователь)
             "connections": db_stats.get('connections', 0),
             "recent_actions": formatted_actions,
             "engine": {
@@ -162,7 +171,14 @@ async def get_stats(request: Request):
         }
     except Exception as e:
         log(f"API Error: {e}", "ERROR")
-        return {"status": "offline", "balance": 0.0, "visitors": 0, "recent_actions": []}
+        return {
+            "status": "offline", 
+            "balance": 0.0, 
+            "visitors": 0, 
+            "cpu": 0,
+            "traffic": 0.0,
+            "recent_actions": []
+        }
 
 @app.post("/api/wallet/sync")
 async def sync_wallet(request: Request):
@@ -176,7 +192,6 @@ async def sync_wallet(request: Request):
                 balance=data.get("balance", 0.0),
                 qc=data.get("qc", 0.0)
             )
-            # Также логируем это как посещение
             await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
             log(f"SYNC: Данные кошелька {address[:8]}... обновлены", "SUCCESS")
             return {"status": "success", "message": "Wallet synced to Quancore Nexus"}
@@ -202,24 +217,24 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
 async def serve_all_files(path: str):
-    # Прямая проверка файла
+    # Прямая проверка файла в корне static
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # Обработка картинок, если путь указан без /static/
-    if path.startswith("images/") or "images" in path:
+    # Обработка вложенных путей для картинок
+    if "images/" in path:
         img_name = path.split("/")[-1]
         img_path = os.path.join(static_dir, "images", img_name)
         if os.path.isfile(img_path):
             return FileResponse(img_path)
     
-    # Проверка .html файлов
+    # Проверка .html файлов (например, /admin/wallets)
     html_path = os.path.join(static_dir, f"{path}.html")
     if os.path.exists(html_path):
         return FileResponse(html_path)
     
-    # Default fallback на index.html для SPA роутинга
+    # Fallback на index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -239,6 +254,7 @@ async def core_worker():
                 await asyncio.sleep(15)
                 continue
             
+            # Работа с TON сетью
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
                 if len(mnemonic_list) < 12:
@@ -255,23 +271,25 @@ async def core_worker():
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
+                        # Сохраняем состояние главного кошелька в БД
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        # Периодическая запись в логи БД для имитации активности ИИ
+                        # Имитация активности ИИ в логах БД
                         if random.random() > 0.85:
                             await log_ai_action(
-                                strategy={'cmd': 'SYNC', 'amt': overlord.current_balance, 'reason': 'Pulse Check'},
-                                market={'status': 'stable', 'net': 'mainnet'}
+                                strategy={'cmd': 'PULSE', 'amt': overlord.current_balance, 'status': 'HEALTHY'},
+                                market={'net': 'mainnet', 'load': 'low'}
                             )
 
+                        # Проверка смены конфига
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne:
-                            log("CORE: Конфигурация изменена, перезапуск...", "WARNING")
+                            log("CORE: Конфигурация изменена, перезапуск воркера...", "WARNING")
                             break
                             
                         await asyncio.sleep(20) 
@@ -292,5 +310,5 @@ if __name__ == "__main__":
         port=port, 
         proxy_headers=True, 
         forwarded_allow_ips="*",
-        reload=False # Отключено для стабильности воркера
+        reload=False 
     )
