@@ -154,11 +154,31 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        /* Modal Styles */
+        #details-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="grid-bg"></div>
     <div id="toast-container"></div>
+
+    <div id="details-modal" onclick="closeModal()">
+        <div class="quantum-card p-8 max-w-lg w-full m-4" onclick="event.stopPropagation()">
+            <h2 class="font-['Orbitron'] text-blue-400 mb-4 tracking-tighter">NODE_DETAILS_ENCRYPTED</h2>
+            <div id="modal-content" class="font-mono text-sm space-y-2 text-gray-300"></div>
+            <button onclick="closeModal()" class="mt-6 w-full nav-btn">CLOSE_UPLINK</button>
+        </div>
+    </div>
     
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col lg:flex-row justify-between items-center mb-10 gap-6">
@@ -306,6 +326,40 @@
             }, 3000);
         }
 
+        // Modal Controls
+        function openDetails(addr, amount, qc, type) {
+            const modal = document.getElementById('details-modal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = `
+                <div class="border-b border-white/10 pb-2 mb-2">
+                    <p class="text-gray-500">ADDRESS:</p>
+                    <p class="text-blue-400 break-all">${addr}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-500">BALANCE:</p>
+                        <p class="text-white">${amount} TON</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">EQUITY:</p>
+                        <p class="text-green-400">${qc} QC</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <p class="text-gray-500">NODE TYPE:</p>
+                    <p class="text-purple-400">${type}</p>
+                </div>
+                <div class="mt-4 p-2 bg-blue-500/5 border border-blue-500/20 rounded">
+                    <p class="text-[10px] text-blue-300">QUANTUM_SIGNATURE: ${Math.random().toString(36).substring(2, 15).toUpperCase()}</p>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('details-modal').style.display = 'none';
+        }
+
         // Search Filter
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const term = e.target.value.toLowerCase();
@@ -330,7 +384,7 @@
                 let data;
                 
                 if (!response.ok) {
-                    data = generateDemoData(); // Демо-режим если API недоступно
+                    data = generateDemoData();
                 } else {
                     data = await response.json();
                 }
@@ -367,7 +421,7 @@
                             <td class="text-gray-500 text-[11px] font-mono">${time}</td>
                             <td>
                                 <div class="flex gap-2">
-                                    <button onclick="showToast('Decrypting node: ' + '${w.address.slice(0,8)}...')" class="action-btn" title="View Details">👁️</button>
+                                    <button onclick="openDetails('${w.address}', '${w.amount}', '${w.qc}', '${w.type}')" class="action-btn" title="View Details">👁️</button>
                                     <button onclick="showToast('Locking asset protocol...', 'error')" class="action-btn" title="Lock Asset" style="color:#ef4444">🔒</button>
                                 </div>
                             </td>
@@ -396,17 +450,22 @@
         }
 
         function generateDemoData() {
+            const types = ["Validator", "Whale Node", "Quantum Node", "Bridge"];
+            const addresses = ["EQD782...f89K", "UQA211...m2X1", "EQC902...zP9q", "UQB554...kL0p", "EQA112...vR3x"];
+            
             return {
                 connections: 124,
                 balance: 54200,
                 traffic: 480,
-                roi_24h: "3.24",
+                roi_24h: (2.5 + Math.random()).toFixed(2),
                 cpu: Math.floor(Math.random() * 40) + 20,
-                recent_actions: [
-                    { address: "EQD782...f89K", amount: 120.5, qc: 1500, status: "SUCCESS", type: "Validator" },
-                    { address: "UQA211...m2X1", amount: 45.0, qc: 450, status: "PENDING", type: "Quantum Node" },
-                    { address: "EQC902...zP9q", amount: 890.2, qc: 12400, status: "SUCCESS", type: "Whale Node" }
-                ]
+                recent_actions: Array.from({length: 5}, (_, i) => ({
+                    address: addresses[i] || "EQX" + Math.random().toString(36).substring(7).toUpperCase(),
+                    amount: (Math.random() * 500 + 10).toFixed(2),
+                    qc: Math.floor(Math.random() * 10000 + 500),
+                    status: Math.random() > 0.3 ? "SUCCESS" : "PENDING",
+                    type: types[Math.floor(Math.random() * types.length)]
+                }))
             };
         }
 
@@ -415,7 +474,7 @@
             const logTime = new Date().toLocaleTimeString([], { hour12: false });
             const logEntry = document.createElement('div');
             
-            const isCritical = item.qc > 1000;
+            const isCritical = item.qc > 3000;
             const accentClass = isCritical ? 'text-purple-400' : 'text-blue-300';
             
             logEntry.className = `${accentClass} border-l-2 border-current pl-2 py-1 mb-1 animate-pulse`;
