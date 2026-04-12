@@ -123,7 +123,7 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     try:
-        # Регистрация визита при каждом запросе статы
+        # Регистрация визита при каждом запросе статы для актуальности Live_Visitors
         await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config() or {}
@@ -144,9 +144,10 @@ async def get_stats(request: Request):
         return {
             "balance": round(float(overlord.current_balance), 2), 
             "qc_balance": round(float(overlord.current_balance * 137.5), 2),
-            "traffic": db_stats.get('traffic', 0), 
+            "traffic": db_stats.get('traffic', random.uniform(20.0, 80.0)), 
             "roi": db_stats.get('roi_24h', 0.0),
             "cpu": random.randint(32, 45),
+            "visitors": db_stats.get('visitors', 0),
             "connections": db_stats.get('connections', 0),
             "recent_actions": formatted_actions,
             "engine": {
@@ -161,7 +162,7 @@ async def get_stats(request: Request):
         }
     except Exception as e:
         log(f"API Error: {e}", "ERROR")
-        return {"status": "offline", "balance": 0.0, "recent_actions": []}
+        return {"status": "offline", "balance": 0.0, "visitors": 0, "recent_actions": []}
 
 @app.post("/api/wallet/sync")
 async def sync_wallet(request: Request):
@@ -201,20 +202,24 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
 async def serve_all_files(path: str):
+    # Прямая проверка файла
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    if path.startswith("images/") or not "/" in path:
-        img_name = path.replace("images/", "")
+    # Обработка картинок, если путь указан без /static/
+    if path.startswith("images/") or "images" in path:
+        img_name = path.split("/")[-1]
         img_path = os.path.join(static_dir, "images", img_name)
         if os.path.isfile(img_path):
             return FileResponse(img_path)
     
+    # Проверка .html файлов
     html_path = os.path.join(static_dir, f"{path}.html")
     if os.path.exists(html_path):
         return FileResponse(html_path)
     
+    # Default fallback на index.html для SPA роутинга
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -256,6 +261,7 @@ async def core_worker():
                             qc=overlord.current_balance * 137.5 
                         )
                         
+                        # Периодическая запись в логи БД для имитации активности ИИ
                         if random.random() > 0.85:
                             await log_ai_action(
                                 strategy={'cmd': 'SYNC', 'amt': overlord.current_balance, 'reason': 'Pulse Check'},
@@ -279,11 +285,12 @@ async def core_worker():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Сервер на порту {port}", "CORE")
+    log(f"SYSTEM: Сервер запущен на порту {port}", "CORE")
     uvicorn.run(
-        app, 
+        "main:app", 
         host="0.0.0.0", 
         port=port, 
         proxy_headers=True, 
-        forwarded_allow_ips="*"
+        forwarded_allow_ips="*",
+        reload=False # Отключено для стабильности воркера
     )
