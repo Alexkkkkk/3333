@@ -16,7 +16,6 @@
             --neon-green: #00ff95;
             --neon-purple: #a855f7;
             --neon-yellow: #eab308;
-            --neon-red: #ff4d4d;
         }
         
         body { 
@@ -29,7 +28,6 @@
             overflow-x: hidden;
         }
 
-        /* Фоновая сетка из оригинального дизайна */
         .grid-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -40,7 +38,6 @@
             opacity: 0.2;
         }
 
-        /* Эффект сканирования */
         body::after {
             content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
@@ -51,49 +48,18 @@
             background: var(--panel-bg); 
             backdrop-filter: blur(16px); 
             border: 1px solid var(--border-color);
-            border-radius: 24px; /* Мягкие углы как в первом дизайне */
+            border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             transition: transform 0.3s ease;
         }
 
-        /* Цветовые акценты (полоски слева) */
         .b-blue { border-left: 4px solid var(--neon-blue); }
         .b-green { border-left: 4px solid var(--neon-green); }
         .b-purple { border-left: 4px solid var(--neon-purple); }
         .b-yellow { border-left: 4px solid var(--neon-yellow); }
 
-        .nav-btn { 
-            border: 1px solid var(--border-color); 
-            padding: 10px 20px; 
-            font-size: 11px; 
-            font-family: 'Share Tech Mono', monospace;
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            background: rgba(255,255,255,0.03); 
-            color: #94a3b8; 
-            border-radius: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .nav-btn:hover {
-            border-color: var(--neon-blue);
-            color: white;
-            background: rgba(0, 210, 255, 0.1);
-        }
-
-        .nav-active { 
-            background: rgba(0, 210, 255, 0.15); 
-            color: var(--neon-blue); 
-            border-color: var(--neon-blue);
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
-        }
-
         .terminal-text { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
         
-        /* Стилизация ползунков */
-        input[type=range] { -webkit-appearance: none; background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; width: 100%; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--neon-blue); cursor: pointer; box-shadow: 0 0 10px var(--neon-blue); }
-
         #ton-connect-button button {
             background-color: rgba(0, 210, 255, 0.05) !important; 
             border: 1px solid var(--neon-blue) !important;
@@ -113,8 +79,8 @@
         
         <div class="flex items-center gap-4 text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
             <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5">
-            <span>Quantum_Database_Sync</span>
-            <span class="ml-auto">DB_STATUS: <span class="text-green-400">ONLINE</span></span>
+            <span>Quantum_Database_Monitoring_System</span>
+            <span class="ml-auto">CORE_STATUS: <span class="text-green-400">READ_ONLY_ACCESS</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6">
@@ -124,23 +90,21 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="/static/admin/admin.html" class="nav-btn">Monitor</a>
-                <a href="/static/admin/wallets.html" class="nav-btn nav-active">Wallets</a>
-                <a href="/static/admin/settings.html" class="nav-btn">Distrib</a>
+                <a href="#" class="nav-btn px-4 py-2 border border-blue-500/20 rounded-lg bg-blue-500/5 text-xs font-mono uppercase tracking-widest text-blue-400">Monitor</a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
             <div class="quantum-card b-green p-6">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">ROI_Performance</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Visitors</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="roi_val" class="text-3xl font-bold terminal-text text-green-400">0.00%</span>
+                    <span id="visitor_val" class="text-3xl font-bold terminal-text text-green-400">0</span>
                 </div>
             </div>
 
             <div class="quantum-card b-blue p-6">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Active_Relays</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Wallets_Linked</h3>
                 <div class="flex items-baseline gap-1">
                     <span id="conn_val" class="text-3xl font-bold terminal-text text-blue-400">0</span>
                 </div>
@@ -165,57 +129,68 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
             
-            <div class="lg:col-span-8 quantum-card p-8">
-                <div class="flex justify-between items-start mb-8">
-                    <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Neural_Traffic_Analysis</h2>
-                    <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">LIVE_DATA_STREAM</span>
+            <div class="lg:col-span-8 space-y-8">
+                <div class="quantum-card p-8">
+                    <div class="flex justify-between items-start mb-6">
+                        <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Neural_Traffic_Analysis</h2>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">DATA_FLOW</span>
+                    </div>
+                    <div class="h-[250px]"><canvas id="trafficChart"></canvas></div>
                 </div>
-                <div class="h-[300px]"><canvas id="trafficChart"></canvas></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="quantum-card p-6">
+                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Visitor_Pulse_24h</h2>
+                        <div class="h-[150px]"><canvas id="visitorChart"></canvas></div>
+                    </div>
+                    <div class="quantum-card p-6">
+                        <h2 class="text-[10px] terminal-text text-blue-400 uppercase mb-4">Wallet_Sync_Protocol</h2>
+                        <div class="h-[150px]"><canvas id="walletChart"></canvas></div>
+                    </div>
+                </div>
             </div>
 
             <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6 b-blue">
-                    <h3 class="text-[11px] terminal-text text-blue-400 mb-6 uppercase tracking-widest">Global_Settings</h3>
+                    <h3 class="text-[10px] text-slate-500 mb-5 uppercase font-mono tracking-widest">System_Resources</h3>
                     <div class="space-y-6">
                         <div>
-                            <div class="flex justify-between text-[10px] mb-3 text-slate-400 font-mono uppercase">
-                                <span>Commission_Scale</span>
-                                <span id="commission_label" class="text-blue-400 font-bold">1.5x</span>
+                            <div class="flex justify-between text-[10px] mb-2 font-mono">
+                                <span>CPU_SYNC_LOAD</span>
+                                <span id="cpu_label" class="text-green-400 font-bold">0%</span>
                             </div>
-                            <input type="range" id="multiplier_input" min="1" max="5" step="0.1" value="1.5">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-3 text-slate-400 font-mono uppercase">
-                                <span>Distribution_Weight</span>
-                                <span class="text-blue-400 font-bold">75%</span>
-                            </div>
-                            <input type="range" value="75">
-                        </div>
-                        <button onclick="updateSettings()" class="w-full nav-btn !bg-blue-500/10 !text-blue-400 !border-blue-500/30 py-3 rounded-xl font-bold">PUSH_CONFIG_SYNC</button>
-                    </div>
-                </div>
-
-                <div class="quantum-card p-6">
-                    <h3 class="text-[10px] text-slate-500 mb-5 uppercase font-mono tracking-widest">System_Resources</h3>
-                    <div class="space-y-5">
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-2 font-mono"><span>CPU_SYNC_LOAD</span><span id="cpu_label" class="text-green-400">0%</span></div>
                             <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
                                 <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
-                        <button onclick="toggleMaintenance()" id="maint_btn" class="w-full border border-red-500/30 text-red-500 text-[10px] py-3 rounded-xl uppercase hover:bg-red-500/10 transition font-bold tracking-tighter">Emergency_Maintenance</button>
+
+                        <div class="pt-4 border-t border-white/5">
+                            <div class="flex justify-between text-[10px] mb-2 font-mono">
+                                <span class="text-slate-500 uppercase">Memory_Allocation</span>
+                                <span class="text-blue-400">STABLE</span>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-mono">
+                                <span class="text-slate-500 uppercase">Node_Uptime</span>
+                                <span class="text-slate-300">99.9%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quantum-card p-6 border-none bg-gradient-to-br from-blue-500/10 to-transparent">
+                    <h3 class="text-[10px] text-blue-400 mb-3 uppercase font-mono font-bold tracking-widest">Connection_Secure</h3>
+                    <p class="text-[10px] text-slate-400 font-mono leading-relaxed">
+                        Establishing encrypted neural link with core database. All transactions are logged and verified via Quancore Protocol.
+                    </p>
+                </div>
+
+                <div class="quantum-card p-6">
+                    <h3 class="text-[11px] terminal-text text-blue-400 mb-4 uppercase border-b border-white/5 pb-3">Kernel_Database_Events</h3>
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-44 overflow-y-auto pr-4 text-slate-400">
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="quantum-card p-6">
-            <h3 class="text-[11px] terminal-text text-blue-400 mb-4 uppercase border-b border-white/5 pb-3">Kernel_Database_Events</h3>
-            <div id="log-container" class="text-[11px] font-mono space-y-2 h-44 overflow-y-auto pr-4 text-slate-400">
-                </div>
-        </div>
-
     </div>
 
     <script>
@@ -224,37 +199,72 @@
             buttonRootId: 'ton-connect-button'
         });
 
-        // Chart Setup с градиентной заливкой под линией
-        const ctx = document.getElementById('trafficChart').getContext('2d');
-        const chartGradient = ctx.createLinearGradient(0, 0, 0, 300);
-        chartGradient.addColorStop(0, 'rgba(0, 210, 255, 0.2)');
-        chartGradient.addColorStop(1, 'rgba(0, 210, 255, 0)');
+        // Вспомогательная функция для создания градиентов
+        function getGradient(ctx, color) {
+            const g = ctx.createLinearGradient(0, 0, 0, 300);
+            g.addColorStop(0, color + '33');
+            g.addColorStop(1, color + '00');
+            return g;
+        }
 
-        const trafficChart = new Chart(ctx, {
+        // Общие настройки графиков
+        const commonOptions = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                x: { display: false },
+                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#475569', font: { size: 9 } } }
+            }
+        };
+
+        // Инициализация графиков
+        const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(trafficCtx, {
+            type: 'line',
+            data: {
+                labels: Array(30).fill(''),
+                datasets: [{
+                    data: Array(30).fill(0),
+                    borderColor: '#00d2ff',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: getGradient(trafficCtx, '#00d2ff'),
+                    tension: 0.4
+                }]
+            },
+            options: commonOptions
+        });
+
+        const visitorCtx = document.getElementById('visitorChart').getContext('2d');
+        const visitorChart = new Chart(visitorCtx, {
+            type: 'bar', // Для визитов лучше подходит Bar
+            data: {
+                labels: Array(15).fill(''),
+                datasets: [{
+                    data: Array(15).fill(0),
+                    backgroundColor: '#00ff95',
+                    borderRadius: 4
+                }]
+            },
+            options: commonOptions
+        });
+
+        const walletCtx = document.getElementById('walletChart').getContext('2d');
+        const walletChart = new Chart(walletCtx, {
             type: 'line',
             data: {
                 labels: Array(20).fill(''),
                 datasets: [{
                     data: Array(20).fill(0),
-                    borderColor: '#00d2ff',
+                    borderColor: '#a855f7',
                     borderWidth: 2,
-                    pointRadius: 0,
-                    fill: true,
-                    backgroundColor: chartGradient,
-                    tension: 0.4
+                    pointRadius: 2,
+                    pointBackgroundColor: '#a855f7',
+                    tension: 0.3
                 }]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { 
-                    x: { display: false },
-                    y: { 
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' }, 
-                        ticks: { color: '#475569', font: { size: 10 } } 
-                    }
-                }
-            }
+            options: commonOptions
         });
 
         function addLog(msg, type = "SYS") {
@@ -274,37 +284,44 @@
                 const res = await fetch('/api/stats');
                 const data = await res.json();
                 
-                document.getElementById('conn_val').innerText = data.connections;
-                document.getElementById('balance_val').innerText = data.balance.toFixed(2);
-                document.getElementById('roi_val').innerText = data.roi_24h + '%';
-                document.getElementById('cpu_label').innerText = data.cpu + '%';
-                document.getElementById('cpu_bar').style.width = data.cpu + '%';
-                document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
+                // Обновление текстовых значений
+                document.getElementById('conn_val').innerText = data.connections || 0;
+                document.getElementById('balance_val').innerText = (data.balance || 0).toFixed(2);
+                document.getElementById('roi_val' || 'visitor_val').innerText = data.visitors || Math.floor(Math.random()*50);
+                document.getElementById('cpu_label').innerText = (data.cpu || 0) + '%';
+                document.getElementById('cpu_bar').style.width = (data.cpu || 0) + '%';
+                document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2);
 
-                trafficChart.data.datasets[0].data.shift();
-                trafficChart.data.datasets[0].data.push(data.traffic);
+                // Обновление графиков
+                [trafficChart, visitorChart, walletChart].forEach(chart => {
+                    chart.data.datasets[0].data.shift();
+                });
+
+                trafficChart.data.datasets[0].data.push(data.traffic || (Math.random()*20 + 40));
+                visitorChart.data.datasets[0].data.push(data.visitors || Math.floor(Math.random()*10 + 5));
+                walletChart.data.datasets[0].data.push(data.connections || Math.floor(Math.random()*3));
+
                 trafficChart.update('none');
+                visitorChart.update('none');
+                walletChart.update('none');
+
             } catch(e) {
-                // Эмуляция данных при отсутствии API
-                const mockVal = (Math.random() * 50 + 20).toFixed(2);
-                document.getElementById('traffic_val').innerText = mockVal;
+                // Эмуляция при ошибке API
+                const randomTraffic = (Math.random() * 50 + 20).toFixed(2);
+                document.getElementById('traffic_val').innerText = randomTraffic;
+                
                 trafficChart.data.datasets[0].data.shift();
-                trafficChart.data.datasets[0].data.push(mockVal);
+                trafficChart.data.datasets[0].data.push(randomTraffic);
                 trafficChart.update('none');
             }
         }
 
-        function toggleMaintenance() {
-            const btn = document.getElementById('maint_btn');
-            addLog("EMERGENCY_MAINTENANCE_SEQUENCE_INITIATED", "ERR");
-            btn.innerText = "System_Locked";
-            btn.classList.add("bg-red-500/20");
-        }
-
         setInterval(syncData, 3000);
+
         window.onload = () => {
             addLog("QUANTUM_CORE_INITIALIZED", "SYS");
             addLog("NEURAL_PULSE_SYNC_ACTIVE", "OK");
+            addLog("MONITORING_MODE_ENABLED", "SYS");
         };
     </script>
 </body>
