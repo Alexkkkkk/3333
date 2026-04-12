@@ -62,7 +62,6 @@
 
         #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         
-        /* Navigation */
         .fixed-bottom-nav {
             position: fixed;
             bottom: 20px;
@@ -123,7 +122,7 @@
                 <h1 class="text-xl font-black italic text-white uppercase tracking-tighter leading-none">QUAN<span class="text-cyan-400">CORE</span></h1>
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-[8px] font-bold text-cyan-500/60 uppercase tracking-[0.3em]">Live Node:</span>
-                    <span class="text-[10px] font-mono text-green-400 font-bold" id="live-price">$2.4512</span>
+                    <span class="text-[10px] font-mono text-green-400 font-bold" id="live-price">---</span>
                 </div>
             </div>
         </div>
@@ -144,12 +143,12 @@
                 <div class="flex justify-between items-end mb-8">
                     <div>
                         <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Pool <span class="text-cyan-400">Growth</span></h2>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">Global TVL: 1.2M QC</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">Global TVL: <span id="global-tvl">1.2M</span> QC</p>
                     </div>
                     <div class="text-right">
                         <p class="text-[10px] text-cyan-400 font-black tracking-widest uppercase mb-1">Yield Efficiency</p>
                         <div class="h-1.5 w-24 bg-white/5 rounded-full overflow-hidden">
-                            <div class="h-full bg-cyan-500 pool-progress" style="width: 78%"></div>
+                            <div id="pool-bar" class="h-full bg-cyan-500 pool-progress" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
@@ -158,7 +157,7 @@
                     <div class="bg-black/40 rounded-3xl p-6 border border-white/5">
                         <label class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4 block">Stake Amount</label>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="stake-input" placeholder="0.00" 
+                            <input type="number" id="stake-input" placeholder="0.00" inputmode="decimal" 
                                    class="bg-transparent w-full text-4xl font-black text-white focus:outline-none placeholder:text-slate-800">
                             <button onclick="setMax()" class="text-[9px] font-bold text-slate-400 hover:text-white transition-colors bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase">Max</button>
                         </div>
@@ -195,7 +194,7 @@
 
         <div class="premium-glass rounded-3xl p-6">
             <div class="font-mono text-[9px] space-y-1.5 h-16 overflow-hidden text-cyan-400/40" id="node-logs">
-                <p>> Booting Quancore 3D Engine...</p>
+                <p>> Initializing API Protocol...</p>
             </div>
         </div>
     </main>
@@ -234,12 +233,50 @@
     </nav>
 
     <script>
+        // --- API PROTOCOL ---
+        // Имитация получения данных с бэкенда. Замените URL на свой API.
+        const PROTOCOL_API = {
+            async fetchStats() {
+                try {
+                    // Пример запроса к реальному API цены TON
+                    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=toncoin&vs_currencies=usd');
+                    const data = await response.json();
+                    return {
+                        price: data.toncoin.usd,
+                        tvl: "1.248.500",
+                        efficiency: 82
+                    };
+                } catch (e) {
+                    return { price: 2.4512, tvl: "1.200.000", efficiency: 78 };
+                }
+            }
+        };
+
+        async function updateProtocolData() {
+            const stats = await PROTOCOL_API.fetchStats();
+            
+            // Обновление цены
+            const priceEl = document.getElementById('live-price');
+            if(priceEl) priceEl.innerText = `$${stats.price.toFixed(4)}`;
+
+            // Обновление TVL
+            const tvlEl = document.getElementById('global-tvl');
+            if(tvlEl) tvlEl.innerText = stats.tvl;
+
+            // Обновление полосы прогресса
+            const bar = document.getElementById('pool-bar');
+            if(bar) bar.style.width = `${stats.efficiency}%`;
+
+            addLog("Syncing with Global Protocol...");
+        }
+
         // --- THREE.JS ENGINE ---
         const container = document.getElementById('canvas-3d-container');
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / 220, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(container.offsetWidth, 220);
         document.getElementById('three-js-canvas').appendChild(renderer.domElement);
 
@@ -265,9 +302,8 @@
         scene.add(new THREE.AmbientLight(0x404040));
         camera.position.z = 5;
 
-        // Resize handler for 3D container
         window.addEventListener('resize', () => {
-            if (container) {
+            if (container && container.offsetWidth > 0) {
                 camera.aspect = container.offsetWidth / 220;
                 camera.updateProjectionMatrix();
                 renderer.setSize(container.offsetWidth, 220);
@@ -340,33 +376,37 @@
 
         // --- TON CONNECT ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
-        // --- DYNAMIC DATA UPDATES ---
-        let currentPrice = 2.4512;
+        // --- DYNAMIC REWARDS & LOGS ---
         let currentReward = 42.1855;
+        
+        function addLog(msg) {
+            const logs = document.getElementById('node-logs');
+            if(logs) {
+                const p = document.createElement('p');
+                p.innerText = `> ${msg}`;
+                logs.prepend(p);
+                if(logs.children.length > 4) logs.lastChild.remove();
+            }
+        }
+
         setInterval(() => {
-            currentPrice += (Math.random() - 0.49) * 0.002;
-            const priceEl = document.getElementById('live-price');
-            if(priceEl) priceEl.innerText = `$${currentPrice.toFixed(4)}`;
-            
             currentReward += 0.0001;
             const rewardEl = document.getElementById('reward-val');
             if(rewardEl) rewardEl.innerText = currentReward.toFixed(4);
         }, 1000);
 
-        const logs = document.getElementById('node-logs');
-        const msgs = ["Cluster optimized", "Reward distribution ready", "3D Core stable", "Syncing with TON mainnet"];
+        // Интервал обновления данных из API (раз в 15 секунд)
+        updateProtocolData();
+        setInterval(updateProtocolData, 15000);
+
+        const msgs = ["Neural Cluster optimized", "Proof-of-Stake validated", "Node latency: 14ms", "Memory leak suppressed"];
         setInterval(() => {
-            if(logs) {
-                const p = document.createElement('p');
-                p.innerText = `> ${msgs[Math.floor(Math.random()*msgs.length)]}`;
-                logs.prepend(p);
-                if(logs.children.length > 4) logs.lastChild.remove();
-            }
-        }, 5000);
+            addLog(msgs[Math.floor(Math.random()*msgs.length)]);
+        }, 8000);
     </script>
 </body>
 </html>
