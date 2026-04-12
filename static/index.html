@@ -102,7 +102,6 @@
         .icon-chart { -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>'); }
         .icon-user { -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>'); }
 
-        /* Scrollbar Hide */
         ::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -232,55 +231,88 @@
             buttonRootId: 'connectBtn'
         });
 
-        // 2. Синхронизация кошелька
+        // Функция для прямого получения баланса из TON API
+        async function fetchBlockchainBalance(address) {
+            try {
+                const response = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
+                const data = await response.json();
+                if (data.ok) {
+                    // Перевод из нанотонн в TON
+                    return (parseFloat(data.result) / 1000000000).toFixed(2);
+                }
+                return "0.00";
+            } catch (err) {
+                console.error("Blockchain API Error");
+                return null;
+            }
+        }
+
+        // 2. Синхронизация кошелька и обновление баланса TON
         tonConnectUI.onStatusChange(async (wallet) => {
+            const tonBalEl = document.getElementById('main-balance-ton');
+            const statusEl = document.getElementById('core-id-display');
+            const indicator = document.getElementById('status-indicator');
+
             if (wallet) {
                 const address = wallet.account.address;
-                console.log("Syncing wallet:", address);
+                
+                // 1. Сразу запрашиваем реальный баланс из сети
+                const realBalance = await fetchBlockchainBalance(address);
+                if (realBalance !== null && tonBalEl) {
+                    tonBalEl.innerText = realBalance + " TON";
+                    tonBalEl.classList.add('text-shadow-glow');
+                }
 
+                // 2. Визуальное подтверждение подключения
+                if (statusEl) {
+                    statusEl.innerText = "LINKED | " + address.slice(0, 6) + "...";
+                    statusEl.className = "text-green-400 italic text-shadow-glow";
+                }
+                if (indicator) {
+                    indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]";
+                }
+
+                // 3. Отправка данных на сервер для синхронизации
                 try {
                     await fetch('/api/wallet/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             address: address,
-                            balance: 0.0,
+                            balance: realBalance || 0,
                             qc: 0.0
                         })
                     });
-                    updateCoreData();
                 } catch (err) {
-                    console.error("Sync standby...");
+                    console.error("Server sync standby...");
+                }
+            } else {
+                // Если кошелек отключен
+                if (tonBalEl) tonBalEl.innerText = "0.00 TON";
+                if (statusEl) {
+                    statusEl.innerText = "LINKING...";
+                    statusEl.className = "text-cyan-500 italic";
                 }
             }
         });
 
-        // 3. Обновление балансов и статуса
+        // 3. Обновление QC баланса и статуса движка
         async function updateCoreData() {
             try {
                 const response = await fetch('/api/stats');
                 if (!response.ok) throw new Error();
                 const data = await response.json();
                 
-                const statusEl = document.getElementById('core-id-display');
-                const tonBalEl = document.getElementById('main-balance-ton');
                 const qcBalEl = document.getElementById('main-balance-qc');
-                const indicator = document.getElementById('status-indicator');
+                const tonBalEl = document.getElementById('main-balance-ton');
                 
-                if (data.engine && statusEl) {
-                    if(data.engine.status === "ACTIVE") {
-                        statusEl.innerText = "ONLINE | " + (data.engine.core_id || "QC-V4");
-                        statusEl.className = "text-green-400 italic text-shadow-glow";
-                        if(indicator) indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]";
-                    } else {
-                        statusEl.innerText = "OFFLINE";
-                        statusEl.className = "text-cyan-500 italic";
-                        if(indicator) indicator.className = "w-2 h-2 rounded-full bg-cyan-500 animate-pulse";
-                    }
-                }
-
-                if (tonBalEl) tonBalEl.innerText = (parseFloat(data.balance) || 0).toFixed(2) + " TON";
+                // Обновляем QC (внутренняя валюта)
                 if (qcBalEl) qcBalEl.innerText = (parseFloat(data.qc_balance) || 0).toFixed(2) + " QC";
+
+                // Если кошелек НЕ подключен через UI, отображаем баланс из базы данных сервера
+                if (!tonConnectUI.connected && tonBalEl) {
+                    tonBalEl.innerText = (parseFloat(data.balance) || 0).toFixed(2) + " TON";
+                }
 
             } catch (e) {
                 console.log("Waiting for Core API...");
@@ -323,7 +355,7 @@
             animate();
         }
 
-        // Init
+        // Инициализация данных
         updateCoreData();
         setInterval(updateCoreData, 10000);
     </script>
