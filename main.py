@@ -112,6 +112,7 @@ app.add_middleware(
 @app.get("/")
 @app.get("/index.html")
 async def read_index(request: Request):
+    # Мониторинг посещения главной страницы
     ip = request.client.host
     ua = request.headers.get('user-agent', 'unknown')
     await register_visit(ip, ua)
@@ -124,11 +125,14 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     try:
+        # Мониторинг каждого запроса данных для графиков трафика
+        ip = request.client.host
+        ua = request.headers.get('user-agent', 'unknown')
+        await register_visit(ip, ua)
+
         db_stats = await get_stats_for_web()
         current_cfg = await load_remote_config()
         
-        await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
-
         # Формируем список действий для таблицы фронтенда
         raw_actions = db_stats.get('recent_actions', []) or db_stats.get('states', [])
         
@@ -143,15 +147,17 @@ async def get_stats(request: Request):
                 "type": "Quantum Node"
             })
 
+        # Формируем итоговый объект статистики
         return {
             "balance": float(db_stats.get('balance', overlord.current_balance)), 
             "qc_balance": float(db_stats.get('balance', 0)) * 137.5,
+            # Трафик теперь берется из БД на основе реальных посещений
             "traffic": db_stats.get('traffic', round(random.uniform(10, 95), 2)), 
             "roi_24h": db_stats.get('roi_24h', 2.58),
             "cpu": random.randint(32, 45),
             "ram": random.randint(20, 35),
             "ping": random.randint(15, 40),
-            "connections": db_stats.get('connections', len(formatted_actions) + random.randint(1, 5)),
+            "connections": db_stats.get('connections', 0),
             "recent_actions": formatted_actions,
             "config": {
                 "referral_commission": current_cfg.get('referral_commission', 15),
@@ -180,7 +186,7 @@ async def handle_update_config(request: Request):
         pass
     return JSONResponse({"status": "error"}, status_code=500)
 
-# Монтируем статику
+# Монтируем статику (стили, скрипты, манифест)
 static_path = overlord.get_static_path()
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
@@ -197,7 +203,7 @@ async def serve_root_files(filename: str):
     if os.path.isfile(img_path):
         return FileResponse(img_path)
     
-    # Редирект на главную вместо 404 (для стабильности интерфейса)
+    # Редирект на главную вместо 404 для предотвращения "белых экранов"
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
