@@ -70,7 +70,7 @@
         .nav-item.active a { color: #22d3ee; }
         .nav-item:hover a { color: #f8fafc; }
         
-        /* Заглушки для иконок (если не используется шрифт-иконок) */
+        /* Заглушки для иконок */
         [class^="icon-"] {
             width: 20px;
             height: 20px;
@@ -210,13 +210,38 @@
     </nav>
 
     <script>
-        // Инициализация TON Connect
+        // 1. Инициализация TON Connect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
-        // Функция обновления данных из API
+        // 2. СОХРАНЕНИЕ КОШЕЛЬКА В БАЗУ ПРИ ПОДКЛЮЧЕНИИ
+        tonConnectUI.onStatusChange(async (wallet) => {
+            if (wallet) {
+                const address = wallet.account.address;
+                console.log("Wallet linking:", address);
+
+                try {
+                    // Отправляем POST на бэкенд для записи в Postgres
+                    await fetch('/api/wallet/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            address: address,
+                            balance: 0.0,
+                            qc: 0.0
+                        })
+                    });
+                    console.log("Database sync successful");
+                    updateCoreData(); // Обновляем балансы после синхронизации
+                } catch (err) {
+                    console.error("Sync error:", err);
+                }
+            }
+        });
+
+        // 3. Функция обновления данных из API
         async function updateCoreData() {
             try {
                 const response = await fetch('/api/stats');
@@ -255,7 +280,7 @@
             }
         }
 
-        // Анимация частиц фона
+        // 4. Анимация частиц фона
         const canvas = document.getElementById('bg-canvas');
         if (canvas) {
             const ctx = canvas.getContext('2d');
