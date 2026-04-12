@@ -50,7 +50,7 @@
             border: 1px solid var(--border); padding: 10px 20px; text-transform: uppercase;
             font-size: 11px; letter-spacing: 2px; clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
             background: rgba(0, 242, 255, 0.05); color: var(--accent); transition: 0.3s;
-            cursor: pointer;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
         }
 
         .nav-btn:hover, .nav-active { 
@@ -92,10 +92,10 @@
             </div>
             
             <nav class="flex flex-wrap gap-4 items-center">
-                <a href="#" class="nav-btn nav-active">📊 Admin_Core</a>
-                <a href="/static/admin/wallets.html" class="nav-btn">💎 Wallet_Cores</a>
-                <button onclick="window.location.reload()" class="nav-btn">🔄 Refresh_Node</button>
-                <div id="ton-connect-button"></div>
+                <a href="/static/admin/admin.html" class="nav-btn">📊 MONITORING</a>
+                <a href="/static/admin/wallets.html" class="nav-btn nav-active">💎 WALLETS</a>
+                <a href="/static/admin/settings.html" class="nav-btn">⚙️ DISTRIBUTION</a>
+                <div id="ton-connect-button" class="ml-2"></div>
             </nav>
         </header>
 
@@ -257,6 +257,7 @@
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
+            if(!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             log.className = "flex gap-2 border-l border-cyan-500/20 pl-2 animate-pulse";
@@ -291,14 +292,13 @@
                 document.getElementById('cpu_bar').style.width = data.cpu + '%';
                 document.getElementById('cpu_label').innerText = data.cpu + '%';
                 document.getElementById('last_sync_time').innerText = new Date().toLocaleTimeString();
-                document.getElementById('core_id_display').innerText = data.engine.core_id;
+                document.getElementById('core_id_display').innerText = data.engine?.core_id || 'N/A';
                 document.getElementById('latency_val').innerText = data.ping;
 
                 trafficChart.data.datasets[0].data.shift();
                 trafficChart.data.datasets[0].data.push(data.traffic);
                 trafficChart.update('none');
 
-                // Обновление таблицы из реальных данных
                 const table = document.getElementById('event-table');
                 table.innerHTML = '';
                 if(data.recent_actions) {
