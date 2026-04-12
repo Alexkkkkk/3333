@@ -22,6 +22,7 @@
             color: #f8fafc;
             overflow-x: hidden;
             letter-spacing: -0.01em;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .premium-glass {
@@ -31,7 +32,6 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        /* 3D Container */
         #canvas-3d-container {
             width: 100%;
             height: 220px;
@@ -45,22 +45,24 @@
         .btn-neural {
             position: relative;
             overflow: hidden;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: linear-gradient(90deg, #06b6d4, #0891b2);
         }
+        
         .btn-neural::after {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.4), transparent);
             transform: translateX(-100%);
             transition: 0.6s;
         }
         .btn-neural:hover::after { transform: translateX(100%); }
+        .btn-neural:active { transform: scale(0.97); }
 
         #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         
-        /* Навигация из предыдущего стиля */
+        /* Navigation */
         .fixed-bottom-nav {
             position: fixed;
             bottom: 20px;
@@ -68,7 +70,7 @@
             transform: translateX(-50%);
             width: 92%;
             max-width: 500px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(6, 182, 212, 0.2);
             border-radius: 2rem;
@@ -115,7 +117,7 @@
         <div class="flex items-center gap-4">
             <div class="w-12 h-12 relative flex items-center justify-center">
                 <div class="absolute inset-0 bg-cyan-500 rounded-full blur-xl opacity-20 animate-pulse"></div>
-                <img src="/images/logo.png" alt="Logo" class="w-10 h-10 relative z-10">
+                <img src="images/logo.png" alt="Logo" class="w-10 h-10 relative z-10">
             </div>
             <div>
                 <h1 class="text-xl font-black italic text-white uppercase tracking-tighter leading-none">QUAN<span class="text-cyan-400">CORE</span></h1>
@@ -168,12 +170,12 @@
                             <p class="text-lg font-black text-white italic" id="calc-monthly">0.00</p>
                         </div>
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                            <p class="text-[8px] text-slate-500 uppercase font-black mb-1">Est. Yearly</p>
+                            <p class="text-[8px] text-slate-500 uppercase font-black mb-1">Est. Yearly (24.5%)</p>
                             <p class="text-lg font-black text-green-400 italic" id="calc-yearly">0.00</p>
                         </div>
                     </div>
 
-                    <button class="btn-neural w-full text-black font-black py-6 rounded-2xl transition-all active:scale-95 uppercase tracking-[0.3em] text-xs shadow-2xl shadow-cyan-500/30">
+                    <button class="btn-neural w-full text-black font-black py-6 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-2xl shadow-cyan-500/30">
                         Authorize Deployment
                     </button>
                 </div>
@@ -200,31 +202,31 @@
 
     <nav class="fixed-bottom-nav">
         <div class="nav-item">
-            <a href="/index.html">
+            <a href="index.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 <span>HOME</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/swap.html">
+            <a href="swap.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                 <span>SWAP</span>
             </a>
         </div>
         <div class="nav-item active">
-            <a href="/forge.html">
-                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <a href="forge.html">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 <span>FORGE</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/assets.html">
+            <a href="assets.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 <span>DATA</span>
             </a>
         </div>
         <div class="nav-item">
-            <a href="/admin">
+            <a href="operator.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 <span>OPERATOR</span>
             </a>
@@ -261,8 +263,16 @@
         light.position.set(5, 5, 5);
         scene.add(light);
         scene.add(new THREE.AmbientLight(0x404040));
-
         camera.position.z = 5;
+
+        // Resize handler for 3D container
+        window.addEventListener('resize', () => {
+            if (container) {
+                camera.aspect = container.offsetWidth / 220;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.offsetWidth, 220);
+            }
+        });
 
         function animate3D() {
             requestAnimationFrame(animate3D);
@@ -275,21 +285,30 @@
         }
         animate3D();
 
-        // --- CALCULATOR LOGIC ---
-        const input = document.getElementById('stake-input');
+        // --- STAKING CALCULATOR ---
+        const stakeInput = document.getElementById('stake-input');
         const APR = 0.245;
-        input.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value) || 0;
-            document.getElementById('calc-monthly').innerText = (val * APR / 12).toFixed(2);
-            document.getElementById('calc-yearly').innerText = (val * APR).toFixed(2);
-        });
-        function setMax() { input.value = 5000; input.dispatchEvent(new Event('input')); }
+        
+        if(stakeInput) {
+            stakeInput.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value) || 0;
+                document.getElementById('calc-monthly').innerText = (val * APR / 12).toFixed(2);
+                document.getElementById('calc-yearly').innerText = (val * APR).toFixed(2);
+            });
+        }
+
+        function setMax() { 
+            if(stakeInput) {
+                stakeInput.value = 5000; 
+                stakeInput.dispatchEvent(new Event('input')); 
+            }
+        }
 
         // --- BACKGROUND NETWORK ---
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let dots = [];
-        function init() {
+        function initBG() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             dots = Array.from({length: 40}, () => ({
@@ -297,7 +316,7 @@
                 vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3
             }));
         }
-        function draw() {
+        function drawBG() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
             ctx.strokeStyle = 'rgba(6, 182, 212, 0.05)';
@@ -314,10 +333,10 @@
                     }
                 }
             });
-            requestAnimationFrame(draw);
+            requestAnimationFrame(drawBG);
         }
-        window.addEventListener('resize', init);
-        init(); draw();
+        window.addEventListener('resize', initBG);
+        initBG(); drawBG();
 
         // --- TON CONNECT ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -330,18 +349,23 @@
         let currentReward = 42.1855;
         setInterval(() => {
             currentPrice += (Math.random() - 0.49) * 0.002;
-            document.getElementById('live-price').innerText = `$${currentPrice.toFixed(4)}`;
+            const priceEl = document.getElementById('live-price');
+            if(priceEl) priceEl.innerText = `$${currentPrice.toFixed(4)}`;
+            
             currentReward += 0.0001;
-            document.getElementById('reward-val').innerText = currentReward.toFixed(4);
+            const rewardEl = document.getElementById('reward-val');
+            if(rewardEl) rewardEl.innerText = currentReward.toFixed(4);
         }, 1000);
 
         const logs = document.getElementById('node-logs');
         const msgs = ["Cluster optimized", "Reward distribution ready", "3D Core stable", "Syncing with TON mainnet"];
         setInterval(() => {
-            const p = document.createElement('p');
-            p.innerText = `> ${msgs[Math.floor(Math.random()*msgs.length)]}`;
-            logs.prepend(p);
-            if(logs.children.length > 4) logs.lastChild.remove();
+            if(logs) {
+                const p = document.createElement('p');
+                p.innerText = `> ${msgs[Math.floor(Math.random()*msgs.length)]}`;
+                logs.prepend(p);
+                if(logs.children.length > 4) logs.lastChild.remove();
+            }
         }, 5000);
     </script>
 </body>
