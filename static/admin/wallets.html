@@ -230,7 +230,6 @@
         let growthChart;
         let lastActionAddress = null;
 
-        // Поиск по таблице
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const term = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#wallet-rows tr');
@@ -240,7 +239,6 @@
             });
         });
 
-        // Форматирование адреса (0x1234...abcd)
         function formatAddress(addr) {
             if (!addr) return 'Unknown Node';
             return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
@@ -255,7 +253,6 @@
                 if (!response.ok) throw new Error('API Sync Failed');
                 const data = await response.json();
 
-                // Сброс индикатора в "Active"
                 syncInd.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]";
                 syncStat.innerText = "Active";
                 syncStat.className = "text-green-500";
