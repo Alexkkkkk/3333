@@ -14,7 +14,12 @@
             --neon-purple: #7000ff;
         }
 
-        body { font-family: 'Space Grotesk', sans-serif; background: #050b10; overflow-x: hidden; color: #94a3b8; }
+        body { 
+            font-family: 'Space Grotesk', sans-serif; 
+            background: #050b10; 
+            overflow-x: hidden; 
+            color: #94a3b8; 
+        }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
         .glass-card {
@@ -167,7 +172,7 @@
 
     <script>
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -191,7 +196,6 @@
             priceStatus: document.getElementById('priceStatus')
         };
 
-        // Логирование
         function log(msg, color = 'slate-500') {
             const p = document.createElement('p');
             p.className = `text-${color}`;
@@ -202,22 +206,20 @@
             if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.firstChild);
         }
 
-        // Синхронизация с API (Твоя база PostgreSQL)
         async function syncWithCore() {
             try {
                 const res = await fetch('/api/stats');
                 const data = await res.json();
-                
-                // Эффект живого курса
                 const drift = (Math.random() * 0.4 - 0.2); 
                 state.rate = 450.00 + (data.roi * 1.5) + drift;
-
                 ui.priceStatus.innerText = `ROI ${data.roi}% ${data.roi >= 0 ? '▲' : '▼'}`;
                 ui.priceStatus.className = `text-[10px] font-bold mono ${data.roi >= 0 ? 'text-green-400' : 'text-red-400'}`;
-                
                 calculate();
             } catch (e) {
-                console.log("Core offline, using oracle cache");
+                // Если API недоступно, создаем симуляцию для фронтенда
+                const drift = (Math.random() * 0.1 - 0.05);
+                state.rate += drift;
+                calculate();
             }
         }
         setInterval(syncWithCore, 5000);
@@ -252,7 +254,6 @@
 
         ui.in.oninput = calculate;
 
-        // Выполнение Свапа и синхронизация с БД
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
@@ -265,10 +266,8 @@
             ui.btn.innerText = "Broadcasting...";
 
             try {
-                // Имитация блокчейн-транзакции
                 await new Promise(r => setTimeout(r, 2000));
                 
-                // Синхронизируем с твоим FastAPI бэкендом
                 await fetch('/api/wallet/sync', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -298,6 +297,7 @@
             document.getElementById('tIn').innerText = state.isTontoQC ? 'TON' : 'QC';
             document.getElementById('tOut').innerText = state.isTontoQC ? 'QC' : 'TON';
             
+            // Тестовый баланс для переключения
             state.balance = state.isTontoQC ? 15.45 : 4500.00;
             ui.bal.innerText = state.balance.toFixed(2);
             
@@ -316,9 +316,13 @@
             state.wallet = w;
             if(w) {
                 log(`Handshake: Node ${w.account.address.slice(0,6)} initialized`, "green-400");
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                state.balance = data.balance || 15.45;
+                try {
+                    const res = await fetch('/api/stats');
+                    const data = await res.json();
+                    state.balance = data.balance || 15.45;
+                } catch(e) {
+                    state.balance = 15.45;
+                }
                 ui.bal.innerText = state.balance.toFixed(2);
             } else {
                 log("Node Offline", "red-400");
@@ -328,7 +332,7 @@
             checkBtn();
         });
 
-        // Background
+        // Background Particles
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let pts = [];
