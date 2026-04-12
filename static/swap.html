@@ -6,6 +6,7 @@
     <title>QUANCORE | ULTRA SWAP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tonweb@0.0.66/dist/tonweb.bundle.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
         
@@ -111,7 +112,6 @@
                         <input type="number" id="amtIn" oninput="calculate()" placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-white placeholder:text-white/5">
                         <select id="tokenIn" onchange="updateTokens()" class="bg-white/5 text-sm text-white font-black italic px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] outline-none cursor-pointer hover:bg-white/10 transition-all">
                             <option value="TON">TON</option>
-                            <option value="QC">QC</option>
                             <option value="USDT">USDT</option>
                             <option value="NOT">NOT</option>
                             <option value="DOGS">DOGS</option>
@@ -137,9 +137,6 @@
                         <select id="tokenOut" onchange="calculate()" class="bg-white/5 text-sm text-white font-black italic px-3 py-1.5 rounded-xl border border-white/5 min-w-[90px] outline-none cursor-pointer hover:bg-white/10 transition-all">
                             <option value="QC">QC</option>
                             <option value="TON">TON</option>
-                            <option value="USDT">USDT</option>
-                            <option value="NOT">NOT</option>
-                            <option value="DOGS">DOGS</option>
                         </select>
                     </div>
                 </div>
@@ -195,13 +192,14 @@
     </nav>
 
     <script>
-        // --- DATA CONFIG ---
+        // --- CONFIG & ASSETS ---
+        const tonweb = new TonWeb();
         let COIN_DATA = {
-            'TON':   { price: 5.40,    balance: 0.00, decimals: 9, contract: null },
-            'QC':    { price: 0.012,   balance: 0.00, decimals: 9, contract: null }, 
-            'USDT':  { price: 1.00,    balance: 0.00, decimals: 6, contract: "EQCxE6mUtVrWicH-epZK_9X9u6S8F6B-3T31N8M460-S-T-X" },
-            'NOT':   { price: 0.007,   balance: 0.00, decimals: 9, contract: "EQAvlW4Al6ElSokP4CAov-966no6878_h6Yv3Kx827N_M-N_" },
-            'DOGS':  { price: 0.0006,  balance: 0.00, decimals: 9, contract: "EQ_7N_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U" }
+            'TON':   { price: 5.40,   balance: 0.00, decimals: 9, contract: null },
+            'QC':    { price: 0.012,  balance: 0.00, decimals: 9, contract: null }, 
+            'USDT':  { price: 1.00,   balance: 0.00, decimals: 6, contract: "EQCxE6mUtVrWicH-epZK_9X9u6S8F6B-3T31N8M460-S-T-X" },
+            'NOT':   { price: 0.007,  balance: 0.00, decimals: 9, contract: "EQAvlW4Al6ElSokP4CAov-966no6878_h6Yv3Kx827N_M-N_" },
+            'DOGS':  { price: 0.0006, balance: 0.00, decimals: 9, contract: "EQ_7N_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U" }
         };
 
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -211,7 +209,7 @@
 
         const state = {
             wallet: null,
-            receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U", // ВАШ АДРЕС ПОЛУЧАТЕЛЯ
+            receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U", // ВАШ АДРЕС
             isFetching: false
         };
 
@@ -229,23 +227,19 @@
             priceStatus: document.getElementById('priceStatus')
         };
 
-        // --- ORACLE & BALANCES ---
+        // --- FETCH ENGINE ---
         async function updateMarketPrices() {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
                 const data = await response.json();
-                
                 COIN_DATA['TON'].price = data['the-open-network']?.usd || COIN_DATA['TON'].price;
                 COIN_DATA['USDT'].price = data['tether']?.usd || 1.00;
                 COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
                 COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
-                
                 ui.priceStatus.innerText = "Oracle Live: Data Updated";
-                ui.priceStatus.classList.replace('text-slate-500', 'text-green-400');
                 calculate();
             } catch (e) {
                 ui.priceStatus.innerText = "Oracle: Offline (Cached)";
-                ui.priceStatus.classList.replace('text-green-400', 'text-slate-500');
             }
         }
 
@@ -253,13 +247,11 @@
             if (!state.wallet || state.isFetching) return;
             state.isFetching = true;
             try {
-                const address = state.wallet.account.address;
-                // TON Balance fetch from public API
-                const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
+                const addr = state.wallet.account.address;
+                const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${addr}`);
                 const tonData = await tonRes.json();
                 if (tonData.ok) COIN_DATA['TON'].balance = Number(tonData.result) / 1e9;
-                
-                log(`Synced Wallet Data`, 'cyan-500');
+                log(`Assets Synced`, 'cyan-500');
             } catch (e) { 
                 log("Balance sync failed", "red-500");
             } finally {
@@ -268,20 +260,19 @@
             }
         }
 
-        // --- CORE LOGIC ---
+        // --- UTILS ---
         function log(msg, color = 'slate-500') {
             const p = document.createElement('p');
             p.className = `text-${color}`;
             const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             p.innerText = `[${time}] > ${msg}`;
             ui.terminal.prepend(p);
-            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.lastChild);
+            if (ui.terminal.childElementCount > 12) ui.terminal.removeChild(ui.terminal.lastChild);
         }
 
         function updateUI() {
             const sym = ui.tIn.value;
-            const bal = COIN_DATA[sym].balance;
-            ui.bal.innerText = bal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
+            ui.bal.innerText = COIN_DATA[sym].balance.toFixed(4);
             calculate();
         }
 
@@ -289,34 +280,21 @@
             const symIn = ui.tIn.value;
             const symOut = ui.tOut.value;
             const valIn = parseFloat(ui.in.value) || 0;
-
             const exchangeRate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
             const res = valIn * exchangeRate;
-            
             const precision = COIN_DATA[symOut].price < 0.1 ? 4 : 2;
             ui.out.value = valIn > 0 ? res.toFixed(precision) : "";
             ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(precision)} ${symOut}`;
-            
-            const imp = valIn > 0 ? (valIn / 100) * 0.05 : 0;
-            ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
-            ui.impact.className = `text-[9px] font-bold mono ${imp > 1 ? 'text-red-500' : 'text-green-500'}`;
-            
             checkBtn();
         }
 
-        function updateTokens() {
-            if(ui.tIn.value === ui.tOut.value) {
-                ui.tOut.value = ui.tIn.value === 'TON' ? 'QC' : 'TON';
-            }
-            updateUI();
-        }
+        function updateTokens() { updateUI(); }
 
         function reverseRoute() {
             const temp = ui.tIn.value;
             ui.tIn.value = ui.tOut.value;
             ui.tOut.value = temp;
-            ui.in.value = ui.out.value;
-            updateTokens();
+            calculate();
         }
 
         function setMax() {
@@ -327,121 +305,84 @@
         }
 
         function checkBtn() {
-            if(!state.wallet) {
-                ui.btn.innerText = "Connect Wallet";
-                ui.btn.disabled = false;
-                return;
-            }
+            if(!state.wallet) { ui.btn.innerText = "Connect Wallet"; ui.btn.disabled = false; return; }
             const val = parseFloat(ui.in.value) || 0;
-            if(val <= 0) { 
-                ui.btn.innerText = "Enter Amount"; 
-                ui.btn.disabled = true; 
-            } else if(val > COIN_DATA[ui.tIn.value].balance && ui.tIn.value === 'TON') { 
-                ui.btn.innerText = "Insufficient Balance"; 
-                ui.btn.disabled = true; 
-            } else { 
-                ui.btn.innerText = `Swap ${ui.tIn.value}`; 
-                ui.btn.disabled = false; 
-            }
+            if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
+            else if(val > COIN_DATA[ui.tIn.value].balance) { ui.btn.innerText = "Insufficient Balance"; ui.btn.disabled = true; }
+            else { ui.btn.innerText = `Swap ${ui.tIn.value}`; ui.btn.disabled = false; }
         }
 
         // --- TRANSACTION HANDLER ---
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
-            
             const valIn = parseFloat(ui.in.value);
             const symIn = ui.tIn.value;
             const coin = COIN_DATA[symIn];
 
             ui.btn.disabled = true;
             ui.btn.innerText = "Confirm in Wallet...";
-            log(`Initiating ${symIn} sequence...`, 'cyan-400');
+            log(`Initiating ${symIn} transfer...`, 'cyan-400');
 
             try {
                 let transaction;
-
                 if (symIn === 'TON') {
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: state.receiver,
-                            amount: (valIn * 1e9).toFixed(0),
-                        }]
+                        messages: [{ address: state.receiver, amount: (valIn * 1e9).toFixed(0) }]
                     };
-                } else if (coin.contract) {
-                    // JETTON TRANSFER PAYLOAD (Simplified)
-                    // В реальном приложении здесь должен быть Base64 Payload для Transfer
-                    log(`Encoding Jetton Payload for ${symIn}`, 'purple-400');
+                } else {
+                    // JETTON LOGIC
+                    const jettonMinter = new tonweb.token.ft.JettonMinter(tonweb.provider, {address: coin.contract});
+                    const userJettonWalletAddr = await jettonMinter.getJettonWalletAddress(new TonWeb.utils.Address(state.wallet.account.address));
+                    
+                    const body = new TonWeb.boc.Cell();
+                    body.bits.writeUint(0xf8a7ea5, 32); // op transfer
+                    body.bits.writeUint(0, 64); // query id
+                    body.bits.writeCoins(new TonWeb.utils.BN((valIn * Math.pow(10, coin.decimals)).toFixed(0)));
+                    body.bits.writeAddress(new TonWeb.utils.Address(state.receiver));
+                    body.bits.writeAddress(new TonWeb.utils.Address(state.wallet.account.address));
+                    body.bits.writeBit(false);
+                    body.bits.writeCoins(new TonWeb.utils.BN('1'));
+                    body.bits.writeBit(false);
+
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
                         messages: [{
-                            address: coin.contract, 
-                            amount: "60000000", // 0.06 TON for gas
-                            payload: "te6cckEBAQEANAAAs78EBApDAgBAAAABAgAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" // Пример пустого трансфера
+                            address: userJettonWalletAddr.toString(true, true, true),
+                            amount: "50000000",
+                            payload: TonWeb.utils.bytesToBase64(await body.toBoc())
                         }]
                     };
-                } else {
-                    throw new Error("Local Asset: Bridge required via FORGE");
                 }
-
-                const result = await tonConnectUI.sendTransaction(transaction);
-                log(`Success: Transaction Sent`, 'green-400');
-                ui.in.value = "";
-                ui.btn.innerText = "Completed";
-                setTimeout(fetchBalances, 3000);
-
+                await tonConnectUI.sendTransaction(transaction);
+                log(`Success: Broadcasted`, 'green-400');
+                ui.btn.innerText = "Done!";
             } catch (e) {
-                log(e.message || "User declined", "red-500");
-                ui.btn.innerText = "Try Again";
+                log("Failed: " + e.message, "red-500");
+                ui.btn.innerText = "Error";
             } finally {
                 setTimeout(checkBtn, 2000);
             }
         }
 
-        // --- ENGINE ---
-        tonConnectUI.onStatusChange(async (w) => {
-            state.wallet = w;
-            if(w) {
-                log(`Node Linked: ${w.account.address.slice(0,6)}...`, "green-400");
-                await fetchBalances();
-            } else {
-                log("Node Disconnected", "red-400");
-            }
-        });
+        tonConnectUI.onStatusChange(w => { state.wallet = w; if(w) fetchBalances(); checkBtn(); });
 
         window.onload = () => {
-            // Bg Animation
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
             let pts = [];
             const setup = () => {
                 canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-                pts = Array.from({length: 40}, () => ({
-                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                    s: Math.random() * 2, v: Math.random() * 0.3 + 0.1
-                }));
+                pts = Array.from({length: 40}, () => ({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, s: Math.random() * 2, v: Math.random() * 0.3 + 0.1 }));
             };
             const draw = () => {
-                ctx.clearRect(0,0,canvas.width, canvas.height);
-                ctx.fillStyle = "rgba(0, 242, 255, 0.1)";
-                pts.forEach(p => {
-                    ctx.fillRect(p.x, p.y, p.s, p.s);
-                    p.y -= p.v; if(p.y < 0) p.y = canvas.height;
-                });
+                ctx.clearRect(0,0,canvas.width, canvas.height); ctx.fillStyle = "rgba(0, 242, 255, 0.1)";
+                pts.forEach(p => { ctx.fillRect(p.x, p.y, p.s, p.s); p.y -= p.v; if(p.y < 0) p.y = canvas.height; });
                 requestAnimationFrame(draw);
             };
             window.onresize = setup; setup(); draw();
-
-            // Chart Animation
-            setInterval(() => {
-                const p1 = 10 + Math.random() * 30;
-                const p2 = 20 + Math.random() * 30;
-                ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 ${p2} T 300 50 T 400 20`);
-            }, 3000);
-
             updateMarketPrices();
-            setInterval(updateMarketPrices, 30000);
-            log("Quantum Core Engine: V4.2 Online", "cyan-500");
+            log("Quantum Core V4.2 Online", "cyan-500");
         };
     </script>
 </body>
