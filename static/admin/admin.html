@@ -50,7 +50,7 @@
             border: 1px solid var(--border-color);
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .b-blue { border-left: 4px solid var(--neon-blue); }
@@ -59,6 +59,34 @@
         .b-yellow { border-left: 4px solid var(--neon-yellow); }
 
         .terminal-text { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+        
+        /* Стили кнопок навигации */
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(0, 210, 255, 0.05);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #00d2ff;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background: rgba(0, 210, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .nav-link.active {
+            border-color: var(--neon-blue);
+            background: rgba(0, 210, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+        }
         
         #ton-connect-button button {
             background-color: rgba(0, 210, 255, 0.05) !important; 
@@ -90,7 +118,18 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="#" class="nav-btn px-4 py-2 border border-blue-500/20 rounded-lg bg-blue-500/5 text-xs font-mono uppercase tracking-widest text-blue-400">Monitor</a>
+                <a href="/" class="nav-link active">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Monitor
+                </a>
+                <a href="/admin/wallets.html" class="nav-link">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    Wallets
+                </a>
+                <a href="/admin/settings.html" class="nav-link">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Settings
+                </a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
@@ -128,7 +167,6 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-            
             <div class="lg:col-span-8 space-y-8">
                 <div class="quantum-card p-8">
                     <div class="flex justify-between items-start mb-6">
@@ -163,7 +201,6 @@
                                 <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700" style="width: 0%"></div>
                             </div>
                         </div>
-
                         <div class="pt-4 border-t border-white/5">
                             <div class="flex justify-between text-[10px] mb-2 font-mono">
                                 <span class="text-slate-500 uppercase">Memory_Allocation</span>
@@ -175,13 +212,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="quantum-card p-6 border-none bg-gradient-to-br from-blue-500/10 to-transparent">
-                    <h3 class="text-[10px] text-blue-400 mb-3 uppercase font-mono font-bold tracking-widest">Connection_Secure</h3>
-                    <p class="text-[10px] text-slate-400 font-mono leading-relaxed">
-                        Establishing encrypted neural link with core database. All transactions are logged and verified via Quancore Protocol.
-                    </p>
                 </div>
 
                 <div class="quantum-card p-6">
@@ -199,7 +229,6 @@
             buttonRootId: 'ton-connect-button'
         });
 
-        // Вспомогательная функция для создания градиентов
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
             g.addColorStop(0, color + '33');
@@ -207,7 +236,6 @@
             return g;
         }
 
-        // Общие настройки графиков
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
@@ -217,7 +245,6 @@
             }
         };
 
-        // Инициализация графиков
         const trafficCtx = document.getElementById('trafficChart').getContext('2d');
         const trafficChart = new Chart(trafficCtx, {
             type: 'line',
@@ -238,7 +265,7 @@
 
         const visitorCtx = document.getElementById('visitorChart').getContext('2d');
         const visitorChart = new Chart(visitorCtx, {
-            type: 'bar', // Для визитов лучше подходит Bar
+            type: 'bar',
             data: {
                 labels: Array(15).fill(''),
                 datasets: [{
@@ -269,12 +296,12 @@
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
+            if(!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             let color = "text-blue-400";
             if(type === "OK") color = "text-green-400";
             if(type === "ERR") color = "text-red-500";
-            
             log.innerHTML = `<span class="opacity-30">[${time}]</span> <span class="${color} font-bold">${type}</span> <span class="text-slate-300 ml-2">${msg}</span>`;
             container.prepend(log);
         }
@@ -284,15 +311,13 @@
                 const res = await fetch('/api/stats');
                 const data = await res.json();
                 
-                // Обновление текстовых значений
                 document.getElementById('conn_val').innerText = data.connections || 0;
                 document.getElementById('balance_val').innerText = (data.balance || 0).toFixed(2);
-                document.getElementById('roi_val' || 'visitor_val').innerText = data.visitors || Math.floor(Math.random()*50);
+                document.getElementById('visitor_val').innerText = data.visitors || 0;
                 document.getElementById('cpu_label').innerText = (data.cpu || 0) + '%';
                 document.getElementById('cpu_bar').style.width = (data.cpu || 0) + '%';
                 document.getElementById('traffic_val').innerText = (data.traffic || 0).toFixed(2);
 
-                // Обновление графиков
                 [trafficChart, visitorChart, walletChart].forEach(chart => {
                     chart.data.datasets[0].data.shift();
                 });
@@ -306,10 +331,8 @@
                 walletChart.update('none');
 
             } catch(e) {
-                // Эмуляция при ошибке API
                 const randomTraffic = (Math.random() * 50 + 20).toFixed(2);
                 document.getElementById('traffic_val').innerText = randomTraffic;
-                
                 trafficChart.data.datasets[0].data.shift();
                 trafficChart.data.datasets[0].data.push(randomTraffic);
                 trafficChart.update('none');
