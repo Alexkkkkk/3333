@@ -330,8 +330,7 @@
                 let data;
                 
                 if (!response.ok) {
-                    // Fallback для демонстрации, если API еще не готово
-                    data = generateDemoData();
+                    data = generateDemoData(); // Демо-режим если API недоступно
                 } else {
                     data = await response.json();
                 }
@@ -396,7 +395,6 @@
             }
         }
 
-        // Вспомогательная функция для генерации данных (если бэкенд недоступен)
         function generateDemoData() {
             return {
                 connections: 124,
@@ -405,9 +403,9 @@
                 roi_24h: "3.24",
                 cpu: Math.floor(Math.random() * 40) + 20,
                 recent_actions: [
-                    { address: "EQD...f89K", amount: 120.5, qc: 1500, status: "SUCCESS", type: "Validator" },
-                    { address: "UQA...m2X1", amount: 45.0, qc: 450, status: "PENDING", type: "Quantum Node" },
-                    { address: "EQC...zP9q", amount: 890.2, qc: 12400, status: "SUCCESS", type: "Whale Node" }
+                    { address: "EQD782...f89K", amount: 120.5, qc: 1500, status: "SUCCESS", type: "Validator" },
+                    { address: "UQA211...m2X1", amount: 45.0, qc: 450, status: "PENDING", type: "Quantum Node" },
+                    { address: "EQC902...zP9q", amount: 890.2, qc: 12400, status: "SUCCESS", type: "Whale Node" }
                 ]
             };
         }
@@ -433,8 +431,7 @@
         function sortTable(n) {
             const table = document.getElementById("walletTable");
             let rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-            switching = true;
-            dir = "asc";
+            switching = true; dir = "asc";
             while (switching) {
                 switching = false;
                 rows = table.rows;
@@ -442,14 +439,22 @@
                     shouldSwitch = false;
                     x = rows[i].getElementsByTagName("TD")[n];
                     y = rows[i + 1].getElementsByTagName("TD")[n];
+                    
+                    let valX = x.innerText.replace(/,/g, '');
+                    let valY = y.innerText.replace(/,/g, '');
+                    
+                    if (!isNaN(parseFloat(valX))) {
+                        valX = parseFloat(valX);
+                        valY = parseFloat(valY);
+                    } else {
+                        valX = valX.toLowerCase();
+                        valY = valY.toLowerCase();
+                    }
+
                     if (dir == "asc") {
-                        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-                            shouldSwitch = true; break;
-                        }
+                        if (valX > valY) { shouldSwitch = true; break; }
                     } else if (dir == "desc") {
-                        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-                            shouldSwitch = true; break;
-                        }
+                        if (valX < valY) { shouldSwitch = true; break; }
                     }
                 }
                 if (shouldSwitch) {
@@ -457,15 +462,15 @@
                     switching = true;
                     switchcount++;
                 } else {
-                    if (switchcount == 0 && dir == "asc") {
-                        dir = "desc"; switching = true;
-                    }
+                    if (switchcount == 0 && dir == "asc") { dir = "desc"; switching = true; }
                 }
             }
         }
 
         function initChart() {
-            const ctx = document.getElementById('growthChart').getContext('2d');
+            const canvas = document.getElementById('growthChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             const grad = ctx.createLinearGradient(0, 0, 0, 200);
             grad.addColorStop(0, 'rgba(0, 210, 255, 0.3)');
             grad.addColorStop(1, 'rgba(0, 210, 255, 0)');
