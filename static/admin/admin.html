@@ -50,6 +50,7 @@
             border: 1px solid var(--border); padding: 10px 20px; text-transform: uppercase;
             font-size: 11px; letter-spacing: 2px; clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
             background: rgba(0, 242, 255, 0.05); color: var(--accent); transition: 0.3s;
+            cursor: pointer;
         }
 
         .nav-btn:hover, .nav-active { 
@@ -99,7 +100,6 @@
         </header>
 
         <div class="grid grid-cols-12 gap-6">
-            
             <div class="col-span-12 lg:col-span-3 space-y-6">
                 <div class="quantum-card p-6">
                     <h3 class="text-[10px] text-cyan-400/60 mb-4 uppercase tracking-[4px]">ROI_24H_PERFORMANCE</h3>
@@ -124,7 +124,7 @@
                             <label class="text-[9px] opacity-40 block mb-1">PROFIT_MULTIPLIER</label>
                             <div class="flex gap-2">
                                 <input id="multiplier_input" type="number" step="0.1" value="1.5" class="w-full p-2 outline-none text-xs">
-                                <button class="nav-btn !py-1 !px-3 !text-[9px]">SET</button>
+                                <button onclick="updateSettings()" class="nav-btn !py-1 !px-3 !text-[9px]">SET</button>
                             </div>
                         </div>
                         <button class="w-full bg-red-900/10 border border-red-900/40 text-red-500 text-[10px] py-2 hover:bg-red-900/30 transition uppercase tracking-widest">Toggle_Maintenance</button>
@@ -259,10 +259,24 @@
             const container = document.getElementById('log-container');
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
-            log.className = "flex gap-2 border-l border-cyan-500/20 pl-2";
+            log.className = "flex gap-2 border-l border-cyan-500/20 pl-2 animate-pulse";
             log.innerHTML = `<span class="opacity-30">[${time}]</span> <span class="text-cyan-400 font-bold">${type}</span> <span class="text-white/60">${msg}</span>`;
             container.prepend(log);
             if(container.childNodes.length > 15) container.lastChild.remove();
+        }
+
+        async function updateSettings() {
+            const val = document.getElementById('multiplier_input').value;
+            try {
+                const res = await fetch('/api/update_config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ referral_commission: parseFloat(val) })
+                });
+                if(res.ok) addLog("CONFIG_SYNC: SUCCESS", "OK");
+            } catch(e) {
+                addLog("CONFIG_SYNC: FAILED", "ERR");
+            }
         }
 
         async function syncWithDatabase() {
@@ -277,56 +291,45 @@
                 document.getElementById('cpu_bar').style.width = data.cpu + '%';
                 document.getElementById('cpu_label').innerText = data.cpu + '%';
                 document.getElementById('last_sync_time').innerText = new Date().toLocaleTimeString();
+                document.getElementById('core_id_display').innerText = data.engine.core_id;
+                document.getElementById('latency_val').innerText = data.ping;
 
                 trafficChart.data.datasets[0].data.shift();
                 trafficChart.data.datasets[0].data.push(data.traffic);
                 trafficChart.update('none');
 
-                updateTable();
+                // Обновление таблицы из реальных данных
+                const table = document.getElementById('event-table');
+                table.innerHTML = '';
+                if(data.recent_actions) {
+                    data.recent_actions.slice(0, 5).forEach(action => {
+                        const row = `<tr>
+                            <td class="py-2 opacity-40">${new Date(action.time || Date.now()).toLocaleTimeString()}</td>
+                            <td class="py-2 font-mono text-cyan-200">${action.address.substring(0,8)}...</td>
+                            <td class="py-2 text-right text-green-500">${action.status}</td>
+                        </tr>`;
+                        table.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+
                 if(Math.random() > 0.9) addLog("DB_NEXUS_SYNC_COMPLETED", "OK");
             } catch(e) {
                 simulateData(); 
             }
         }
 
-        function updateTable() {
-            if(Math.random() > 0.8) {
-                const table = document.getElementById('event-table');
-                const row = `<tr><td class="py-2 opacity-40">${new Date().toLocaleTimeString()}</td><td class="py-2 font-mono text-cyan-200">UQ${Math.random().toString(36).substr(2,8).toUpperCase()}...</td><td class="py-2 text-right text-green-500">SYNCED</td></tr>`;
-                table.insertAdjacentHTML('afterbegin', row);
-                if(table.rows.length > 5) table.deleteRow(5);
-            }
-        }
-
         function simulateData() {
-            // Имитация трафика
             const mockTraffic = (Math.random() * 50 + 20).toFixed(2);
             trafficChart.data.datasets[0].data.shift();
             trafficChart.data.datasets[0].data.push(mockTraffic);
             trafficChart.update('none');
             document.getElementById('traffic_val').innerText = mockTraffic;
-
-            // Имитация ресурсов
-            const mockCpu = Math.floor(Math.random() * 40 + 15);
-            document.getElementById('cpu_bar').style.width = mockCpu + '%';
-            document.getElementById('cpu_label').innerText = mockCpu + '%';
-            
-            // Имитация баланса и ROI
-            const mockBalance = (Math.random() * 1000).toFixed(2);
-            const mockRoi = (Math.random() * 5).toFixed(2);
-            document.getElementById('balance_val').innerText = mockBalance;
-            document.getElementById('roi_val').innerText = mockRoi + '%';
-            document.getElementById('conn_val').innerText = Math.floor(Math.random() * 50 + 10);
-
             document.getElementById('latency_val').innerText = Math.floor(Math.random() * 20 + 10);
             document.getElementById('last_sync_time').innerText = new Date().toLocaleTimeString();
-            
-            updateTable();
         }
 
         setInterval(syncWithDatabase, 3000);
         window.onload = () => {
-            document.getElementById('core_id_display').innerText = "QX-" + Math.random().toString(36).substr(2, 7).toUpperCase();
             addLog("NEURAL_KERNEL_INIT", "SYS");
             syncWithDatabase();
         };
