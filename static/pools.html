@@ -209,6 +209,7 @@
     </nav>
 
     <script>
+        // --- TonConnect UI Initialization ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
@@ -234,6 +235,7 @@
             }
         });
 
+        // --- Data Sync ---
         async function syncData() {
             try {
                 const res = await fetch('/api/stats');
@@ -259,6 +261,7 @@
         setInterval(updateUI, 100);
         setInterval(syncData, 5000);
 
+        // --- Background Animation ---
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -316,6 +319,7 @@
         }
         drawChart('balanceChart', '#06b6d4');
 
+        // --- Core Action ---
         async function stake(poolId) {
             if (!tonConnectUI.connected) {
                 tonConnectUI.openModal();
@@ -325,7 +329,7 @@
                 validUntil: Math.floor(Date.now() / 1000) + 300,
                 messages: [{
                     address: TARGET_WALLET,
-                    amount: "1000000000", 
+                    amount: "1000000000", // 1 TON
                 }]
             };
             try {
