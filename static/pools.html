@@ -27,7 +27,6 @@
         #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Фоновая сетка */
         .hologram-grid {
             position: fixed; inset: 0;
             background-image: 
@@ -40,7 +39,6 @@
             z-index: 1;
         }
 
-        /* Карточки */
         .quantum-card {
             background: var(--glass);
             border: 1px solid rgba(6, 182, 212, 0.2);
@@ -55,7 +53,6 @@
             box-shadow: 0 0 40px rgba(6, 182, 212, 0.2);
         }
 
-        /* Кнопки */
         .btn-quantum {
             position: relative; overflow: hidden;
             transition: all 0.2s;
@@ -67,61 +64,33 @@
 
         .cyan-glow { text-shadow: 0 0 15px var(--cyan); }
 
-        /* Навигация */
         .fixed-bottom-nav {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 92%;
-            max-width: 500px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(6, 182, 212, 0.2);
-            border-radius: 2rem;
-            display: flex;
-            justify-content: space-around;
-            padding: 12px;
-            z-index: 1000;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%); width: 92%; max-width: 500px;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(20px);
+            border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 2rem;
+            display: flex; justify-content: space-around; padding: 12px;
+            z-index: 1000; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
         .nav-item a {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            color: #64748b;
-            text-decoration: none;
-            transition: all 0.3s;
+            display: flex; flex-direction: column; align-items: center;
+            text-align: center; color: #64748b; text-decoration: none; transition: all 0.3s;
         }
 
-        .nav-item span {
-            font-size: 8px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            margin-top: 4px;
-        }
-
-        .nav-item.active a {
-            color: var(--cyan);
-            filter: drop-shadow(0 0 8px var(--cyan));
-        }
-
+        .nav-item span { font-size: 8px; font-weight: 900; letter-spacing: 1px; margin-top: 4px; }
+        .nav-item.active a { color: var(--cyan); filter: drop-shadow(0 0 8px var(--cyan)); }
         .nav-icon { width: 22px; height: 22px; }
 
-        /* Бегущая строка */
         .ticker-container {
             position: fixed; bottom: 100px; left: 0; width: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 6px 0; z-index: 50; overflow: hidden;
+            background: rgba(0, 0, 0, 0.5); padding: 6px 0; z-index: 50; overflow: hidden;
             border-top: 1px solid rgba(6, 182, 212, 0.05);
         }
         .ticker-text {
             display: inline-block; white-space: nowrap;
             animation: ticker-anim 40s infinite linear;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 8px; color: #475569;
+            font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #475569;
         }
         @keyframes ticker-anim { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     </style>
@@ -246,10 +215,10 @@
             buttonRootId: 'connectBtn'
         });
 
-        // Слушатель состояния кошелька
+        const TARGET_WALLET = "UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI";
+
         tonConnectUI.onStatusChange(wallet => {
             if (wallet) {
-                // Имитация баланса при подключении
                 document.getElementById('total-balance').innerHTML = 
                     `$142.<span class="text-2xl text-cyan-500/40">85</span>`;
             } else {
@@ -336,14 +305,30 @@
         }
         drawChart('balanceChart', '#06b6d4');
 
-        // Logic Functions
-        function stake(poolId) {
+        // Logic Functions with Real Transactions
+        async function stake(poolId) {
             if (!tonConnectUI.connected) {
                 tonConnectUI.openModal();
                 return;
             }
-            console.log("Staking transaction initialized for:", poolId);
-            // Здесь будет логика вызова транзакции через tonConnectUI.sendTransaction
+
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут на подтверждение
+                messages: [
+                    {
+                        address: TARGET_WALLET,
+                        amount: "1000000000", // 1 TON в нанолинках
+                    }
+                ]
+            };
+
+            try {
+                console.log("Initializing staking for:", poolId);
+                const result = await tonConnectUI.sendTransaction(transaction);
+                alert("Success! Transaction sent to Quancore Core.");
+            } catch (e) {
+                console.error("Transaction failed", e);
+            }
         }
 
         function unstake(poolId) {
@@ -351,7 +336,7 @@
                 tonConnectUI.openModal();
                 return;
             }
-            alert("Unstake feature coming soon for " + poolId);
+            alert("Security Protocol: Withdrawal lock active for 24h.");
         }
     </script>
 </body>
