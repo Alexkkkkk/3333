@@ -107,6 +107,10 @@
             transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 0 15px var(--neon-cyan);
         }
+
+        /* Убираем стрелки в input number */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="antialiased">
@@ -135,7 +139,7 @@
             <div class="absolute top-4 left-6 z-20">
                 <span class="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">Neural Core Alpha</span>
             </div>
-            <div id="three-js-canvas"></div>
+            <div id="three-js-canvas" class="w-full h-full"></div>
         </div>
 
         <div class="premium-glass rounded-[2.5rem] p-6 mb-6 border-t border-cyan-500/30">
@@ -159,8 +163,7 @@
                 </button>
             </div>
 
-            <div class="h-10 flex items-end gap-1 px-2 mb-2" id="ai-wave-container">
-                </div>
+            <div class="h-10 flex items-end gap-1 px-2 mb-2" id="ai-wave-container"></div>
         </div>
 
         <div class="premium-glass rounded-[2.5rem] p-8 mb-6 relative overflow-hidden group">
@@ -253,31 +256,47 @@
         }
 
         // --- THREE.JS ENGINE ---
-        const container = document.getElementById('canvas-3d-container');
+        const container = document.getElementById('three-js-canvas');
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / 220, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / 220, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(container.offsetWidth, 220);
-        document.getElementById('three-js-canvas').appendChild(renderer.domElement);
+        renderer.setSize(container.clientWidth, 220);
+        container.appendChild(renderer.domElement);
 
         const geometry = new THREE.IcosahedronGeometry(2, 0);
-        const material = new THREE.MeshPhongMaterial({ color: 0x06b6d4, wireframe: true, emissive: 0x06b6d4, emissiveIntensity: 0.5 });
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0x06b6d4, 
+            wireframe: true, 
+            emissive: 0x06b6d4, 
+            emissiveIntensity: 0.5 
+        });
         const core = new THREE.Mesh(geometry, material);
         scene.add(core);
 
-        const light = new THREE.PointLight(0xffffff, 1, 100); light.position.set(5, 5, 5); scene.add(light);
+        const light = new THREE.PointLight(0xffffff, 1, 100); 
+        light.position.set(5, 5, 5); 
+        scene.add(light);
         camera.position.z = 5;
+
+        // Респонсивность 3D
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth;
+            renderer.setSize(w, 220);
+            camera.aspect = w / 220;
+            camera.updateProjectionMatrix();
+        });
 
         function animate3D() {
             requestAnimationFrame(animate3D);
-            core.rotation.x += 0.005; core.rotation.y += 0.01;
+            core.rotation.x += 0.005; 
+            core.rotation.y += 0.01;
             const pulse = 1 + Math.sin(Date.now() * 0.002) * 0.1;
             core.scale.set(pulse, pulse, pulse);
             renderer.render(scene, camera);
         }
         animate3D();
 
-        // --- AI TRADING & VISUALIZATION ENGINE ---
+        // --- AI TRADING & VISUALIZATION ---
         let aiActive = false;
         const waveContainer = document.getElementById('ai-wave-container');
         const bars = [];
@@ -358,7 +377,7 @@
             input.dispatchEvent(new Event('input')); 
         }
 
-        // --- BG NETWORK ---
+        // --- BACKGROUND DOTS ---
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let dots = [];
@@ -382,6 +401,7 @@
         }
         initBG(); drawBG();
 
+        // --- TON CONNECT ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
