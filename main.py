@@ -33,6 +33,11 @@ from database import (
 
 load_dotenv()
 
+# --- ПАРАМЕТРЫ ПУЛА ---
+STAKE_THRESHOLD = 5.0     # Порог для автоматизации (стейкаем если > 5 TON)
+GAS_RESERVE = 1.0         # Минимум оставляем на газ
+AUTO_STAKE_ENABLED = True # Флаг автоматизации
+
 # --- СИСТЕМА ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -47,13 +52,13 @@ def log(message, level="INFO"):
     print(f"{color}{log_msg}{reset}", flush=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ TON ЯДРА ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + POSTGRES ANALYTICS <<<", "CORE")
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + СОБСТВЕННЫЙ ПУЛ <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
     log("L1: Библиотеки TON (pytoniq) загружены", "SUCCESS")
     TON_ENABLED = True
 except ImportError:
-    log("Критическая ошибка: pytoniq не найден! Работа в режиме эмуляции.", "ERROR")
+    log("Критическая ошибка: pytoniq не найден! Режим эмуляции.", "ERROR")
     TON_ENABLED = False
 
 class OmniNeuralOverlord:
@@ -64,19 +69,13 @@ class OmniNeuralOverlord:
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
+        self.processed_txs = set() # Память обработанных транзакций
 
     def get_static_path(self):
-        """Определяет корректный путь к папке static с учетом структуры Bothost."""
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        paths_to_check = [
-            os.path.join(base_dir, "static"),
-            "./static",
-            "/app/static"
-        ]
+        paths_to_check = [os.path.join(base_dir, "static"), "./static", "/app/static"]
         for p in paths_to_check:
-            if os.path.exists(p):
-                return os.path.abspath(p)
-        
+            if os.path.exists(p): return os.path.abspath(p)
         static_p = os.path.join(base_dir, "static")
         os.makedirs(static_p, exist_ok=True)
         return static_p
@@ -85,7 +84,6 @@ overlord = OmniNeuralOverlord()
 static_dir = overlord.get_static_path()
 
 async def sync_config():
-    """Синхронизация локальных параметров с БД."""
     try:
         cfg = await load_remote_config()
         if cfg and cfg.get('mnemonic'):
@@ -94,6 +92,38 @@ async def sync_config():
     except Exception as e:
         log(f"Sync Config Fail: {e}", "TRACE")
     return False
+
+# --- ЛОГИКА СОБСТВЕННОГО ПУЛА ---
+async def process_pool_inflow(wallet):
+    """Анализ входящих транзакций в пул."""
+    try:
+        # В режиме эмуляции просто пропускаем
+        if not TON_ENABLED: return
+
+        # Получаем последние транзакции кошелька
+        method_res = await wallet.client.get_transactions(wallet.address, limit=5)
+        
+        for tx in method_res:
+            tx_hash = tx.hash.hex()
+            if tx_hash in overlord.processed_txs: continue
+            
+            # Проверяем входящее сообщение
+            if tx.in_msg and tx.in_msg.value > 0:
+                amount = tx.in_msg.value / 1e9
+                sender = tx.in_msg.source.to_str() if tx.in_msg.source else "UNKNOWN"
+                
+                log(f"POOL: Обнаружен депозит {amount} TON от {sender[:8]}...", "SUCCESS")
+                
+                # Записываем действие в лог ИИ
+                await log_ai_action(
+                    strategy={'cmd': 'DEPOSIT_DETECTED', 'from': sender, 'amount': amount},
+                    market={'pool_status': 'active'}
+                )
+                
+            overlord.processed_txs.add(tx_hash)
+            
+    except Exception as e:
+        log(f"Pool Logic Error: {e}", "TRACE")
 
 # --- LIFESPAN ---
 @asynccontextmanager
@@ -134,33 +164,17 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats(request: Request):
     try:
-        await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
         db_stats = await get_stats_for_web() or {}
         current_cfg = await load_remote_config() or {}
-        
-        raw_actions = db_stats.get('recent_actions', [])
-        formatted_actions = []
-        for item in raw_actions:
-            bal = float(item.get("amount", 0))
-            formatted_actions.append({
-                "address": item.get("address", "Unknown Node"),
-                "amount": bal,
-                "qc": float(item.get("qc", bal * 137.5)),
-                "status": item.get("status", "SUCCESS"),
-                "type": item.get("type", "MAINNET")
-            })
-
         cpu_usage = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(14, 26)
 
         return {
             "balance": round(float(overlord.current_balance), 2), 
             "qc_balance": round(float(overlord.current_balance * 137.5), 2),
             "traffic": round(db_stats.get('traffic', random.uniform(42.0, 48.0)), 2), 
-            "roi": db_stats.get('roi_24h', 0.0),
+            "roi": db_stats.get('roi_24h', 4.2),
             "cpu": cpu_usage,
             "visitors": db_stats.get('traffic', 1),
-            "connections": db_stats.get('connections', random.randint(5, 12)),
-            "recent_actions": formatted_actions,
             "engine": {
                 "core_id": overlord.core_id, 
                 "status": overlord.last_status,
@@ -173,59 +187,30 @@ async def get_stats(request: Request):
         }
     except Exception as e:
         log(f"API Error: {e}", "ERROR")
-        return {"status": "offline", "balance": 0.0, "visitors": 0, "recent_actions": []}
+        return {"status": "offline", "balance": 0.0}
 
-@app.post("/api/wallet/sync")
-async def sync_wallet(request: Request):
-    try:
-        data = await request.json()
-        address = data.get("address")
-        if address:
-            await save_wallet_state(
-                address=address,
-                balance=data.get("balance", 0.0),
-                qc=data.get("qc", 0.0)
-            )
-            log(f"SYNC: Node {address[:8]}... synchronized", "SUCCESS")
-            return {"status": "success"}
-        return JSONResponse({"status": "error"}, status_code=400)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-
-# --- РОУТИНГ СТАТИКИ И ИЗОБРАЖЕНИЙ ---
-
+# --- РОУТИНГ СТАТИКИ ---
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
 async def serve_all_files(path: str):
     clean_path = path.strip("/")
-    if not clean_path:
-        return FileResponse(os.path.join(static_dir, "index.html"))
-
-    # 1. Прямой путь в static
     file_path = os.path.join(static_dir, clean_path)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
+    if os.path.isfile(file_path): return FileResponse(file_path)
     
-    # 2. Поиск в images
-    img_name = clean_path.split("/")[-1]
-    img_path = os.path.join(static_dir, "images", img_name)
-    if os.path.isfile(img_path):
-        return FileResponse(img_path)
+    img_path = os.path.join(static_dir, "images", clean_path.split("/")[-1])
+    if os.path.isfile(img_path): return FileResponse(img_path)
 
-    # 3. HTML Fallback (например, /operator -> /operator.html)
     html_path = os.path.join(static_dir, f"{clean_path}.html")
-    if os.path.exists(html_path):
-        return FileResponse(html_path)
+    if os.path.exists(html_path): return FileResponse(html_path)
     
-    # 4. SPA Fallback
     idx = os.path.join(static_dir, "index.html")
-    return FileResponse(idx) if os.path.exists(idx) else JSONResponse({"error": "Not Found"}, status_code=404)
+    return FileResponse(idx) if os.path.exists(idx) else JSONResponse({"error": "404"}, status_code=404)
 
 # --- CORE WORKER ---
 
 async def core_worker():
-    log("CORE: Мониторинг TON запущен", "INFO")
+    log("CORE: Мониторинг пула запущен", "INFO")
     while overlord.is_active:
         try:
             await sync_config()
@@ -236,56 +221,43 @@ async def core_worker():
             
             async with LiteClient.from_mainnet_config() as client:
                 mnemonic_list = overlord.mnemonic.split()
-                if len(mnemonic_list) < 12:
-                    overlord.last_status = "MNEMONIC_ERR"
-                    await asyncio.sleep(30)
-                    continue
-
                 wallet = await WalletV4R2.from_mnemonic(client, mnemonic_list)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Узел активен {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     try:
+                        # 1. Проверяем баланс
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
+                        # 2. Обработка входящих в Пул
+                        await process_pool_inflow(wallet)
+                        
+                        # 3. Автоматизация стейкинга (логика решения)
+                        if AUTO_STAKE_ENABLED and overlord.current_balance > STAKE_THRESHOLD:
+                            stake_amount = overlord.current_balance - GAS_RESERVE
+                            log(f"AUTO: Система готова направить {stake_amount:.2f} TON в Forge", "CORE")
+                        
+                        # Сохраняем состояние
                         await save_wallet_state(
                             address=str(wallet.address),
                             balance=overlord.current_balance,
                             qc=overlord.current_balance * 137.5 
                         )
                         
-                        if random.random() > 0.95:
-                            await log_ai_action(
-                                strategy={'cmd': 'SCAN', 'bal': overlord.current_balance},
-                                market={'status': 'stable'}
-                            )
-
+                        # Проверка смены мнемоники
                         old_mne = overlord.mnemonic
                         await sync_config()
-                        if overlord.mnemonic != old_mne: 
-                            log("CORE: Мнемоника обновлена, перезагрузка...", "WARNING")
-                            break
+                        if overlord.mnemonic != old_mne: break
                             
                         await asyncio.sleep(30) 
                     except Exception as e:
-                        log(f"Heartbeat Error: {e}", "TRACE")
+                        log(f"Worker Heartbeat Error: {e}", "TRACE")
                         break
         except Exception as e:
-            log(f"Global Loop Error: {e}", "ERROR")
+            log(f"Worker Loop Error: {e}", "ERROR")
             await asyncio.sleep(10)
-
-# --- ЗАПУСК СЕРВЕРА ---
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
-    log(f"SYSTEM: Запуск на порту {port}", "CORE")
-    uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=port, 
-        proxy_headers=True, 
-        forwarded_allow_ips="*",
-        reload=False 
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
