@@ -101,7 +101,6 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         
-        /* Скрытие скроллбара */
         ::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -158,7 +157,7 @@
             </a>
         </div>
         <div class="nav-item">
-            <a href="staking.html">
+            <a href="forge.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 <span>FORGE</span>
             </a>
@@ -190,7 +189,11 @@
             const statusTxt = document.getElementById('status-text');
 
             if (!wallet || !wallet.account) {
-                container.innerHTML = `<div class="ledger-card rounded-3xl p-10 text-center opacity-50 font-bold uppercase text-[10px]">Awaiting Handshake</div>`;
+                container.innerHTML = `
+                    <div class="ledger-card rounded-3xl p-10 text-center opacity-50 animate-fade-in">
+                        <p class="font-black uppercase text-[10px] tracking-widest text-cyan-500/50">Awaiting Secure Handshake</p>
+                        <p class="text-[8px] mt-2 text-slate-500 uppercase">Connect wallet to authorize data access</p>
+                    </div>`;
                 countDisplay.innerText = "00";
                 statusInd.className = "w-2 h-2 bg-yellow-500 rounded-full animate-pulse";
                 statusTxt.innerText = "Standby";
@@ -199,17 +202,14 @@
             }
 
             try {
-                // Статус: Online
                 statusInd.className = "w-2 h-2 bg-green-500 rounded-full animate-pulse";
                 statusTxt.innerText = "Online";
                 statusTxt.className = "text-[10px] font-bold uppercase text-green-400";
 
-                // 1. Получаем основной баланс TON
                 const accRes = await fetch(`https://tonapi.io/v2/accounts/${wallet.account.address}`);
                 const accData = await accRes.json();
                 const tonBalance = (accData.balance / 1e9).toFixed(2);
 
-                // 2. Получаем жетоны
                 const jettonRes = await fetch(`https://tonapi.io/v2/accounts/${wallet.account.address}/jettons`);
                 const jettonData = await jettonRes.json();
                 const jettons = jettonData.balances || [];
@@ -217,43 +217,46 @@
                 let html = '';
                 let totalAssets = 0;
 
-                // Рендерим TON
+                // TON
                 html += renderCoinRow('TON', 'Native Token', tonBalance, 'https://ton.org/download/ton_symbol.png');
                 totalAssets++;
 
-                // Рендерим Жетоны
+                // Jettons
                 jettons.forEach(j => {
-                    const bal = (j.balance / Math.pow(10, j.jetton.decimals)).toFixed(2);
-                    if (parseFloat(bal) > 0) {
-                        html += renderCoinRow(j.jetton.symbol, j.jetton.name, bal, j.jetton.image);
-                        totalAssets++;
+                    if (j.jetton && j.balance) {
+                        const bal = (j.balance / Math.pow(10, j.jetton.decimals)).toFixed(2);
+                        if (parseFloat(bal) > 0) {
+                            html += renderCoinRow(j.jetton.symbol, j.jetton.name, bal, j.jetton.image);
+                            totalAssets++;
+                        }
                     }
                 });
 
                 container.innerHTML = html;
                 countDisplay.innerText = totalAssets.toString().padStart(2, '0');
             } catch (e) {
-                console.error(e);
-                container.innerHTML = `<div class="p-10 text-center text-red-500 text-[10px] uppercase font-bold">Protocol Sync Error</div>`;
+                console.error("API Error:", e);
+                container.innerHTML = `<div class="p-10 text-center text-red-500 text-[10px] uppercase font-black tracking-widest">Protocol Sync Error</div>`;
             }
         }
 
         function renderCoinRow(symbol, name, balance, img) {
+            const displayImg = img || 'images/logo.png';
             return `
                 <div class="ledger-card rounded-3xl p-5 flex items-center justify-between animate-fade-in mb-3">
                     <div class="scan-line"></div>
                     <div class="flex items-center gap-4">
-                        <img src="${img || 'images/logo.png'}" 
-                             class="w-10 h-10 rounded-full bg-black/20 object-cover" 
+                        <img src="${displayImg}" 
+                             class="w-10 h-10 rounded-full bg-black/40 border border-white/5 object-cover" 
                              onerror="this.src='images/logo.png'">
                         <div>
-                            <h3 class="text-white font-black italic uppercase leading-none text-sm">${symbol}</h3>
+                            <h3 class="text-white font-black italic uppercase leading-none text-sm tracking-tight">${symbol}</h3>
                             <p class="text-[8px] text-cyan-500/60 font-bold uppercase mt-1">${name.substring(0, 15)}</p>
                         </div>
                     </div>
                     <div class="text-right">
-                        <p class="text-xl font-black italic text-white">${balance}</p>
-                        <p class="text-[7px] text-green-500 font-black uppercase">Active</p>
+                        <p class="text-xl font-black italic text-white tracking-tighter">${balance}</p>
+                        <p class="text-[7px] text-green-500 font-black uppercase tracking-tighter">Verified</p>
                     </div>
                 </div>
             `;
@@ -261,12 +264,14 @@
 
         tonConnectUI.onStatusChange(wallet => updateLedger(wallet));
         
-        // Первичная проверка при загрузке
-        if(tonConnectUI.account) {
-            updateLedger({ account: tonConnectUI.account });
-        } else {
-            updateLedger(null);
-        }
+        // Initial state
+        window.addEventListener('load', () => {
+            if(tonConnectUI.account) {
+                updateLedger({ account: tonConnectUI.account });
+            } else {
+                updateLedger(null);
+            }
+        });
     </script>
 </body>
 </html>
