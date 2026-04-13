@@ -231,6 +231,7 @@
         // --- ORACLE & BALANCES ---
         async function updateMarketPrices() {
             try {
+                // Использование публичного API для обновления цен
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
                 const data = await response.json();
                 
@@ -254,14 +255,12 @@
             try {
                 const address = state.wallet.account.address;
                 
-                // TON Balance
+                // TON Balance через TonCenter
                 const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
                 const tonData = await tonRes.json();
                 if (tonData.ok) COIN_DATA['TON'].balance = Number(tonData.result) / 1e9;
 
-                // Jettons Balances (Simple approach for demonstration)
                 log(`Indexing Assets...`, 'cyan-500');
-                
                 updateUI();
             } catch (e) { 
                 log("Balance sync failed", "red-500");
@@ -394,11 +393,16 @@
 
         tonConnectUI.onStatusChange(w => {
             state.wallet = w;
-            if(w) { log(`Linked: ${w.account.address.slice(0,6)}...`, "green-400"); fetchBalances(); }
-            else log("Node Offline", "red-400");
+            if(w) { 
+                log(`Linked: ${w.account.address.slice(0,6)}...`, "green-400"); 
+                fetchBalances(); 
+            } else {
+                log("Node Offline", "red-400");
+            }
             checkBtn();
         });
 
+        // Background & Animation
         window.onload = () => {
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
@@ -413,14 +417,23 @@
             const draw = () => {
                 ctx.clearRect(0,0,canvas.width, canvas.height);
                 ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
-                pts.forEach(p => { ctx.fillRect(p.x, p.y, p.s, p.s); p.y -= p.v; if(p.y < 0) p.y = canvas.height; });
+                pts.forEach(p => { 
+                    ctx.fillRect(p.x, p.y, p.s, p.s); 
+                    p.y -= p.v; 
+                    if(p.y < 0) p.y = canvas.height; 
+                });
                 requestAnimationFrame(draw);
             };
-            window.onresize = setup; setup(); draw();
+            window.onresize = setup; 
+            setup(); 
+            draw();
+
+            // Динамический график
             setInterval(() => {
                 const p1 = 10 + Math.random() * 30;
                 ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 20 T 300 50 T 400 20`);
             }, 3000);
+
             updateMarketPrices();
             log("Quantum Core Engine: Online", "cyan-500");
         };
