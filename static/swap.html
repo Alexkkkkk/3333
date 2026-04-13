@@ -53,32 +53,18 @@
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
         }
 
-        /* --- УЛУЧШЕННЫЙ ГРАФИК --- */
+        /* --- ИСПРАВЛЕННЫЙ БЛОК ГРАФИКА --- */
         .chart-wrapper {
             position: relative;
-            height: 120px;
+            height: 220px; /* Увеличено для отображения всех данных */
             width: 100%;
             overflow: hidden;
             border-radius: 1.25rem;
         }
 
         .tradingview-widget-container {
-            position: absolute;
-            top: -10px; /* Скрываем верхнюю панель */
-            left: -1px;
-            width: calc(100% + 2px);
-            height: 150px;
-        }
-
-        .chart-overlay-mask {
-            position: absolute;
-            bottom: 0;
-            left: 0;
             width: 100%;
-            height: 40px;
-            background: linear-gradient(to bottom, transparent, rgba(10, 18, 30, 0.9) 90%);
-            z-index: 10;
-            pointer-events: none;
+            height: 100%;
         }
     </style>
 </head>
@@ -97,33 +83,53 @@
     </header>
 
     <main class="max-w-lg mx-auto px-4 pb-32 relative z-10">
-        <div class="glass-card rounded-3xl p-2 mb-4 overflow-hidden relative border border-white/5">
-            <div class="flex justify-between items-center px-3 pt-2 mb-1">
-                <span class="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Live Market Oracle</span>
-                <span class="text-[10px] font-bold text-green-400 mono animate-pulse">● Online</span>
+        <div class="glass-card rounded-3xl p-4 mb-4 overflow-hidden relative border border-white/5">
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Quantum Oracle V4.2</span>
+                    <div class="flex items-center gap-1">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-[9px] font-bold text-green-500 uppercase">Oracle Live</span>
+                    </div>
+                </div>
             </div>
+            
             <div class="chart-wrapper">
                 <div class="tradingview-widget-container">
                     <div class="tradingview-widget-container__widget"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
                     {
-                      "symbol": "OKX:TONUSDT",
+                      "symbols": [["OKX:TONUSDT|12M"]],
+                      "chartOnly": false,
                       "width": "100%",
                       "height": "100%",
                       "locale": "ru",
-                      "dateRange": "12M",
                       "colorTheme": "dark",
-                      "isTransparent": true,
                       "autosize": true,
-                      "largeChartUrl": "",
-                      "trendLineColor": "rgba(0, 242, 255, 1)",
-                      "underLineColor": "rgba(0, 242, 255, 0.15)",
-                      "noTimeScale": true,
-                      "chartOnly": true
+                      "showVolume": false,
+                      "showMA": false,
+                      "hideDateRanges": false,
+                      "hideMarketStatus": false,
+                      "hideSymbolLogo": false,
+                      "scalePosition": "right",
+                      "scaleMode": "Normal",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": "10",
+                      "noTimeScale": false,
+                      "valuesTracking": "1",
+                      "changeMode": "price-and-percent",
+                      "chartType": "area",
+                      "headerFontSize": "18",
+                      "backgroundColor": "rgba(5, 11, 16, 0)",
+                      "lineWidth": 2,
+                      "lineColor": "#00f2ff",
+                      "topColor": "rgba(0, 242, 255, 0.15)",
+                      "bottomColor": "rgba(0, 242, 255, 0)",
+                      "dateFormat": "MMM dd, yyyy",
+                      "timeHoursFormat": "24-h"
                     }
                     </script>
                 </div>
-                <div class="chart-overlay-mask"></div>
             </div>
         </div>
 
@@ -236,7 +242,7 @@
             buttonRootId: 'connectBtn'
         });
 
-        const state = { wallet: null, receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U" };
+        const state = { wallet: null };
         const ui = {
             in: document.getElementById('amtIn'),
             out: document.getElementById('amtOut'),
@@ -244,8 +250,7 @@
             btn: document.getElementById('actionBtn'),
             bal: document.getElementById('balDisplay'),
             rate: document.getElementById('rateLabel'),
-            terminal: document.getElementById('terminal'),
-            impact: document.getElementById('impact')
+            terminal: document.getElementById('terminal')
         };
 
         async function updateMarketPrices() {
