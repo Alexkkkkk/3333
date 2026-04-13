@@ -53,13 +53,11 @@
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
         }
 
-        /* Стиль для контейнера графика */
         .chart-container {
-            height: 180px;
+            height: 120px;
             width: 100%;
             border-radius: 1rem;
             overflow: hidden;
-            margin-top: 8px;
         }
     </style>
 </head>
@@ -79,36 +77,26 @@
 
     <main class="max-w-lg mx-auto px-4 pb-32 relative z-10">
         <div class="glass-card rounded-3xl p-4 mb-4 overflow-hidden relative border border-white/5">
-            <div class="flex justify-between items-center mb-2 px-1">
-                <span class="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Quantum Oracle V4.2</span>
-                <span id="priceStatus" class="text-[10px] font-bold text-green-400 mono animate-pulse">Live Tracking...</span>
-            </div>
-            
             <div class="chart-container">
-                <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
-                    <div id="tradingview_ton" style="height: 100%; width: 100%;"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-                    <script type="text/javascript">
-                    new TradingView.MediumWidget({
-                        "symbols": [["TON", "OKX:TONUSDT|12M"]],
-                        "chartOnly": false,
+                <div class="tradingview-widget-container">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+                    {
+                        "symbol": "OKX:TONUSDT",
                         "width": "100%",
                         "height": "100%",
                         "locale": "ru",
+                        "dateRange": "12M",
                         "colorTheme": "dark",
+                        "trendLineColor": "rgba(0, 242, 255, 1)",
+                        "underLineColor": "rgba(0, 242, 255, 0.15)",
+                        "isTransparent": true,
                         "autosize": true,
-                        "showVolume": false,
-                        "hideDateRanges": false,
-                        "scalePosition": "right",
-                        "scaleMode": "Normal",
-                        "fontFamily": "JetBrains Mono, monospace",
-                        "noOverlays": false,
-                        "container_id": "tradingview_ton",
-                        "backgroundColor": "rgba(0, 0, 0, 0)"
-                    });
+                        "largeChartUrl": ""
+                    }
                     </script>
                 </div>
-                </div>
+            </div>
         </div>
 
         <div class="glass-card p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
@@ -239,8 +227,7 @@
             bal: document.getElementById('balDisplay'),
             rate: document.getElementById('rateLabel'),
             terminal: document.getElementById('terminal'),
-            impact: document.getElementById('impact'),
-            priceStatus: document.getElementById('priceStatus')
+            impact: document.getElementById('impact')
         };
 
         async function updateMarketPrices() {
@@ -253,12 +240,9 @@
                 COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
                 COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
                 
-                ui.priceStatus.innerText = "Oracle Live: Data Updated";
-                ui.priceStatus.classList.replace('text-slate-500', 'text-green-400');
                 calculate();
             } catch (e) {
-                ui.priceStatus.innerText = "Oracle: Offline (Cached)";
-                ui.priceStatus.classList.replace('text-green-400', 'text-slate-500');
+                console.log("Oracle: Offline (Cached)");
             }
         }
 
