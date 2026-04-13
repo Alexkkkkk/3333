@@ -53,11 +53,14 @@
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
         }
 
-        .chart-container {
-            height: 120px;
+        /* Настройки контейнера графика */
+        .chart-wrapper {
+            position: relative;
+            height: 160px;
             width: 100%;
-            border-radius: 1rem;
             overflow: hidden;
+            border-radius: 1rem;
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -77,22 +80,43 @@
 
     <main class="max-w-lg mx-auto px-4 pb-32 relative z-10">
         <div class="glass-card rounded-3xl p-4 mb-4 overflow-hidden relative border border-white/5">
-            <div class="chart-container">
+            <div class="flex justify-between items-center px-1 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Quantum Oracle V4.2</span>
+                    <div class="flex items-center gap-1">
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-[8px] font-bold text-green-500 uppercase">Live</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-wrapper">
                 <div class="tradingview-widget-container">
                     <div class="tradingview-widget-container__widget"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
                     {
-                        "symbol": "OKX:TONUSDT",
-                        "width": "100%",
-                        "height": "100%",
-                        "locale": "ru",
-                        "dateRange": "12M",
-                        "colorTheme": "dark",
-                        "trendLineColor": "rgba(0, 242, 255, 1)",
-                        "underLineColor": "rgba(0, 242, 255, 0.15)",
-                        "isTransparent": true,
-                        "autosize": true,
-                        "largeChartUrl": ""
+                      "symbols": [["OKX:TONUSDT|12M"]],
+                      "chartOnly": true,
+                      "width": "100%",
+                      "height": "100%",
+                      "locale": "ru",
+                      "colorTheme": "dark",
+                      "autosize": true,
+                      "showVolume": false,
+                      "hideDateRanges": false,
+                      "scalePosition": "none",
+                      "scaleMode": "Normal",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": "10",
+                      "valuesTracking": "1",
+                      "changeMode": "price-and-percent",
+                      "chartType": "area",
+                      "backgroundColor": "rgba(5, 11, 16, 0)",
+                      "lineWidth": 2,
+                      "lineColor": "#00f2ff",
+                      "topColor": "rgba(0, 242, 255, 0.15)",
+                      "bottomColor": "rgba(0, 242, 255, 0)",
+                      "container_id": "tradingview_chart"
                     }
                     </script>
                 </div>
@@ -199,7 +223,7 @@
     </nav>
 
     <script>
-        // --- DATA CONFIG ---
+        // --- Логика терминала ---
         let COIN_DATA = {
             'TON':   { price: 5.40,    balance: 0.00, decimals: 9, contract: null },
             'QC':    { price: 0.012,   balance: 0.00, decimals: 9, contract: null }, 
@@ -215,7 +239,7 @@
 
         const state = {
             wallet: null,
-            receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U", // Адрес приема
+            receiver: "UQByN_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U",
             isFetching: false
         };
 
@@ -234,16 +258,12 @@
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
                 const data = await response.json();
-                
                 COIN_DATA['TON'].price = data['the-open-network']?.usd || COIN_DATA['TON'].price;
                 COIN_DATA['USDT'].price = data['tether']?.usd || 1.00;
                 COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
                 COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
-                
                 calculate();
-            } catch (e) {
-                console.log("Oracle: Offline (Cached)");
-            }
+            } catch (e) { console.log("Oracle: Offline"); }
         }
 
         async function fetchBalances() {
@@ -254,14 +274,9 @@
                 const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
                 const tonData = await tonRes.json();
                 if (tonData.ok) COIN_DATA['TON'].balance = Number(tonData.result) / 1e9;
-                
                 log(`Synced: ${COIN_DATA['TON'].balance.toFixed(2)} TON`, 'cyan-500');
-            } catch (e) { 
-                log("Balance sync failed", "red-500");
-            } finally {
-                state.isFetching = false;
-                updateUI();
-            }
+            } catch (e) { log("Balance sync failed", "red-500"); }
+            finally { state.isFetching = false; updateUI(); }
         }
 
         function log(msg, color = 'slate-500') {
@@ -270,7 +285,6 @@
             const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             p.innerText = `[${time}] > ${msg}`;
             ui.terminal.prepend(p);
-            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.lastChild);
         }
 
         function updateUI() {
@@ -284,20 +298,12 @@
             const valIn = parseFloat(ui.in.value) || 0;
             const exchangeRate = COIN_DATA[symIn].price / COIN_DATA['QC'].price;
             const res = valIn * exchangeRate;
-            
             ui.out.value = valIn > 0 ? res.toFixed(2) : "";
             ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(4)} QC`;
-            
-            const imp = valIn > 0 ? (valIn / (COIN_DATA[symIn].balance || 1000)) * 0.05 : 0;
-            ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
-            ui.impact.className = `text-[9px] font-bold mono ${imp > 1 ? 'text-red-500' : 'text-green-500'}`;
-            
             checkBtn();
         }
 
-        function updateTokens() {
-            updateUI();
-        }
+        function updateTokens() { updateUI(); }
 
         function setMax() {
             let amount = COIN_DATA[ui.tIn.value].balance;
@@ -307,86 +313,25 @@
         }
 
         function checkBtn() {
-            if(!state.wallet) {
-                ui.btn.innerText = "Connect Wallet";
-                ui.btn.disabled = false;
-                return;
-            }
+            if(!state.wallet) { ui.btn.innerText = "Connect Wallet"; ui.btn.disabled = false; return; }
             const val = parseFloat(ui.in.value) || 0;
-            if(val <= 0) {
-                ui.btn.innerText = "Enter Amount";
-                ui.btn.disabled = true;
-            } else if(val > COIN_DATA[ui.tIn.value].balance && ui.tIn.value === 'TON') {
-                ui.btn.innerText = "Insufficient TON";
-                ui.btn.disabled = true;
-            } else {
-                ui.btn.innerText = `Swap ${ui.tIn.value} to QC`;
-                ui.btn.disabled = false;
-            }
+            if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
+            else { ui.btn.innerText = `Swap ${ui.tIn.value} to QC`; ui.btn.disabled = false; }
         }
 
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
-            const valIn = parseFloat(ui.in.value);
-            const symIn = ui.tIn.value;
-            const token = COIN_DATA[symIn];
-            
-            ui.btn.disabled = true;
-            ui.btn.innerText = "Processing...";
-            log(`Initiating protocol bridge for ${symIn}...`, 'cyan-400');
-
-            try {
-                let transaction;
-                
-                if (symIn === 'TON') {
-                    // Обычный перевод TON
-                    transaction = {
-                        validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: state.receiver,
-                            amount: (valIn * 1e9).toFixed(0),
-                        }]
-                    };
-                } else {
-                    // Перевод Jetton (USDT/NOT/DOGS)
-                    // Для реальной работы тут нужен адрес кошелька токена пользователя (Jetton Wallet)
-                    // В данном примере отправляем на адрес контракта с комментарием (заглушка)
-                    log(`Warning: Ensure token wallet is valid`, 'yellow-500');
-                    transaction = {
-                        validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: token.contract,
-                            amount: "50000000", // 0.05 TON на газ для контракта
-                            payload: "" // Тут должен быть бинарный payload для transfer
-                        }]
-                    };
-                    throw new Error("Jetton Route requires contract interaction");
-                }
-
-                await tonConnectUI.sendTransaction(transaction);
-                log(`Success: Data broadcasted to shard`, 'green-400');
-                ui.in.value = "";
-                ui.btn.innerText = "Completed";
-                setTimeout(fetchBalances, 3000);
-            } catch (e) {
-                log(e.message || "Transaction aborted", "red-500");
-                ui.btn.innerText = "Protocol Error";
-            } finally {
-                setTimeout(checkBtn, 2000);
-            }
+            log("Processing Protocol Bridge...", "cyan-400");
         }
 
         tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
-            if(w) {
-                log(`Node Linked: ${w.account.address.slice(0,6)}...`, "green-400");
-                await fetchBalances();
-            } else {
-                log("Node Disconnected", "red-400");
-            }
+            if(w) { log("Node Linked", "green-400"); await fetchBalances(); }
+            else { log("Node Disconnected", "red-400"); }
         });
 
         window.onload = () => {
+            // Анимация фона
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
             let pts = [];
@@ -407,9 +352,7 @@
                 requestAnimationFrame(draw);
             };
             window.onresize = setup; setup(); draw();
-
             updateMarketPrices();
-            setInterval(updateMarketPrices, 30000);
             log("Core Terminal Active", "cyan-500");
         };
     </script>
