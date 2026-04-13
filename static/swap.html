@@ -33,9 +33,6 @@
         .terminal-scroll::-webkit-scrollbar { width: 2px; }
         .terminal-scroll::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); }
 
-        .chart-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 10s linear infinite; transition: all 1.5s ease-in-out; }
-        @keyframes draw { to { stroke-dashoffset: 0; } }
-        
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
 
         select {
@@ -54,6 +51,15 @@
         }
         .btn-glow:hover {
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
+        }
+
+        /* Стиль для контейнера графика */
+        .chart-container {
+            height: 180px;
+            width: 100%;
+            border-radius: 1rem;
+            overflow: hidden;
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -77,15 +83,32 @@
                 <span class="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">Quantum Oracle V4.2</span>
                 <span id="priceStatus" class="text-[10px] font-bold text-green-400 mono animate-pulse">Live Tracking...</span>
             </div>
-            <svg viewBox="0 0 400 60" class="w-full h-12">
-                <path id="chartPath" d="M0 30 Q 50 10, 100 40 T 200 30 T 300 50 T 400 20" fill="none" stroke="url(#lineGrad)" stroke-width="2" class="chart-line"/>
-                <defs>
-                    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style="stop-color:var(--neon-cyan)" />
-                        <stop offset="100%" style="stop-color:var(--neon-purple)" />
-                    </linearGradient>
-                </defs>
-            </svg>
+            
+            <div class="chart-container">
+                <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
+                    <div id="tradingview_ton" style="height: 100%; width: 100%;"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                    <script type="text/javascript">
+                    new TradingView.MediumWidget({
+                        "symbols": [["TON", "OKX:TONUSDT|12M"]],
+                        "chartOnly": false,
+                        "width": "100%",
+                        "height": "100%",
+                        "locale": "ru",
+                        "colorTheme": "dark",
+                        "autosize": true,
+                        "showVolume": false,
+                        "hideDateRanges": false,
+                        "scalePosition": "right",
+                        "scaleMode": "Normal",
+                        "fontFamily": "JetBrains Mono, monospace",
+                        "noOverlays": false,
+                        "container_id": "tradingview_ton",
+                        "backgroundColor": "rgba(0, 0, 0, 0)"
+                    });
+                    </script>
+                </div>
+                </div>
         </div>
 
         <div class="glass-card p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
@@ -217,11 +240,9 @@
             rate: document.getElementById('rateLabel'),
             terminal: document.getElementById('terminal'),
             impact: document.getElementById('impact'),
-            chart: document.getElementById('chartPath'),
             priceStatus: document.getElementById('priceStatus')
         };
 
-        // --- CORE FUNCTIONS ---
         async function updateMarketPrices() {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
@@ -320,75 +341,27 @@
             }
         }
 
-        // --- JETTON WALLET DISCOVERY ---
-        async function getJettonWallet(userAddress, jettonMaster) {
-            try {
-                const res = await fetch(`https://toncenter.com/api/v2/runGetMethod`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        address: jettonMaster,
-                        method: "get_wallet_address",
-                        stack: [["tvm.Slice", userAddress]]
-                    })
-                });
-                const data = await res.json();
-                if(data.ok) return data.result.stack[0][1];
-                return null;
-            } catch(e) { return null; }
-        }
-
-        // --- TRANSACTION HANDLER ---
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
-            
             const valIn = parseFloat(ui.in.value);
             const symIn = ui.tIn.value;
-            const coin = COIN_DATA[symIn];
-
             ui.btn.disabled = true;
             ui.btn.innerText = "Processing...";
             log(`Initiating protocol bridge for ${symIn}...`, 'cyan-400');
 
             try {
-                let transaction;
-
-                if (symIn === 'TON') {
-                    transaction = {
-                        validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: state.receiver,
-                            amount: (valIn * 1e9).toFixed(0),
-                        }]
-                    };
-                } else {
-                    // JETTON LOGIC
-                    const userWallet = state.wallet.account.address;
-                    const jettonWallet = await getJettonWallet(userWallet, coin.contract);
-                    
-                    if(!jettonWallet) throw new Error("Could not find Jetton Wallet");
-
-                    // Base64 payload для Jetton Transfer (упрощенная структура)
-                    // В реальном приложении используйте библиотеку ton для генерации Body
-                    transaction = {
-                        validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: jettonWallet,
-                            amount: "50000000", // 0.05 TON на комиссию сети
-                            payload: "te6cckEBAQEANAAAs79e8mQAAAAAAAAAAIAAD6h6AwIBIAYBAv8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcA" 
-                            // ВНИМАНИЕ: Здесь должен быть корректный BOC для трансфера. 
-                            // Для полноценной работы подключите tonweb.js
-                        }]
-                    };
-                    log(`Calculated route through ${symIn} gateway`, 'purple-400');
-                }
-
+                let transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 300,
+                    messages: [{
+                        address: state.receiver,
+                        amount: (valIn * 1e9).toFixed(0),
+                    }]
+                };
                 await tonConnectUI.sendTransaction(transaction);
                 log(`Success: Data broadcasted to shard`, 'green-400');
                 ui.in.value = "";
                 ui.btn.innerText = "Completed";
                 setTimeout(fetchBalances, 3000);
-
             } catch (e) {
                 log(e.message || "Transaction aborted", "red-500");
                 ui.btn.innerText = "Protocol Error";
@@ -397,7 +370,6 @@
             }
         }
 
-        // --- ENGINE ---
         tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
             if(w) {
@@ -409,7 +381,6 @@
         });
 
         window.onload = () => {
-            // Background Stars Animation
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
             let pts = [];
@@ -430,13 +401,6 @@
                 requestAnimationFrame(draw);
             };
             window.onresize = setup; setup(); draw();
-
-            // Dynamic Chart
-            setInterval(() => {
-                const p1 = 10 + Math.random() * 30;
-                const p2 = 20 + Math.random() * 30;
-                ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 ${p2} T 300 50 T 400 20`);
-            }, 3000);
 
             updateMarketPrices();
             setInterval(updateMarketPrices, 30000);
