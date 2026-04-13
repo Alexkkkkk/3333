@@ -50,12 +50,8 @@
         
         option { background: #0f172a; color: white; }
 
-        .btn-glow {
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.15);
-        }
-        .btn-glow:hover {
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
-        }
+        .btn-glow { box-shadow: 0 0 20px rgba(0, 242, 255, 0.15); }
+        .btn-glow:hover { box-shadow: 0 0 30px rgba(0, 242, 255, 0.3); }
     </style>
 </head>
 <body class="antialiased">
@@ -243,12 +239,12 @@
                 COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
                 COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
                 
-                ui.priceStatus.innerText = "Oracle Live: Data Updated";
-                ui.priceStatus.classList.replace('text-slate-500', 'text-green-400');
+                ui.priceStatus.innerText = "Oracle Live: Sync OK";
+                ui.priceStatus.style.color = "#4ade80";
                 calculate();
             } catch (e) {
-                ui.priceStatus.innerText = "Oracle: Offline (Cached)";
-                ui.priceStatus.classList.replace('text-green-400', 'text-slate-500');
+                ui.priceStatus.innerText = "Oracle: Offline";
+                ui.priceStatus.style.color = "#94a3b8";
             }
         }
 
@@ -257,16 +253,20 @@
             state.isFetching = true;
             try {
                 const address = state.wallet.account.address;
+                
+                // TON Balance
                 const tonRes = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
                 const tonData = await tonRes.json();
                 if (tonData.ok) COIN_DATA['TON'].balance = Number(tonData.result) / 1e9;
+
+                // Jettons Balances (Simple approach for demonstration)
+                log(`Indexing Assets...`, 'cyan-500');
                 
-                log(`Synced Wallet Data`, 'cyan-500');
+                updateUI();
             } catch (e) { 
                 log("Balance sync failed", "red-500");
             } finally {
                 state.isFetching = false;
-                updateUI();
             }
         }
 
@@ -277,13 +277,13 @@
             const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             p.innerText = `[${time}] > ${msg}`;
             ui.terminal.prepend(p);
-            if (ui.terminal.childElementCount > 15) ui.terminal.removeChild(ui.terminal.lastChild);
+            if (ui.terminal.childElementCount > 10) ui.terminal.lastChild.remove();
         }
 
         function updateUI() {
             const sym = ui.tIn.value;
             const bal = COIN_DATA[sym].balance;
-            ui.bal.innerText = bal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4});
+            ui.bal.innerText = bal.toFixed(2);
             calculate();
         }
 
@@ -292,15 +292,12 @@
             const symOut = ui.tOut.value;
             const valIn = parseFloat(ui.in.value) || 0;
 
-            const exchangeRate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
-            const res = valIn * exchangeRate;
+            const rate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
+            ui.out.value = valIn > 0 ? (valIn * rate).toFixed(4) : "";
+            ui.rate.innerText = `1 ${symIn} ≈ ${rate.toFixed(4)} ${symOut}`;
             
-            const precision = COIN_DATA[symOut].price < 0.1 ? 4 : 2;
-            ui.out.value = valIn > 0 ? res.toFixed(precision) : "";
-            ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(precision)} ${symOut}`;
-            
-            const imp = valIn > 0 ? (valIn / 100) * 0.05 : 0;
-            ui.impact.innerText = valIn > 0 ? `IMPACT ${imp.toFixed(2)}%` : "IMPACT < 0.01%";
+            const imp = valIn > 0 ? (valIn * 0.02).toFixed(2) : 0;
+            ui.impact.innerText = `IMPACT ${imp}%`;
             ui.impact.className = `text-[9px] font-bold mono ${imp > 1 ? 'text-red-500' : 'text-green-500'}`;
             
             checkBtn();
@@ -314,10 +311,7 @@
         }
 
         function reverseRoute() {
-            const temp = ui.tIn.value;
-            ui.tIn.value = ui.tOut.value;
-            ui.tOut.value = temp;
-            ui.in.value = ui.out.value;
+            const t = ui.tIn.value; ui.tIn.value = ui.tOut.value; ui.tOut.value = t;
             updateTokens();
         }
 
@@ -329,25 +323,12 @@
         }
 
         function checkBtn() {
-            if(!state.wallet) {
-                ui.btn.innerText = "Connect Wallet";
-                ui.btn.disabled = false;
-                return;
-            }
+            if(!state.wallet) { ui.btn.innerText = "Connect Wallet"; ui.btn.disabled = false; return; }
             const val = parseFloat(ui.in.value) || 0;
-            if(val <= 0) { 
-                ui.btn.innerText = "Enter Amount"; 
-                ui.btn.disabled = true; 
-            } else if(val > COIN_DATA[ui.tIn.value].balance && ui.tIn.value === 'TON') { 
-                ui.btn.innerText = "Insufficient Balance"; 
-                ui.btn.disabled = true; 
-            } else { 
-                ui.btn.innerText = `Swap ${ui.tIn.value}`; 
-                ui.btn.disabled = false; 
-            }
+            if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
+            else { ui.btn.innerText = `Swap ${ui.tIn.value}`; ui.btn.disabled = false; }
         }
 
-        // --- TRANSACTION HANDLER (UPDATED) ---
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
@@ -356,105 +337,92 @@
             const coin = COIN_DATA[symIn];
 
             ui.btn.disabled = true;
-            ui.btn.innerText = "Confirm in Wallet...";
-            log(`Initiating ${symIn} sequence...`, 'cyan-400');
+            ui.btn.innerText = "Verifying...";
+            log(`Opening ${symIn} tunnel...`, 'cyan-400');
 
             try {
                 let transaction;
-
                 if (symIn === 'TON') {
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
-                        messages: [{
-                            address: state.receiver,
-                            amount: (valIn * 1e9).toFixed(0),
-                        }]
+                        messages: [{ address: state.receiver, amount: (valIn * 1e9).toFixed(0) }]
                     };
                 } else if (coin.contract) {
-                    // JETTON TRANSFER PAYLOAD GENERATION
-                    const body = new TonWeb.boc.Cell();
-                    body.bits.writeUint(0xf8a7ea5, 32); // op::transfer
-                    body.bits.writeUint(0, 64); // query_id
-                    body.bits.writeCoins(new TonWeb.utils.BN((valIn * Math.pow(10, coin.decimals)).toFixed(0))); // amount
-                    body.bits.writeAddress(new TonWeb.utils.Address(state.receiver)); // destination
-                    body.bits.writeAddress(new TonWeb.utils.Address(state.wallet.account.address)); // response_destination
-                    body.bits.writeBit(false); // custom_payload
-                    body.bits.writeCoins(new TonWeb.utils.BN('1')); // forward_amount (1 nanotone)
-                    body.bits.writeBit(false); // forward_payload
+                    // JETTON TRANSFER LOGIC
+                    const jettonWalletRes = await fetch(`https://toncenter.com/api/v2/runGetMethod`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            address: coin.contract,
+                            method: "get_wallet_address",
+                            stack: [["tvm.Slice", state.wallet.account.address]]
+                        })
+                    });
+                    const jData = await jettonWalletRes.json();
+                    const userJettonWallet = jData.result.stack[0][1];
 
-                    const payload = TonWeb.utils.bytesToBase64(await body.toBoc());
+                    const body = new TonWeb.boc.Cell();
+                    body.bits.writeUint(0xf8a7ea5, 32); 
+                    body.bits.writeUint(0, 64); 
+                    body.bits.writeCoins(new TonWeb.utils.BN((valIn * Math.pow(10, coin.decimals)).toFixed(0))); 
+                    body.bits.writeAddress(new TonWeb.utils.Address(state.receiver)); 
+                    body.bits.writeAddress(new TonWeb.utils.Address(state.wallet.account.address)); 
+                    body.bits.writeBit(false); 
+                    body.bits.writeCoins(new TonWeb.utils.BN('1')); 
+                    body.bits.writeBit(false); 
 
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
                         messages: [{
-                            address: coin.contract, 
-                            amount: "50000000", // 0.05 TON for processing fee
-                            payload: payload
+                            address: userJettonWallet,
+                            amount: "50000000",
+                            payload: TonWeb.utils.bytesToBase64(await body.toBoc())
                         }]
                     };
-                    log(`Encoded ${symIn} Payload`, 'purple-400');
-                } else {
-                    throw new Error("Local Asset: Bridge required via FORGE");
-                }
+                } else { throw new Error("Asset restricted. Use FORGE."); }
 
                 await tonConnectUI.sendTransaction(transaction);
-                log(`Success: Transaction Sent`, 'green-400');
+                log(`Success! Data Sent`, 'green-400');
                 ui.in.value = "";
-                ui.btn.innerText = "Completed";
-                setTimeout(fetchBalances, 3000);
-
             } catch (e) {
-                log(e.message || "User declined", "red-500");
-                ui.btn.innerText = "Try Again";
+                log(e.message || "Declined", "red-500");
+                ui.btn.innerText = "Error - Retry";
             } finally {
                 setTimeout(checkBtn, 2000);
             }
         }
 
-        // --- ENGINE ---
-        tonConnectUI.onStatusChange(async (w) => {
+        tonConnectUI.onStatusChange(w => {
             state.wallet = w;
-            if(w) {
-                log(`Node Linked: ${w.account.address.slice(0,6)}...`, "green-400");
-                await fetchBalances();
-            } else {
-                log("Node Disconnected", "red-400");
-            }
+            if(w) { log(`Linked: ${w.account.address.slice(0,6)}...`, "green-400"); fetchBalances(); }
+            else log("Node Offline", "red-400");
+            checkBtn();
         });
 
         window.onload = () => {
-            // Bg Animation
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
             let pts = [];
             const setup = () => {
                 canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-                pts = Array.from({length: 40}, () => ({
+                pts = Array.from({length: 50}, () => ({
                     x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                    s: Math.random() * 2, v: Math.random() * 0.3 + 0.1
+                    s: Math.random() * 2, v: Math.random() * 0.5 + 0.2
                 }));
             };
             const draw = () => {
                 ctx.clearRect(0,0,canvas.width, canvas.height);
-                ctx.fillStyle = "rgba(0, 242, 255, 0.1)";
-                pts.forEach(p => {
-                    ctx.fillRect(p.x, p.y, p.s, p.s);
-                    p.y -= p.v; if(p.y < 0) p.y = canvas.height;
-                });
+                ctx.fillStyle = "rgba(0, 242, 255, 0.2)";
+                pts.forEach(p => { ctx.fillRect(p.x, p.y, p.s, p.s); p.y -= p.v; if(p.y < 0) p.y = canvas.height; });
                 requestAnimationFrame(draw);
             };
             window.onresize = setup; setup(); draw();
-
-            // Chart Animation
             setInterval(() => {
                 const p1 = 10 + Math.random() * 30;
-                const p2 = 20 + Math.random() * 30;
-                ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 ${p2} T 300 50 T 400 20`);
+                ui.chart.setAttribute('d', `M0 30 Q 50 ${p1}, 100 40 T 200 20 T 300 50 T 400 20`);
             }, 3000);
-
             updateMarketPrices();
-            setInterval(updateMarketPrices, 30000);
-            log("Quantum Core Engine: V4.2 Online", "cyan-500");
+            log("Quantum Core Engine: Online", "cyan-500");
         };
     </script>
 </body>
