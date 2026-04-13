@@ -132,7 +132,7 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-            <a href="swap.html" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
+            <a href="#" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
                 <h3 class="font-bold text-lg text-white">Обмен</h3>
                 <p class="text-[10px] text-slate-500 uppercase font-bold mono">Swap Engine</p>
                 <div class="flex justify-end mt-4">
@@ -140,7 +140,7 @@
                 </div>
             </a>
 
-            <a href="assets.html" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
+            <a href="#" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
                 <h3 class="font-bold text-lg text-white">Активы</h3>
                 <p class="text-[10px] text-slate-500 uppercase font-bold mono">Wallet Assets</p>
                 <div class="flex justify-end mt-4 text-cyan-900 group-hover:text-cyan-400 transition-colors">
@@ -148,7 +148,7 @@
                 </div>
             </a>
 
-            <a href="pools.html" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
+            <a href="#" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
                 <h3 class="font-bold text-lg text-blue-400">Пулы</h3>
                 <p class="text-[10px] text-slate-500 uppercase font-bold mono">Liquidity</p>
                 <div class="flex justify-end mt-4">
@@ -156,7 +156,7 @@
                 </div>
             </a>
 
-            <a href="airdrop.html" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
+            <a href="#" class="card-grid-item glass-card p-6 rounded-3xl hover:bg-white/5 group">
                 <h3 class="font-bold text-lg text-orange-400">Airdrop</h3>
                 <p class="text-[10px] text-slate-500 uppercase font-bold mono">Rewards</p>
                 <div class="flex justify-end mt-4">
@@ -167,17 +167,17 @@
     </main>
 
     <nav class="fixed-bottom-nav">
-        <div class="nav-item active"><a href="index.html"><i class="icon-home"></i><span>HOME</span></a></div>
-        <div class="nav-item"><a href="swap.html"><i class="icon-swap"></i><span>SWAP</span></a></div>
-        <div class="nav-item"><a href="forge.html"><i class="icon-plus"></i><span>FORGE</span></a></div>
-        <div class="nav-item"><a href="assets.html"><i class="icon-chart"></i><span>DATA</span></a></div>
-        <div class="nav-item"><a href="admin.html"><i class="icon-user"></i><span>OPERATOR</span></a></div>
+        <div class="nav-item active"><a href="#"><i class="icon-home"></i><span>HOME</span></a></div>
+        <div class="nav-item"><a href="#"><i class="icon-swap"></i><span>SWAP</span></a></div>
+        <div class="nav-item"><a href="#"><i class="icon-plus"></i><span>FORGE</span></a></div>
+        <div class="nav-item"><a href="#"><i class="icon-chart"></i><span>DATA</span></a></div>
+        <div class="nav-item"><a href="#"><i class="icon-user"></i><span>OPERATOR</span></a></div>
     </nav>
 
     <script>
-        // 1. Настройка TON Connect
+        // Настройка TON Connect
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
@@ -189,7 +189,6 @@
             } catch (err) { return null; }
         }
 
-        // 2. Логика статусов и балансов
         tonConnectUI.onStatusChange(async (wallet) => {
             const tonBalEl = document.getElementById('main-balance-ton');
             const statusEl = document.getElementById('core-id-display');
@@ -203,31 +202,28 @@
                 if (statusEl) statusEl.innerText = "LINKED | " + address.slice(0, 6) + "...";
                 if (indicator) indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]";
                 
-                // Синхронизация с твоим Python сервером
+                // Отправка данных на твой Python сервер для базы данных
                 fetch('/api/wallet/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ address, balance: realBalance || 0 })
-                }).catch(() => console.log("Sync queued..."));
+                }).catch(() => console.warn("Background sync failed..."));
             } else {
                 if (statusEl) statusEl.innerText = "LINKING...";
                 if (indicator) indicator.className = "w-2 h-2 rounded-full bg-cyan-500 animate-pulse";
             }
         });
 
-        // 3. Обновление серверных данных (QC и общая стата)
+        // Получение баланса QC с твоего сервера
         async function updateCoreData() {
             try {
                 const res = await fetch('/api/stats');
                 const data = await res.json();
                 document.getElementById('main-balance-qc').innerText = (data.qc_balance || 0).toFixed(2) + " QC";
-                if (!tonConnectUI.connected) {
-                    document.getElementById('main-balance-ton').innerText = (data.balance || 0).toFixed(2) + " TON";
-                }
             } catch (e) {}
         }
 
-        // 4. Частицы фона
+        // Анимация фона (частицы)
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -255,7 +251,7 @@
         }
         animate();
         updateCoreData();
-        setInterval(updateCoreData, 5000);
+        setInterval(updateCoreData, 10000); // Обновление раз в 10 секунд
     </script>
 </body>
 </html>
