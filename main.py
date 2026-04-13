@@ -17,7 +17,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Попытка импорта psutil (защита от ModuleNotFoundError на хостинге)
+# Загружаем переменные окружения (из файла .env или панели Bothost)
+load_dotenv()
+
+# --- ПЕРЕМЕННЫЕ ИЗ ПАНЕЛИ ---
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+TONAPI_KEY = os.getenv("TONAPI_KEY") # Твой новый ключ TonConsole
+DATABASE_URL = os.getenv("DATABASE_URL")
+PORT = int(os.getenv("PORT", 3000))
+
+# Попытка импорта psutil (защита от ModuleNotFoundError)
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -30,8 +39,6 @@ from database import (
     save_wallet_state, log_ai_action, update_remote_config, 
     load_remote_config
 )
-
-load_dotenv()
 
 # --- ПАРАМЕТРЫ ПУЛА ---
 STAKE_THRESHOLD = 5.0      # Порог для автоматизации стейкинга
@@ -53,7 +60,7 @@ def log(message, level="INFO"):
     print(f"{color}{log_msg}{reset}", flush=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ TON ЯДРА ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + СИСТЕМА ВЫВОДА <<<", "CORE")
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + TONAPI <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
     log("L1: Библиотеки TON (pytoniq) загружены", "SUCCESS")
@@ -152,7 +159,6 @@ async def get_stats(request: Request):
         "engine": {"core_id": overlord.core_id, "status": overlord.last_status, "uptime": round(time.time() - overlord.session_start)}
     }
 
-# --- РОУТ ВЫВОДА СРЕДСТВ ---
 @app.post("/api/wallet/withdraw")
 async def withdraw_funds(request: Request):
     try:
@@ -163,14 +169,10 @@ async def withdraw_funds(request: Request):
         if not address or amount <= 0:
             return JSONResponse({"status": "error", "message": "Invalid params"}, status_code=400)
 
-        # Здесь должна быть проверка баланса пользователя в БД
-        # if await db.get_user_balance(address) < amount: return ...
-
         if amount > WITHDRAW_LIMIT_AUTO:
             log(f"WITHDRAW: Заявка {amount} TON требует ручной проверки", "WARNING")
             return {"status": "pending", "message": "Manual review required"}
 
-        # Добавляем в очередь воркера
         overlord.pending_withdrawals.append({"address": address, "amount": amount})
         log(f"WITHDRAW: Заявка {amount} TON добавлена в очередь", "INFO")
         
@@ -214,12 +216,12 @@ async def core_worker():
                         # 2. Обработка депозитов
                         await process_pool_inflow(wallet)
                         
-                        # 3. ОБРАБОТКА ВЫПЛАТ (Withdrawals)
+                        # 3. ОБРАБОТКА ВЫПЛАТ
                         if overlord.pending_withdrawals:
                             task = overlord.pending_withdrawals.pop(0)
                             log(f"CORE: Выполняю перевод {task['amount']} TON на {task['address'][:8]}...", "CORE")
                             
-                            # Реальная отправка транзакции
+                            # Реальная отправка транзакции (раскомментируй, когда будешь готов к тестам)
                             # await wallet.transfer(destination=task['address'], amount=int(task['amount'] * 1e9))
                             
                             await log_ai_action(
@@ -246,4 +248,4 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 3000)), proxy_headers=True, forwarded_allow_ips="*")
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT, proxy_headers=True, forwarded_allow_ips="*")
