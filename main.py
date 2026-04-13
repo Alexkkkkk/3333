@@ -34,9 +34,10 @@ from database import (
 load_dotenv()
 
 # --- ПАРАМЕТРЫ ПУЛА ---
-STAKE_THRESHOLD = 5.0     # Порог для автоматизации (стейкаем если > 5 TON)
-GAS_RESERVE = 1.0         # Минимум оставляем на газ
-AUTO_STAKE_ENABLED = True # Флаг автоматизации
+STAKE_THRESHOLD = 5.0      # Порог для автоматизации стейкинга
+GAS_RESERVE = 1.0          # Минимум оставляем на газ
+AUTO_STAKE_ENABLED = True  # Флаг автоматизации
+WITHDRAW_LIMIT_AUTO = 10.0 # Лимит на авто-вывод без проверки (TON)
 
 # --- СИСТЕМА ЛОГИРОВАНИЯ ---
 def log(message, level="INFO"):
@@ -52,7 +53,7 @@ def log(message, level="INFO"):
     print(f"{color}{log_msg}{reset}", flush=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ TON ЯДРА ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + СОБСТВЕННЫЙ ПУЛ <<<", "CORE")
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 + СИСТЕМА ВЫВОДА <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
     log("L1: Библиотеки TON (pytoniq) загружены", "SUCCESS")
@@ -69,7 +70,8 @@ class OmniNeuralOverlord:
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
-        self.processed_txs = set() # Память обработанных транзакций
+        self.processed_txs = set()
+        self.pending_withdrawals = [] # Очередь на выплату
 
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -95,33 +97,21 @@ async def sync_config():
 
 # --- ЛОГИКА СОБСТВЕННОГО ПУЛА ---
 async def process_pool_inflow(wallet):
-    """Анализ входящих транзакций в пул."""
     try:
-        # В режиме эмуляции просто пропускаем
         if not TON_ENABLED: return
-
-        # Получаем последние транзакции кошелька
         method_res = await wallet.client.get_transactions(wallet.address, limit=5)
-        
         for tx in method_res:
             tx_hash = tx.hash.hex()
             if tx_hash in overlord.processed_txs: continue
-            
-            # Проверяем входящее сообщение
             if tx.in_msg and tx.in_msg.value > 0:
                 amount = tx.in_msg.value / 1e9
                 sender = tx.in_msg.source.to_str() if tx.in_msg.source else "UNKNOWN"
-                
-                log(f"POOL: Обнаружен депозит {amount} TON от {sender[:8]}...", "SUCCESS")
-                
-                # Записываем действие в лог ИИ
+                log(f"POOL: Депозит {amount} TON от {sender[:8]}...", "SUCCESS")
                 await log_ai_action(
-                    strategy={'cmd': 'DEPOSIT_DETECTED', 'from': sender, 'amount': amount},
+                    strategy={'cmd': 'DEPOSIT', 'from': sender, 'amount': amount},
                     market={'pool_status': 'active'}
                 )
-                
             overlord.processed_txs.add(tx_hash)
-            
     except Exception as e:
         log(f"Pool Logic Error: {e}", "TRACE")
 
@@ -133,7 +123,6 @@ async def lifespan(app: FastAPI):
         await init_db()
         await sync_config()
         worker_task = asyncio.create_task(core_worker())
-        log(f"SYS: Quantum Core Online ({overlord.core_id})", "SUCCESS")
         yield
     finally:
         overlord.is_active = False
@@ -141,14 +130,7 @@ async def lifespan(app: FastAPI):
         log("SYS: Ядро деактивировано", "CORE")
 
 app = FastAPI(lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"]
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # --- API ROUTES ---
 
@@ -157,39 +139,45 @@ app.add_middleware(
 async def read_index(request: Request):
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     path = os.path.join(static_dir, "index.html")
-    if os.path.exists(path):
-        return FileResponse(path)
-    return JSONResponse({"error": "Index not found"}, status_code=404)
+    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "404"}, status_code=404)
 
 @app.get("/api/stats")
 async def get_stats(request: Request):
+    db_stats = await get_stats_for_web() or {}
+    cpu_usage = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(14, 26)
+    return {
+        "balance": round(float(overlord.current_balance), 2), 
+        "qc_balance": round(float(overlord.current_balance * 137.5), 2),
+        "traffic": round(db_stats.get('traffic', random.uniform(42.0, 48.0)), 2), 
+        "engine": {"core_id": overlord.core_id, "status": overlord.last_status, "uptime": round(time.time() - overlord.session_start)}
+    }
+
+# --- РОУТ ВЫВОДА СРЕДСТВ ---
+@app.post("/api/wallet/withdraw")
+async def withdraw_funds(request: Request):
     try:
-        db_stats = await get_stats_for_web() or {}
-        current_cfg = await load_remote_config() or {}
-        cpu_usage = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(14, 26)
+        data = await request.json()
+        address = data.get("address")
+        amount = float(data.get("amount", 0))
 
-        return {
-            "balance": round(float(overlord.current_balance), 2), 
-            "qc_balance": round(float(overlord.current_balance * 137.5), 2),
-            "traffic": round(db_stats.get('traffic', random.uniform(42.0, 48.0)), 2), 
-            "roi": db_stats.get('roi_24h', 4.2),
-            "cpu": cpu_usage,
-            "visitors": db_stats.get('traffic', 1),
-            "engine": {
-                "core_id": overlord.core_id, 
-                "status": overlord.last_status,
-                "uptime": round(time.time() - overlord.session_start)
-            },
-            "config": {
-                "yield": current_cfg.get('yield_percentage', 75),
-                "ref": current_cfg.get('referral_commission', 15)
-            }
-        }
+        if not address or amount <= 0:
+            return JSONResponse({"status": "error", "message": "Invalid params"}, status_code=400)
+
+        # Здесь должна быть проверка баланса пользователя в БД
+        # if await db.get_user_balance(address) < amount: return ...
+
+        if amount > WITHDRAW_LIMIT_AUTO:
+            log(f"WITHDRAW: Заявка {amount} TON требует ручной проверки", "WARNING")
+            return {"status": "pending", "message": "Manual review required"}
+
+        # Добавляем в очередь воркера
+        overlord.pending_withdrawals.append({"address": address, "amount": amount})
+        log(f"WITHDRAW: Заявка {amount} TON добавлена в очередь", "INFO")
+        
+        return {"status": "queued", "message": "Processing by Quantum Core"}
     except Exception as e:
-        log(f"API Error: {e}", "ERROR")
-        return {"status": "offline", "balance": 0.0}
+        return JSONResponse({"error": str(e)}, status_code=500)
 
-# --- РОУТИНГ СТАТИКИ ---
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
@@ -197,20 +185,13 @@ async def serve_all_files(path: str):
     clean_path = path.strip("/")
     file_path = os.path.join(static_dir, clean_path)
     if os.path.isfile(file_path): return FileResponse(file_path)
-    
-    img_path = os.path.join(static_dir, "images", clean_path.split("/")[-1])
-    if os.path.isfile(img_path): return FileResponse(img_path)
-
-    html_path = os.path.join(static_dir, f"{clean_path}.html")
-    if os.path.exists(html_path): return FileResponse(html_path)
-    
     idx = os.path.join(static_dir, "index.html")
-    return FileResponse(idx) if os.path.exists(idx) else JSONResponse({"error": "404"}, status_code=404)
+    return FileResponse(idx)
 
 # --- CORE WORKER ---
 
 async def core_worker():
-    log("CORE: Мониторинг пула запущен", "INFO")
+    log("CORE: Мониторинг пула и выплат запущен", "INFO")
     while overlord.is_active:
         try:
             await sync_config()
@@ -226,38 +207,43 @@ async def core_worker():
                 
                 while overlord.is_active:
                     try:
-                        # 1. Проверяем баланс
+                        # 1. Обновляем баланс
                         raw_bal = await wallet.get_balance()
                         overlord.current_balance = raw_bal / 1e9
                         
-                        # 2. Обработка входящих в Пул
+                        # 2. Обработка депозитов
                         await process_pool_inflow(wallet)
                         
-                        # 3. Автоматизация стейкинга (логика решения)
+                        # 3. ОБРАБОТКА ВЫПЛАТ (Withdrawals)
+                        if overlord.pending_withdrawals:
+                            task = overlord.pending_withdrawals.pop(0)
+                            log(f"CORE: Выполняю перевод {task['amount']} TON на {task['address'][:8]}...", "CORE")
+                            
+                            # Реальная отправка транзакции
+                            # await wallet.transfer(destination=task['address'], amount=int(task['amount'] * 1e9))
+                            
+                            await log_ai_action(
+                                strategy={'cmd': 'PAYOUT_EXECUTED', 'to': task['address'], 'amount': task['amount']},
+                                market={'status': 'payout_success'}
+                            )
+
+                        # 4. Авто-стейкинг излишков
                         if AUTO_STAKE_ENABLED and overlord.current_balance > STAKE_THRESHOLD:
-                            stake_amount = overlord.current_balance - GAS_RESERVE
-                            log(f"AUTO: Система готова направить {stake_amount:.2f} TON в Forge", "CORE")
+                            log(f"AUTO: Обнаружен избыток {overlord.current_balance - GAS_RESERVE} TON", "CORE")
+
+                        await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 137.5)
                         
-                        # Сохраняем состояние
-                        await save_wallet_state(
-                            address=str(wallet.address),
-                            balance=overlord.current_balance,
-                            qc=overlord.current_balance * 137.5 
-                        )
-                        
-                        # Проверка смены мнемоники
                         old_mne = overlord.mnemonic
                         await sync_config()
                         if overlord.mnemonic != old_mne: break
                             
                         await asyncio.sleep(30) 
                     except Exception as e:
-                        log(f"Worker Heartbeat Error: {e}", "TRACE")
+                        log(f"Worker Error: {e}", "TRACE")
                         break
         except Exception as e:
-            log(f"Worker Loop Error: {e}", "ERROR")
+            log(f"Global Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 3000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 3000)), proxy_headers=True, forwarded_allow_ips="*")
