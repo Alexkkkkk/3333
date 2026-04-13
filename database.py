@@ -91,6 +91,19 @@ async def init_db():
             )
         ''')
 
+        # 6. ТАБЛИЦА ВЫВОДА СРЕДСТВ (NEW)
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS withdrawal_requests (
+                id SERIAL PRIMARY KEY,
+                address TEXT NOT NULL,
+                amount_ton FLOAT NOT NULL,
+                status TEXT DEFAULT 'PENDING', -- PENDING, PROCESSING, COMPLETED, FAILED
+                tx_hash TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP
+            )
+        ''')
+
         # Базовая настройка генома
         default_val = {
             "mnemonic": "",
@@ -107,24 +120,23 @@ async def init_db():
             ON CONFLICT DO NOTHING
         ''', json.dumps(default_val))
 
-        # Индексы для оптимизации High-Load
+        # Индексы для оптимизации
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
+        await conn.execute('CREATE INDEX IF NOT EXISTS idx_withdraw_status ON withdrawal_requests(status)')
         
         print("🌌 [DATABASE] Nexus Singularity Core Synchronized. Analytics Module Active.")
 
 # --- СИСТЕМА УПРАВЛЕНИЯ КОНФИГУРАЦИЕЙ ---
 
 async def load_remote_config():
-    """Загрузка конфигурации из БД."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         val = await conn.fetchval("SELECT val FROM quantum_genome WHERE key = 'active_core'")
         return json.loads(val) if val else {}
 
 async def update_remote_config(data: dict):
-    """Обновление конфигурации через админ-панель."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         try:
@@ -143,13 +155,11 @@ async def update_remote_config(data: dict):
 # --- СИСТЕМА УЧЕТА ПОЛЬЗОВАТЕЛЕЙ И КОШЕЛЬКОВ ---
 
 async def register_visit(ip: str, user_agent: str):
-    """Регистрация захода на сайт с хешированием IP."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('INSERT INTO site_visits (ip_hash, user_agent) VALUES (MD5($1), $2)', ip, user_agent)
 
 async def save_wallet_state(address: str, balance: float, qc: float, network: str = 'MAINNET'):
-    """Сохранение состояния кошелька (узла)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
@@ -162,10 +172,49 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
                 status = 'SUCCESS'
         ''', address, float(balance), float(qc), network)
 
+async def get_user_balance(address: str):
+    """Проверка баланса пользователя перед выводом."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        res = await conn.fetchval('SELECT balance_ton FROM quantum_wallets WHERE address = $1', address)
+        return float(res) if res else 0.0
+
+# --- СИСТЕМА ВЫВОДА (WITHDRAWAL) ---
+
+async def create_withdrawal_request(address: str, amount: float):
+    """Создание заявки на вывод средств."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Проверяем, нет ли уже активной заявки
+        active = await conn.fetchval("SELECT id FROM withdrawal_requests WHERE address = $1 AND status = 'PENDING'", address)
+        if active:
+            return False, "У вас уже есть активная заявка на вывод"
+        
+        await conn.execute('''
+            INSERT INTO withdrawal_requests (address, amount_ton) VALUES ($1, $2)
+        ''', address, float(amount))
+        return True, "Заявка успешно создана"
+
+async def get_pending_withdrawals():
+    """Получение списка заявок для обработки воркером."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM withdrawal_requests WHERE status = 'PENDING' LIMIT 5")
+        return [dict(r) for r in rows]
+
+async def update_withdrawal_status(request_id: int, status: str, tx_hash: str = None):
+    """Обновление статуса вывода после транзакции."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute('''
+            UPDATE withdrawal_requests 
+            SET status = $2, tx_hash = $3, processed_at = NOW() 
+            WHERE id = $1
+        ''', request_id, status, tx_hash)
+
 # --- АНАЛИТИКА И ПРИБЫЛЬ ---
 
 async def calculate_roi_stats():
-    """Расчет процента прибыли за последние 24 часа."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         total_assets = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 1.0
@@ -173,12 +222,10 @@ async def calculate_roi_stats():
             SELECT SUM(total_amount) FROM profit_distribution 
             WHERE timestamp > NOW() - INTERVAL '24 hours'
         ''') or 0.0
-        
-        roi_percent = (profit_24h / total_assets) * 100
+        roi_percent = (float(profit_24h) / float(total_assets)) * 100
         return round(roi_percent, 2)
 
 async def add_profit_record(amount):
-    """Фиксация прибыли и распределение по долям."""
     pool = await get_pool()
     shares = {"holders": 0.02, "staking": 0.30, "liquidity": 0.38, "treasury": 0.30}
     amount = float(amount)
@@ -189,14 +236,11 @@ async def add_profit_record(amount):
             VALUES ($1, $2, $3, $4, $5)
         ''', amount, amount*shares['holders'], amount*shares['staking'], 
              amount*shares['liquidity'], amount*shares['treasury'])
-        
-        # Логируем событие получения прибыли в ИИ-логи
         await log_ai_action({'cmd': 'PROFIT_TAKE', 'amt': amount, 'reason': 'ROI Growth'}, {}, success_metric=1.0)
 
-# --- СИСТЕМА САМООБУЧЕНИЯ (AI LOGS) ---
+# --- AI LOGS ---
 
 async def log_ai_action(strategy, market, success_metric=0.0):
-    """Запись действий ИИ для последующего анализа."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         reward = success_metric if strategy.get('cmd') != 'WAIT' else 0.01
@@ -206,29 +250,23 @@ async def log_ai_action(strategy, market, success_metric=0.0):
         ''', strategy.get('cmd'), float(strategy.get('amt', 0)), 
              int(strategy.get('urgency', 1)), strategy.get('reason'), 
              json.dumps(market), float(reward))
-        
-        # Очистка старых логов (старше 7 дней) для экономии места
         await conn.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
 
-# --- СБОР ДАННЫХ ДЛЯ ВЕБ-ИНТЕРФЕЙСА ---
+# --- ВЕБ-СТАТИСТИКА ---
 
 async def get_stats_for_web():
-    """Сбор данных для фронтенда (index.html)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # 1. Трафик за последние 15 минут
         active_users = await conn.fetchval('''
             SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
             WHERE timestamp > NOW() - INTERVAL '15 minutes'
         ''') or 0
 
-        # 2. Последние 10 кошельков
         wallets_rows = await conn.fetch('''
             SELECT address, balance_ton as amount, equity_qc as qc, network as type, status 
             FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
         ''')
 
-        # 3. Глобальные метрики
         total_qc = await conn.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 0
         total_wallets = await conn.fetchval('SELECT COUNT(*) FROM quantum_wallets') or 0
         roi_percent = await calculate_roi_stats()
@@ -236,7 +274,7 @@ async def get_stats_for_web():
         return {
             "connections": total_wallets,
             "balance": float(total_qc),
-            "traffic": active_users * 7, # Множитель для визуальной активности
+            "traffic": active_users * 7,
             "roi_24h": roi_percent,
             "recent_actions": [dict(row) for row in wallets_rows],
             "cpu": random.randint(32, 48)
