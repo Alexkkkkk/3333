@@ -154,7 +154,7 @@
                 <p class="text-[6px] font-bold tracking-[0.5em] text-cyan-500/40 uppercase">Liquidity Terminal</p>
             </div>
         </a>
-        <div id="connectBtn" class="scale-90"></div>
+        <div id="connectBtn"></div>
     </header>
 
     <main class="max-w-xl mx-auto px-6 pb-40 relative z-10">
@@ -173,8 +173,8 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
-                <button class="btn-quantum bg-cyan-500 text-black py-4 rounded-xl text-[10px]">Stake</button>
-                <button class="btn-quantum bg-white/5 border border-white/10 text-white py-4 rounded-xl text-[10px]">Unstake</button>
+                <button onclick="stake('GENERAL')" class="btn-quantum bg-cyan-500 text-black py-4 rounded-xl text-[10px]">Stake</button>
+                <button onclick="unstake('GENERAL')" class="btn-quantum bg-white/5 border border-white/10 text-white py-4 rounded-xl text-[10px]">Unstake</button>
             </div>
         </div>
 
@@ -244,6 +244,18 @@
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
+        });
+
+        // Слушатель состояния кошелька
+        tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+                // Имитация баланса при подключении
+                document.getElementById('total-balance').innerHTML = 
+                    `$142.<span class="text-2xl text-cyan-500/40">85</span>`;
+            } else {
+                document.getElementById('total-balance').innerHTML = 
+                    `$0.<span class="text-2xl text-cyan-500/40">00</span>`;
+            }
         });
 
         // Metrics Engine
@@ -324,12 +336,22 @@
         }
         drawChart('balanceChart', '#06b6d4');
 
+        // Logic Functions
         function stake(poolId) {
             if (!tonConnectUI.connected) {
                 tonConnectUI.openModal();
                 return;
             }
             console.log("Staking transaction initialized for:", poolId);
+            // Здесь будет логика вызова транзакции через tonConnectUI.sendTransaction
+        }
+
+        function unstake(poolId) {
+            if (!tonConnectUI.connected) {
+                tonConnectUI.openModal();
+                return;
+            }
+            alert("Unstake feature coming soon for " + poolId);
         }
     </script>
 </body>
