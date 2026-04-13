@@ -1,22 +1,24 @@
-# Веб-сервер и API
+# --- Веб-сервер и API ---
 fastapi
 uvicorn
 python-multipart
 aiohttp>=3.9.0
 aiohttp_cors
 
-# Телеграм и TON
+# --- Телеграм и TON ---
 aiogram>=3.0.0
+pyTelegramBotAPI
 pytoniq==0.1.43
 pytoniq-core==0.1.46
 cryptography>=42.0.0
+requests
 
-# База данных
+# --- База данных ---
 aiosqlite
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9
 
-# ИИ и утилиты
+# --- ИИ и утилиты ---
 openai>=1.0.0
 numpy>=1.24.0
 python-dotenv
