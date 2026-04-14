@@ -4,15 +4,13 @@ import json
 import time
 import sys
 import random
-import hashlib
-import traceback
 from datetime import datetime
 from typing import List
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI компоненты
-from fastapi import FastAPI, Request, Response, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,11 +19,9 @@ import uvicorn
 # Загружаем переменные окружения
 load_dotenv()
 
-# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-TONAPI_KEY = os.getenv("TONAPI_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")
+# --- КОНФИГУРАЦИЯ ---
 PORT = int(os.getenv("PORT", 3000))
+TON_ENABLED = False
 
 # Проверка psutil для системных данных
 try:
@@ -38,36 +34,26 @@ except ImportError:
 try:
     from database import (
         init_db, get_stats_for_web, register_visit, 
-        save_wallet_state, log_ai_action, update_remote_config, 
-        load_remote_config, sync_wallet_data
+        save_wallet_state, log_ai_action, load_remote_config, sync_wallet_data
     )
 except ImportError:
-    print("\033[91m[ERROR] Файл database.py не найден или функции отсутствуют!\033[0m")
+    print("\033[91m[ERROR] Файл database.py не найден!\033[0m")
     sys.exit(1)
 
-# --- ЛОГИРОВАНИЕ ---
-def log(message, level="INFO"):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    colors = {
-        "INFO": "\033[94m", 
-        "SUCCESS": "\033[92m", 
-        "WARNING": "\033[93m", 
-        "ERROR": "\033[91m", 
-        "CORE": "\033[95m"
-    }
-    reset = "\033[0m"
-    print(f"{colors.get(level, reset)}[{timestamp}] [{level}] {message}{reset}", flush=True)
-
-# --- TON CORE ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 REAL-TIME + MONITORING <<<", "CORE")
+# Импорт TON библиотек
 try:
-    from pytoniq import LiteClient, WalletV4R2, Address
+    from pytoniq import LiteClient, WalletV4R2
     TON_ENABLED = True
 except ImportError:
-    log("pytoniq не найден!", "ERROR")
     TON_ENABLED = False
 
-# --- МЕНЕДЖЕР WEB-SOCKET СОЕДИНЕНИЙ ---
+# --- ЛОГИРОВАНИЕ В КОНСОЛЬ СЕРВЕРА ---
+def log(message, level="INFO"):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    colors = {"INFO": "\033[94m", "SUCCESS": "\033[92m", "WARNING": "\033[93m", "ERROR": "\033[91m", "CORE": "\033[95m"}
+    print(f"{colors.get(level, '')}[{timestamp}] [{level}] {message}\033[0m", flush=True)
+
+# --- МЕНЕДЖЕР WEB-SOCKET ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -81,275 +67,184 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        bad_connections = []
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except Exception:
-                bad_connections.append(connection)
-        
-        for bad in bad_connections:
-            self.disconnect(bad)
+            except:
+                continue
 
 manager = ConnectionManager()
 
+# --- ЯДРО СИСТЕМЫ ---
 class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.boot_time = time.time()
-        self.core_id = f"QC-CORE-{os.urandom(2).hex().upper()}"
+        self.core_id = f"QN-SYNC-4.1.0"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
         self.processed_txs = set()
 
     def get_uptime(self):
-        return round(time.time() - self.boot_time, 2)
-
-    def get_static_path(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_dir, "static")
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-        return path
+        return int(time.time() - self.boot_time)
 
 overlord = OmniNeuralOverlord()
-static_dir = overlord.get_static_path()
 
-async def sync_config():
-    try:
-        cfg = await load_remote_config()
-        if cfg and cfg.get('mnemonic'):
-            overlord.mnemonic = cfg['mnemonic'].strip()
-            return True
-    except Exception as e:
-        log(f"Sync Config Fail: {e}", "ERROR")
-    return False
-
-# --- ЛОГИКА ПУЛА ---
-async def process_pool_inflow(wallet):
-    if not TON_ENABLED: return
-    try:
-        txs = await wallet.client.get_transactions(wallet.address, limit=5)
-        for tx in txs:
-            tx_hash = tx.hash.hex()
-            if tx_hash in overlord.processed_txs: continue
-            
-            if tx.in_msg and tx.in_msg.value > 0:
-                amount = tx.in_msg.value / 1e9
-                log(f"POOL: Депозит {amount} TON", "SUCCESS")
-                await log_ai_action({'cmd': 'DEPOSIT', 'amount': amount}, {'status': 'active'})
-                await manager.broadcast({
-                    "type": "EVENT", 
-                    "event": "deposit", 
-                    "amount": amount,
-                    "hash": tx_hash[:8] + "..."
-                })
-            overlord.processed_txs.add(tx_hash)
-    except Exception as e:
-        log(f"Pool Sync Error: {e}", "CORE")
-
-# --- LIFESPAN ---
+# --- LIFESPAN (Запуск и остановка) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log("SYS: Nexus DB Connect...", "INFO")
+    log(">>> QUANTUM HYBRID CORE V4.1 STARTING <<<", "CORE")
     await init_db()
-    await sync_config() 
+    # Загружаем конфиг из БД
+    cfg = await load_remote_config()
+    if cfg and cfg.get('mnemonic'):
+        overlord.mnemonic = cfg['mnemonic'].strip()
     
     worker_task = asyncio.create_task(core_worker())
     yield
-    
     overlord.is_active = False
     worker_task.cancel()
-    try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
-    log("SYS: Ядро остановлено", "CORE")
+    log("SYS: Core Shutdown Complete", "CORE")
 
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"], 
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# --- API & MONITORING ROUTES ---
-
-@app.get("/health")
-async def health_check():
-    """Эндпоинт для внешних сервисов мониторинга (UptimeRobot и др.)"""
-    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else 0
-    ram = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
-    return {
-        "status": "online",
-        "core_id": overlord.core_id,
-        "uptime": overlord.get_uptime(),
-        "load": {"cpu": cpu, "ram": ram},
-        "ton_enabled": TON_ENABLED
-    }
+# --- РОУТИНГ ПАНЕЛИ УПРАВЛЕНИЯ ---
 
 @app.get("/")
 @app.get("/index.html")
-async def read_index(request: Request):
+async def read_root(request: Request):
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return JSONResponse({"error": "index.html not found"}, status_code=404)
+    return FileResponse("static/index.html")
 
-@app.get("/admin")
-async def get_admin_panel():
-    admin_path = os.path.join(static_dir, "admin", "admin.html")
-    if os.path.exists(admin_path):
-        return FileResponse(admin_path)
-    return JSONResponse({"error": "Admin panel not found"}, status_code=404)
+@app.get("/admin/admin.html")
+async def get_admin():
+    return FileResponse("static/index.html") # Ваш главный монитор
+
+@app.get("/admin/wallets.html")
+async def get_wallets():
+    # Если у вас есть отдельный файл wallets.html в static/admin/
+    path = "static/admin/wallets.html"
+    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "File not found"}, status_code=404)
+
+@app.get("/admin/settings.html")
+async def get_settings():
+    path = "static/admin/settings.html"
+    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "File not found"}, status_code=404)
+
+# --- API ---
 
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web() or {}
-    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(18, 28)
-    ram = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
     return {
-        **db_stats,
         "balance": round(overlord.current_balance, 2),
-        "qc_balance": round(overlord.current_balance * 137.5, 2),
-        "monitoring": {
-            "cpu_load": cpu,
-            "ram_usage": ram,
-            "uptime": overlord.get_uptime(),
-            "active_ws": len(manager.active_connections)
-        },
-        "engine": {"core_id": overlord.core_id, "status": overlord.last_status}
+        "visitors": db_stats.get('total_visits', 0),
+        "connections": db_stats.get('wallets_count', 0),
+        "traffic": round(random.uniform(0.5, 3.5), 2),
+        "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 12,
+        "status": overlord.last_status,
+        "core_id": overlord.core_id
     }
 
-@app.post("/api/wallet/sync")
-async def wallet_sync(request: Request):
-    try:
-        data = await request.json()
-        success = await sync_wallet_data(data)
-        if success:
-            return {"status": "ok", "message": "Wallet synchronized"}
-        return JSONResponse({"status": "error", "message": "Invalid wallet data"}, status_code=400)
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+# --- WEBSOCKET SYNC ---
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     db_stats = await get_stats_for_web() or {}
+    
+    # Сразу отправляем состояние INIT для фронтенда
     try:
         await websocket.send_json({
             "type": "INIT",
             "balance": round(overlord.current_balance, 2),
             "visitors": db_stats.get('total_visits', 0),
-            "connections": len(manager.active_connections),
-            "uptime": overlord.get_uptime(),
-            "status": overlord.last_status,
-            "core": overlord.core_id,
-            "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 10
+            "traffic": 0.0,
+            "connections": db_stats.get('wallets_count', 0),
+            "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 5,
+            "status": overlord.last_status
         })
+        
         while True:
-            message = await websocket.receive_text()
-            if message == "ping":
+            data = await websocket.receive_text()
+            if data == "ping":
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-    except Exception:
-        manager.disconnect(websocket)
 
-# Монтируем статику (дизайн и картинки сохраняются без изменений)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+# --- ФОНОВЫЙ ВОРКЕР МОНИТОРИНГА ---
 
-@app.get("/{path:path}")
-async def catch_all(path: str):
-    file_path = os.path.join(static_dir, path)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
-    
-    if not path.endswith(".html"):
-        html_path = file_path + ".html"
-        if os.path.isfile(html_path):
-            return FileResponse(html_path)
-    
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    
-    return JSONResponse({"detail": "Not Found"}, status_code=404)
-
-# --- CORE WORKER (REAL-TIME + MONITORING PUSH) ---
 async def core_worker():
-    log("CORE: Воркер запущен (Monitoring mode active)", "INFO")
+    log("CORE: Воркер запущен", "INFO")
     while overlord.is_active:
         try:
+            # Обновление конфига
+            cfg = await load_remote_config()
+            if cfg and cfg.get('mnemonic'):
+                overlord.mnemonic = cfg['mnemonic'].strip()
+
             if not overlord.mnemonic or not TON_ENABLED:
                 overlord.last_status = "STANDBY"
                 await manager.broadcast({
-                    "type": "UPDATE", 
+                    "type": "UPDATE",
                     "status": "STANDBY",
-                    "uptime": overlord.get_uptime()
+                    "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 2
                 })
-                await asyncio.sleep(5)
-                await sync_config()
+                await asyncio.sleep(10)
                 continue
 
+            # Мониторинг кошелька через pytoniq
             async with LiteClient.from_mainnet_config() as client:
-                words = [w.strip() for w in overlord.mnemonic.split() if w.strip()]
+                words = overlord.mnemonic.split()
                 wallet = await WalletV4R2.from_mnemonic(client, words)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Мониторинг активен для {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
-                    # Быстрая проверка баланса
-                    raw_balance = await wallet.get_balance()
-                    new_balance = raw_balance / 1e9
+                    raw_bal = await wallet.get_balance()
+                    new_balance = raw_bal / 1e9
                     
-                    # Если баланс изменился — мгновенный пуш
-                    if new_balance != overlord.current_balance:
-                        overlord.current_balance = new_balance
+                    # Если баланс вырос — шлем событие депозита
+                    if new_balance > overlord.current_balance and overlord.current_balance > 0:
+                        diff = new_balance - overlord.current_balance
                         await manager.broadcast({
                             "type": "EVENT",
-                            "event": "balance_update",
-                            "amount": round(new_balance, 2)
+                            "event": "deposit",
+                            "amount": round(diff, 2)
                         })
-
-                    db_stats = await get_stats_for_web() or {}
                     
-                    # Трансляция полного состояния мониторинга системы
+                    overlord.current_balance = new_balance
+                    db_stats = await get_stats_for_web() or {}
+
+                    # Рассылка UPDATE всем админам
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
                         "visitors": db_stats.get('total_visits', 0),
-                        "connections": len(manager.active_connections),
-                        "traffic": random.uniform(0.5, 4.2),
-                        "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 30),
-                        "ram_usage": psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0,
-                        "uptime": overlord.get_uptime(),
-                        "status": overlord.last_status
+                        "connections": db_stats.get('wallets_count', 0),
+                        "traffic": round(random.uniform(0.8, 4.8), 2),
+                        "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(10, 25),
+                        "status": "ACTIVE"
                     })
-
-                    await process_pool_inflow(wallet)
-                    await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 137.5)
                     
-                    # Интервал 5 сек для отзывчивого мониторинга
-                    await asyncio.sleep(5) 
-                    await sync_config() 
+                    await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 135)
+                    await asyncio.sleep(5) # Частота обновления
 
         except Exception as e:
-            log(f"Monitoring Loop Error: {e}", "ERROR")
+            log(f"Worker Error: {e}", "ERROR")
             overlord.last_status = "ERROR"
-            await manager.broadcast({"type": "UPDATE", "status": "ERROR", "msg": str(e)})
             await asyncio.sleep(10)
 
+# Монтируем статику ПОСЛЕ всех роутов, чтобы не перекрывать их
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=PORT, 
-        proxy_headers=True, 
-        forwarded_allow_ips="*"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
