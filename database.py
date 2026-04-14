@@ -53,7 +53,7 @@ async def get_pool():
     if _pool is None:
         if not db_url:
             raise ValueError("🚨 DATABASE_URL is not set!")
-        # Оптимизированные лимиты для High-Load (Bothost)
+        # Лимиты оптимизированы под Pro-тариф Bothost
         _pool = await asyncpg.create_pool(
             db_url,
             min_size=10, 
@@ -68,11 +68,10 @@ async def init_db():
     """Полная инициализация всех 6 таблиц Квантовой Архитектуры."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Создание таблиц
         queries = [
             # 1. Геном (Конфигурации)
             '''CREATE TABLE IF NOT EXISTS quantum_genome (key TEXT PRIMARY KEY, val JSONB, is_shadow BOOLEAN DEFAULT FALSE, fitness_score FLOAT DEFAULT 0.0, updated_at TIMESTAMP DEFAULT NOW())''',
-            # 2. Кошельки (Узлы)
+            # 2. Кошельки (Узлы системы)
             '''CREATE TABLE IF NOT EXISTS quantum_wallets (address TEXT PRIMARY KEY, balance_ton DOUBLE PRECISION DEFAULT 0.0, equity_qc DOUBLE PRECISION DEFAULT 0.0, network TEXT DEFAULT 'MAINNET', status TEXT DEFAULT 'ACTIVE', last_seen TIMESTAMP DEFAULT NOW())''',
             # 3. Нейро-логи (Опыт AI)
             '''CREATE TABLE IF NOT EXISTS neural_mm_logs (id SERIAL PRIMARY KEY, cmd TEXT NOT NULL, amount DOUBLE PRECISION DEFAULT 0.0, urgency INT DEFAULT 1, reason TEXT, market_snapshot JSONB, reward_score DOUBLE PRECISION DEFAULT 0.0, timestamp TIMESTAMP DEFAULT NOW())''',
@@ -86,19 +85,14 @@ async def init_db():
         for q in queries:
             await conn.execute(q)
         
-        # Индексы для сверхбыстрого поиска
+        # Индексы для ускорения аналитики
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_withdraw_status ON withdrawal_requests(status)')
         
-        # Базовая настройка Генома
-        default_val = {
-            "ai_strategy_level": 10, 
-            "yield_percentage": 75.0, 
-            "referral_commission": 15.0, 
-            "gas_limit_min": 0.2
-        }
+        # Дефолтные настройки ядра
+        default_val = {"ai_strategy_level": 10, "yield_percentage": 75.0, "referral_commission": 15.0, "gas_limit_min": 0.2}
         await conn.execute("INSERT INTO quantum_genome (key, val) VALUES ('active_core', $1) ON CONFLICT DO NOTHING", json.dumps(default_val))
         
     print("🌌 [DATABASE] Nexus Singularity Core Synchronized.")
@@ -134,10 +128,7 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
     await pool.execute('''
         INSERT INTO quantum_wallets (address, balance_ton, equity_qc, network, last_seen)
         VALUES ($1, $2, $3, $4, NOW())
-        ON CONFLICT (address) DO UPDATE SET 
-            balance_ton = EXCLUDED.balance_ton, 
-            equity_qc = EXCLUDED.equity_qc, 
-            last_seen = NOW(), status = 'ACTIVE'
+        ON CONFLICT (address) DO UPDATE SET balance_ton = EXCLUDED.balance_ton, equity_qc = EXCLUDED.equity_qc, last_seen = NOW(), status = 'ACTIVE'
     ''', address, float(balance), float(qc), network)
 
 async def get_user_balance(address: str):
@@ -156,7 +147,7 @@ async def create_withdrawal_request(address: str, amount: float):
     await pool.execute('INSERT INTO withdrawal_requests (address, amount_ton) VALUES ($1, $2)', address, float(amount))
     return True, "Заявка создана"
 
-# --- АНАЛИТИКА И СТАТИСТИКА ---
+# --- АНАЛИТИКА И СТАТИСТИКА (FIXED) ---
 
 async def calculate_roi_stats():
     pool = await get_pool()
@@ -165,25 +156,30 @@ async def calculate_roi_stats():
     return round((float(p24) / float(total)) * 100, 2)
 
 async def get_stats_for_web():
+    """Сбор статистики с использованием пула для предотвращения InterfaceError."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        # Параллельные запросы для скорости
-        online_t = conn.fetchval("SELECT COUNT(DISTINCT ip_hash) FROM site_visits WHERE timestamp > NOW() - INTERVAL '30 minutes'")
-        total_qc_t = conn.fetchval("SELECT SUM(equity_qc) FROM quantum_wallets")
-        total_w_t = conn.fetchval("SELECT COUNT(*) FROM quantum_wallets")
-        rows_t = conn.fetch("SELECT address, balance_ton as amount, equity_qc as qc, status FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10")
+    try:
+        # Используем pool напрямую вместо захвата одного коннекта для параллелизма
+        online_t = pool.fetchval("SELECT COUNT(DISTINCT ip_hash) FROM site_visits WHERE timestamp > NOW() - INTERVAL '30 minutes'")
+        total_qc_t = pool.fetchval("SELECT SUM(equity_qc) FROM quantum_wallets")
+        total_w_t = pool.fetchval("SELECT COUNT(*) FROM quantum_wallets")
+        rows_t = pool.fetch("SELECT address, balance_ton as amount, equity_qc as qc, status FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10")
         
+        # asyncio.gather теперь безопасно берет разные соединения из пула
         online, total_qc, total_w, rows = await asyncio.gather(online_t, total_qc_t, total_w_t, rows_t)
         roi = await calculate_roi_stats()
 
-    return {
-        "connections": int(total_w or 0),
-        "qc_balance": round(float(total_qc or 0), 2),
-        "traffic": int((online or 1) * 8), # Плотность для визуализации
-        "roi_24h": roi,
-        "recent_actions": [dict(r) for r in rows],
-        "system": {"cpu": random.randint(18, 35), "ram": f"{random.randint(150, 175)}MB"}
-    }
+        return {
+            "connections": int(total_w or 0),
+            "qc_balance": round(float(total_qc or 0), 2),
+            "traffic": int((online or 1) * 8), # Визуальный множитель
+            "roi_24h": roi,
+            "recent_actions": [dict(r) for r in rows],
+            "system": {"cpu": random.randint(18, 35), "ram": f"{random.randint(150, 175)}MB"}
+        }
+    except Exception as e:
+        print(f"🚨 [STATS ERROR] {e}")
+        return {"error": "Stats temporary unavailable"}
 
 # --- КВАНТОВЫЙ ОРКЕСТРАТОР (ФОНОВЫЕ ЗАДАЧИ) ---
 class QuantumOrchestrator:
@@ -194,7 +190,6 @@ class QuantumOrchestrator:
 
     @staticmethod
     async def pulse():
-        """Отправка обновлений на фронтенд каждые 3 секунды."""
         while True:
             try:
                 stats = await get_stats_for_web()
@@ -204,7 +199,6 @@ class QuantumOrchestrator:
 
     @staticmethod
     async def cleanup():
-        """Очистка старых данных (визиты и логи AI)."""
         while True:
             await asyncio.sleep(43200) # Раз в 12 часов
             pool = await get_pool()
@@ -215,14 +209,12 @@ class QuantumOrchestrator:
 
 @app.websocket("/ws/stats")
 async def websocket_endpoint(websocket: WebSocket):
-    """Точка входа для WebSocket твоего сайта."""
     await manager.connect(websocket)
     try:
-        # При подключении сразу отдаем актуальные данные
         data = await get_stats_for_web()
         await websocket.send_json({"event": "INITIAL_SYNC", "data": data})
         while True:
-            await websocket.receive_text() # Держим соединение
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -231,7 +223,7 @@ async def startup_event():
     await init_db()
     await QuantumOrchestrator.start()
 
-# Методы для синхронизации из внешних скриптов
+# Методы для внешней интеграции
 async def sync_wallet_data(data: dict):
     address = data.get('address')
     if address:
