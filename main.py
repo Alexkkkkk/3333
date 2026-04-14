@@ -21,7 +21,7 @@ import uvicorn
 # Загружаем переменные окружения
 load_dotenv()
 
-# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
+# --- ПЕРЕМЕННЫЕ ОСРУЖЕНИЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TONAPI_KEY = os.getenv("TONAPI_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -185,7 +185,6 @@ async def read_index(request: Request):
         return FileResponse(index_path)
     return JSONResponse({"error": "index.html not found"}, status_code=404)
 
-# Роут для админ-панели (согласно твоей структуре static/admin/admin.html)
 @app.get("/admin")
 async def get_admin_panel():
     admin_path = os.path.join(static_dir, "admin", "admin.html")
@@ -240,38 +239,34 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
-# Монтируем статику для прямого доступа к картинкам и ассетам
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Catch-all роут для всех HTML страниц (pools, staking, etc)
 @app.get("/{path:path}")
 async def catch_all(path: str):
-    # 1. Проверяем путь как есть
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     
-    # 2. Если расширение не указано, пробуем добавить .html
     if not path.endswith(".html"):
         html_path = file_path + ".html"
         if os.path.isfile(html_path):
             return FileResponse(html_path)
     
-    # 3. Fallback на index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
-# --- CORE WORKER ---
+# --- CORE WORKER (REAL-TIME UPDATED) ---
 async def core_worker():
-    log("CORE: Воркер запущен", "INFO")
+    log("CORE: Воркер запущен (Real-time mode)", "INFO")
     while overlord.is_active:
         try:
             if not overlord.mnemonic or not TON_ENABLED:
                 overlord.last_status = "STANDBY"
-                await asyncio.sleep(10)
+                await manager.broadcast({"type": "UPDATE", "status": "STANDBY"})
+                await asyncio.sleep(5)
                 await sync_config()
                 continue
 
@@ -282,35 +277,43 @@ async def core_worker():
                 log(f"CORE: Подключено к {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
+                    # Быстрая проверка баланса
                     raw_balance = await wallet.get_balance()
                     new_balance = raw_balance / 1e9
-                    overlord.current_balance = new_balance
                     
+                    # Если баланс изменился — мгновенный пуш
+                    if new_balance != overlord.current_balance:
+                        overlord.current_balance = new_balance
+                        await manager.broadcast({
+                            "type": "EVENT",
+                            "event": "balance_update",
+                            "amount": round(new_balance, 2)
+                        })
+
                     db_stats = await get_stats_for_web() or {}
                     
+                    # Трансляция общего состояния системы
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
                         "visitors": db_stats.get('total_visits', 0),
                         "connections": len(manager.active_connections),
-                        "traffic": random.uniform(0.5, 4.2),
+                        "traffic": random.uniform(0.5, 4.2), # Имитация живого потока данных
                         "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 30),
                         "status": overlord.last_status
                     })
 
                     await process_pool_inflow(wallet)
-                    await save_wallet_state(
-                        str(wallet.address), 
-                        overlord.current_balance, 
-                        overlord.current_balance * 137.5
-                    )
+                    await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 137.5)
                     
-                    await asyncio.sleep(15) 
+                    # Интервал опроса сети TON (5 сек для отзывчивости)
+                    await asyncio.sleep(5) 
                     await sync_config() 
 
         except Exception as e:
             log(f"Worker Loop Error: {e}", "ERROR")
             overlord.last_status = "ERROR"
+            await manager.broadcast({"type": "UPDATE", "status": "ERROR"})
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
