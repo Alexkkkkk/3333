@@ -43,10 +43,11 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
+        """Безопасная рассылка данных всем активным клиентам."""
         for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
-            except:
+            except Exception:
                 self.disconnect(connection)
 
 manager = ConnectionManager()
@@ -144,7 +145,7 @@ async def init_db():
             ON CONFLICT DO NOTHING
         ''', json.dumps(default_val))
 
-        # Индексы для High-Load оптимизации
+        # Индексы для оптимизации
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
@@ -184,7 +185,7 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
             balance_ton = EXCLUDED.balance_ton, 
             equity_qc = EXCLUDED.equity_qc, 
             last_seen = NOW()
-    ''', address, float(balance), float(qc), network)
+    ''', address, float(balance or 0.0), float(qc or 0.0), network)
 
 async def sync_wallet_data(data: dict):
     address = data.get('address')
@@ -200,7 +201,7 @@ async def calculate_roi_stats():
         total = await pool.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 1.0
         p24 = await pool.fetchval("SELECT SUM(total_amount) FROM profit_distribution WHERE timestamp > NOW() - INTERVAL '24 hours'") or 0.0
         return round((float(p24) / float(total)) * 100, 2)
-    except:
+    except Exception:
         return 0.0
 
 async def add_profit_record(amount: float):
@@ -212,20 +213,19 @@ async def add_profit_record(amount: float):
     ''', amt, amt*0.02, amt*0.30, amt*0.38, amt*0.30)
 
 # --- AI ЛОГИРОВАНИЕ ---
-async def log_ai_action(cmd, amount, reason, market=None):
+async def log_ai_action(cmd, amount=0.0, reason="System Action", market=None):
     pool = await get_pool()
-    # Обработка случая, когда передается только 3 аргумента или стратегия как dict
     if isinstance(cmd, dict):
         strategy = cmd
-        cmd_text = strategy.get('cmd')
+        cmd_text = str(strategy.get('cmd', 'UNKNOWN'))
         amt = float(strategy.get('amount', 0))
         urgency = int(strategy.get('urgency', 1))
-        reason_text = strategy.get('reason')
+        reason_text = str(strategy.get('reason', ''))
     else:
-        cmd_text = cmd
+        cmd_text = str(cmd)
         amt = float(amount)
         urgency = 1
-        reason_text = reason
+        reason_text = str(reason)
 
     await pool.execute('''
         INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot) 
@@ -237,21 +237,20 @@ async def get_stats_for_web():
     pool = await get_pool()
     try:
         async with pool.acquire() as conn:
-            online_task = conn.fetchval("SELECT COUNT(DISTINCT ip_hash) FROM site_visits WHERE timestamp > NOW() - INTERVAL '30 minutes'")
-            total_qc_task = conn.fetchval("SELECT SUM(equity_qc) FROM quantum_wallets")
-            total_w_task = conn.fetchval("SELECT COUNT(*) FROM quantum_wallets")
-            rows_task = conn.fetch('''
+            online = await conn.fetchval("SELECT COUNT(DISTINCT ip_hash) FROM site_visits WHERE timestamp > NOW() - INTERVAL '30 minutes'") or 0
+            total_qc = await conn.fetchval("SELECT SUM(equity_qc) FROM quantum_wallets") or 0.0
+            total_w = await conn.fetchval("SELECT COUNT(*) FROM quantum_wallets") or 0
+            rows = await conn.fetch('''
                 SELECT address, balance_ton as amount, equity_qc as qc, status 
                 FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
             ''')
 
-            online, total_qc, total_w, rows = await asyncio.gather(online_task, total_qc_task, total_w_task, rows_task)
             roi = await calculate_roi_stats()
 
             return {
-                "connections": int(total_w or 0),
-                "qc_balance": round(float(total_qc or 0), 2),
-                "traffic": int((online or 1) * 8),
+                "connections": int(total_w),
+                "qc_balance": round(float(total_qc), 2),
+                "traffic": int((online or 1) * 8 + random.randint(1, 5)),
                 "roi_24h": roi,
                 "recent_actions": [dict(r) for r in rows],
                 "system": {
@@ -259,30 +258,32 @@ async def get_stats_for_web():
                     "ram": f"{random.randint(150, 172)}MB"
                 }
             }
-    except Exception:
+    except Exception as e:
+        print(f"Stats error: {e}")
         return {"traffic": 0, "connections": 0, "qc_balance": 0, "roi_24h": 0, "recent_actions": []}
 
 # --- КВАНТОВЫЙ ОРКЕСТРАТОР ---
 class QuantumOrchestrator:
     @staticmethod
     async def pulse():
-        """Вещание пульса системы всем клиентам."""
+        """Периодическая рассылка статистики всем клиентам по WS."""
         while True:
             try:
                 stats = await get_stats_for_web()
-                await manager.broadcast({"event": "CORE_PULSE", "data": stats})
-            except:
+                await manager.broadcast({"type": "UPDATE", "event": "CORE_PULSE", "data": stats})
+            except Exception:
                 pass
             await asyncio.sleep(5)
 
     @staticmethod
     async def cleanup():
-        """Автоматическая очистка старых записей."""
+        """Автоматическая очистка старых записей каждые 12 часов."""
         while True:
-            await asyncio.sleep(43200) # 12 часов
+            await asyncio.sleep(43200) 
             try:
                 pool = await get_pool()
                 await pool.execute("DELETE FROM site_visits WHERE timestamp < NOW() - INTERVAL '24 hours'")
                 await pool.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
-            except:
-                pass
+                print("🧹 [DATABASE] Cleanup completed.")
+            except Exception as e:
+                print(f"Cleanup error: {e}")
