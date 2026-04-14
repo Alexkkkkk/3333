@@ -7,11 +7,12 @@ import random
 import hashlib
 import traceback
 from datetime import datetime
+from typing import List
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI компоненты
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, Response, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +27,7 @@ TONAPI_KEY = os.getenv("TONAPI_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 PORT = int(os.getenv("PORT", 3000))
 
+# Проверка psutil для системных данных
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -33,17 +35,15 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 # Импорт функций БД
-from database import (
-    init_db, get_stats_for_web, register_visit, 
-    save_wallet_state, log_ai_action, update_remote_config, 
-    load_remote_config
-)
-
-# --- КОНФИГУРАЦИЯ ---
-STAKE_THRESHOLD = 5.0
-GAS_RESERVE = 1.0
-AUTO_STAKE_ENABLED = True
-WITHDRAW_LIMIT_AUTO = 10.0
+try:
+    from database import (
+        init_db, get_stats_for_web, register_visit, 
+        save_wallet_state, log_ai_action, update_remote_config, 
+        load_remote_config
+    )
+except ImportError:
+    print("\033[91m[ERROR] Файл database.py не найден!\033[0m")
+    sys.exit(1)
 
 # --- ЛОГИРОВАНИЕ ---
 def log(message, level="INFO"):
@@ -53,14 +53,37 @@ def log(message, level="INFO"):
     print(f"{colors.get(level, reset)}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
 # --- TON CORE ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 <<<", "CORE")
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 REAL-TIME <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
-    log("L1: Библиотеки TON загружены успешно", "SUCCESS")
     TON_ENABLED = True
 except ImportError:
-    log("Критическая ошибка: pytoniq не найден!", "ERROR")
+    log("pytoniq не найден!", "ERROR")
     TON_ENABLED = False
+
+# --- МЕНЕДЖЕР WEB-SOCKET СОЕДИНЕНИЙ ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        """Отправка данных всем подключенным пользователям"""
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                # Если соединение битое, оно удалится при disconnect
+                pass
+
+manager = ConnectionManager()
 
 class OmniNeuralOverlord:
     def __init__(self):
@@ -75,10 +98,7 @@ class OmniNeuralOverlord:
 
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        static_p = os.path.join(base_dir, "static")
-        if not os.path.exists(static_p):
-            os.makedirs(static_p, exist_ok=True)
-        return static_p
+        return os.path.join(base_dir, "static")
 
 overlord = OmniNeuralOverlord()
 static_dir = overlord.get_static_path()
@@ -104,8 +124,10 @@ async def process_pool_inflow(wallet):
             if tx.in_msg and tx.in_msg.value > 0:
                 amount = tx.in_msg.value / 1e9
                 sender = tx.in_msg.source.to_str() if tx.in_msg.source else "UNKNOWN"
-                log(f"POOL: Депозит {amount} TON от {sender[:12]}...", "SUCCESS")
+                log(f"POOL: Депозит {amount} TON", "SUCCESS")
                 await log_ai_action({'cmd': 'DEPOSIT', 'amount': amount}, {'status': 'active'})
+                # Уведомляем фронтенд о новом депозите
+                await manager.broadcast({"type": "EVENT", "event": "deposit", "amount": amount})
             overlord.processed_txs.add(tx_hash)
     except Exception as e:
         log(f"Pool Sync Error: {e}", "CORE")
@@ -113,7 +135,7 @@ async def process_pool_inflow(wallet):
 # --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log("SYS: Подключение к Nexus DB...", "INFO")
+    log("SYS: Nexus DB Connect...", "INFO")
     await init_db()
     await sync_config()
     worker_task = asyncio.create_task(core_worker())
@@ -131,31 +153,36 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @app.get("/index.html")
 async def read_index(request: Request):
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
-    idx_path = os.path.join(static_dir, "index.html")
-    return FileResponse(idx_path)
+    return FileResponse(os.path.join(static_dir, "index.html"))
 
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web() or {}
+    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(1, 10)
     return {
         "balance": round(overlord.current_balance, 2),
         "qc_balance": round(overlord.current_balance * 137.5, 2),
-        "traffic": db_stats.get('traffic', random.randint(100, 500)),
+        "cpu_load": cpu,
         "engine": {"core_id": overlord.core_id, "status": overlord.last_status}
     }
 
-@app.post("/api/wallet/withdraw")
-async def withdraw_funds(request: Request):
-    data = await request.json()
-    address, amount = data.get("address"), float(data.get("amount", 0))
-    if not address or amount <= 0:
-        raise HTTPException(status_code=400, detail="Invalid data")
-    
-    overlord.pending_withdrawals.append({"address": address, "amount": amount})
-    log(f"API: Заявка на {amount} TON принята", "INFO")
-    return {"status": "queued"}
+# --- WEBSOCKET ENDPOINT ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        # При входе отправляем текущее состояние
+        await websocket.send_json({
+            "type": "INIT",
+            "balance": round(overlord.current_balance, 2),
+            "qc_balance": round(overlord.current_balance * 137.5, 2),
+            "status": overlord.last_status
+        })
+        while True:
+            await websocket.receive_text() # Поддерживаем соединение
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
-# Монтируем статику (дизайн и картинки)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
@@ -181,20 +208,31 @@ async def core_worker():
                 overlord.last_status = "ACTIVE"
                 
                 while overlord.is_active:
-                    # 1. Баланс
-                    overlord.current_balance = (await wallet.get_balance()) / 1e9
-                    # 2. Депозиты
+                    # 1. Синхронизация баланса
+                    raw_balance = await wallet.get_balance()
+                    new_balance = raw_balance / 1e9
+                    
+                    # 2. Если баланс изменился — рассылаем всем мгновенно
+                    if new_balance != overlord.current_balance:
+                        overlord.current_balance = new_balance
+                        await manager.broadcast({
+                            "type": "UPDATE",
+                            "balance": round(overlord.current_balance, 2),
+                            "qc_balance": round(overlord.current_balance * 137.5, 2),
+                            "status": overlord.last_status
+                        })
+
+                    # 3. Депозиты и выплата
                     await process_pool_inflow(wallet)
-                    # 3. Выплаты
+                    
                     if overlord.pending_withdrawals:
                         task = overlord.pending_withdrawals.pop(0)
-                        log(f"CORE: Выплата {task['amount']} TON на {task['address'][:8]}", "CORE")
-                        # Для активации:
-                        # seqno = await wallet.get_seqno()
-                        # await wallet.transfer(destination=task['address'], amount=int(task['amount']*1e9), seqno=seqno)
+                        log(f"CORE: Выплата {task['amount']} TON", "CORE")
+                        # Логика транзакции здесь
                     
                     await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance*137.5)
-                    await asyncio.sleep(30)
+                    
+                    await asyncio.sleep(10) # Проверка каждые 10 сек для высокой точности
                     if not await sync_config(): break 
 
         except Exception as e:
