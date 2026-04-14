@@ -19,12 +19,31 @@ import uvicorn
 # Загружаем переменные окружения
 load_dotenv()
 
+"""
+🧬 PROJECT MAP / СТРУКТУРА ПРОЕКТА (DO NOT CHANGE):
+/ (root)
+├── main.py                     # Основной сервер (этот файл)
+├── database.py                 # Логика БД (asyncpg)
+├── requirements.txt            # Зависимости
+├── Dockerfile                  # Контейнер
+└── static/                     # Статические ресурсы
+    ├── index.html              # Главная страница (Quantum Protocol)
+    ├── tonconnect-manifest.json
+    ├── style.css
+    ├── images/                 # Лого и картинки
+    │   └── logo.png
+    └── admin/                  # Панель управления
+        ├── admin.html          # Главная админки
+        ├── wallets.html        # Управление кошельками
+        └── settings.html       # Настройки ядра
+"""
+
 # --- ИМПОРТ ФУНКЦИЙ БД ---
 try:
     from database import (
         init_db, get_stats_for_web, register_visit, 
         save_wallet_state, log_ai_action, load_remote_config,
-        manager, get_pool  # Используем единый менеджер и пул из database.py
+        manager, get_pool 
     )
 except ImportError:
     print("\033[91m[ERROR] Файл database.py не найден или содержит ошибки!\033[0m")
@@ -109,10 +128,10 @@ async def core_worker():
                     
                     overlord.current_balance = new_balance
                     
-                    # Получаем статистику из БД (High-Load оптимизированную)
+                    # Получаем статистику из БД
                     db_stats = await get_stats_for_web()
 
-                    # Трансляция обновления всем подключенным клиентам
+                    # Трансляция обновления всем подключенным клиентам (Admin Dashboard)
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
@@ -126,11 +145,11 @@ async def core_worker():
                         "recent_actions": db_stats.get('recent_actions', [])
                     })
 
-                    # Сохраняем состояние узла в quantum_wallets
+                    # Сохраняем состояние узла
                     await save_wallet_state(
                         address=str(wallet.address), 
                         balance=overlord.current_balance, 
-                        qc=overlord.current_balance * 135.5 # Пример курса QC
+                        qc=overlord.current_balance * 135.5
                     )
                     await asyncio.sleep(5) 
 
@@ -143,12 +162,9 @@ async def core_worker():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
-    # Инициализация пула asyncpg и создание таблиц
     await init_db()
-    # Запуск фоновых задач
     worker_task = asyncio.create_task(core_worker())
     yield
-    # Корректное завершение
     overlord.is_active = False
     worker_task.cancel()
     pool = await get_pool()
@@ -168,17 +184,37 @@ app.add_middleware(
 
 # --- РОУТИНГ ---
 
+# Главная (Client side)
 @app.get("/")
 @app.get("/index.html")
 async def read_root(request: Request):
-    # МОНИТОРИНГ: Регистрация посещения в БД
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     return FileResponse("static/index.html")
 
+# Роутинг для админки (static/admin/)
+@app.get("/admin")
+@app.get("/admin/")
+@app.get("/admin/admin.html")
+async def get_admin_root():
+    return FileResponse("static/admin/admin.html")
+
+@app.get("/admin/{file_path:path}")
+async def get_admin_pages(file_path: str):
+    path = f"static/admin/{file_path}"
+    # Если файл без .html, пробуем добавить его
+    if not path.endswith(".html") and not os.path.isdir(path):
+        path += ".html"
+        
+    if os.path.exists(path):
+        return FileResponse(path)
+    return FileResponse("static/admin/admin.html")
+
+# Манифест для TON Connect
 @app.get("/tonconnect-manifest.json")
 async def get_manifest():
     return FileResponse("static/tonconnect-manifest.json")
 
+# Статистика API
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web()
@@ -190,6 +226,7 @@ async def get_stats():
         **db_stats
     })
 
+# Общий роут для файлов в корне static
 @app.get("/{page}.html")
 async def get_static_html(page: str):
     path = f"static/{page}.html"
@@ -197,17 +234,7 @@ async def get_static_html(page: str):
         return FileResponse(path)
     return FileResponse("static/index.html")
 
-@app.get("/admin/{file_path:path}")
-async def get_admin_pages(file_path: str):
-    if not file_path or file_path.endswith("/"):
-        path = "static/admin/admin.html"
-    else:
-        path = f"static/admin/{file_path}"
-    
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("static/index.html")
-
+# Картинки и Фавикон
 @app.get("/images/{img}")
 async def get_image(img: str):
     path = f"static/images/{img}"
@@ -218,11 +245,13 @@ async def get_favicon():
     path = "static/images/logo.png"
     return FileResponse(path) if os.path.exists(path) else JSONResponse(None, 404)
 
+# --- WEBSOCKET ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     db_stats = await get_stats_for_web()
     try:
+        # Первичный пакет данных при подключении
         await websocket.send_json({
             "type": "INIT",
             "balance": round(overlord.current_balance, 2),
@@ -239,7 +268,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# Монтирование статики (для CSS/JS)
+# Монтирование статики (для прямого доступа к CSS/JS)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
