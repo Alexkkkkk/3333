@@ -415,8 +415,9 @@
         async function fallbackSync() {
             if (ws.readyState !== WebSocket.OPEN) {
                 // Если WS закрыт, эмулируем движение данных для красоты интерфейса
+                const currentBal = parseFloat(document.getElementById('balance_val').innerText) || 0;
                 const mockData = {
-                    balance: parseFloat(document.getElementById('balance_val').innerText) + (Math.random() * 0.01),
+                    balance: currentBal + (Math.random() * 0.01),
                     visitors: Math.floor(Math.random() * 50) + 10,
                     traffic: Math.random() * 5,
                     connections: Math.floor(Math.random() * 5),
@@ -430,7 +431,6 @@
         window.onload = () => {
             addLog("QUANTUM_CORE_V4.1_INITIALIZED", "SYS");
             addLog("UI_RENDER_COMPLETE: All modules active", "OK");
-            // Инициализируем графики нулевыми данными
             updateCharts(0, 0, 0);
         };
     </script>
