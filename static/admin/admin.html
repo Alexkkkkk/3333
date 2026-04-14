@@ -144,9 +144,9 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="/static/admin/admin.html" class="nav-link active">Monitor</a>
-                <a href="/static/admin/wallets.html" class="nav-link">Wallets</a>
-                <a href="/static/admin/settings.html" class="nav-link">Settings</a>
+                <a href="admin.html" class="nav-link active">Monitor</a>
+                <a href="wallets.html" class="nav-link">Wallets</a>
+                <a href="settings.html" class="nav-link">Settings</a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
@@ -263,7 +263,6 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'UPDATE' || data.type === 'INIT') {
-                        // Сохраняем данные в буфер для плавной отрисовки
                         if(data.traffic !== undefined) currentStats.traffic = data.traffic;
                         if(data.visitors !== undefined) currentStats.visitors = data.visitors;
                         if(data.connections !== undefined) currentStats.connections = data.connections;
@@ -302,7 +301,7 @@
         // --- КОНФИГУРАЦИЯ ГРАФИКОВ ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 1000, easing: 'easeInOutQuad' }, // Плавная анимация
+            animation: { duration: 1000, easing: 'easeInOutQuad' },
             plugins: { legend: { display: false } },
             scales: { 
                 x: { display: false },
@@ -335,7 +334,6 @@
             options: commonOptions
         });
 
-        // ЦИКЛ ОБНОВЛЕНИЯ ГРАФИКОВ (Раз в 2 секунды)
         setInterval(() => {
             const charts = [
                 { c: trafficChart, v: currentStats.traffic },
@@ -347,12 +345,11 @@
                 if(item.c && item.c.data.datasets[0]) {
                     item.c.data.datasets[0].data.shift();
                     item.c.data.datasets[0].data.push(item.v);
-                    item.c.update('normal'); // 'normal' для плавной анимации перехода
+                    item.c.update('normal');
                 }
             });
         }, 2000);
 
-        // --- УТИЛИТЫ ---
         function updateStatusIndicator(text, colorClass, pulse) {
             const statusInd = document.getElementById('status_indicator');
             if(statusInd) {
@@ -406,6 +403,7 @@
             try {
                 if (typeof TON_CONNECT_UI !== 'undefined') {
                     new TON_CONNECT_UI.TonConnectUI({
+                        // Путь к манифесту из корня static
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
