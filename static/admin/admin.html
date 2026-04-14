@@ -112,9 +112,9 @@
         }
         .pulse-log { animation: pulse-opacity 2s infinite; }
 
-        #log-container::-webkit-scrollbar { width: 4px; }
-        #log-container::-webkit-scrollbar-track { background: transparent; }
-        #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+        #log-container::-webkit-scrollbar, .custom-scroll::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-track, .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        #log-container::-webkit-scrollbar-thumb, .custom-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -414,7 +414,6 @@
         // Simulation/Fallback Polling
         async function fallbackSync() {
             if (ws.readyState !== WebSocket.OPEN) {
-                // Если WS закрыт, эмулируем движение данных для красоты интерфейса
                 const currentBal = parseFloat(document.getElementById('balance_val').innerText) || 0;
                 const mockData = {
                     balance: currentBal + (Math.random() * 0.01),
