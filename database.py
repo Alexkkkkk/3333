@@ -133,6 +133,7 @@ async def load_remote_config():
     pool = await get_pool()
     val = await pool.fetchval("SELECT val FROM quantum_genome WHERE key = 'active_core'")
     if val:
+        # asyncpg может возвращать dict автоматически, если тип столбца JSONB
         return json.loads(val) if isinstance(val, str) else val
     return {}
 
@@ -152,7 +153,7 @@ async def update_remote_config(data: dict):
 async def register_visit(ip: str, user_agent: str):
     pool = await get_pool()
     await pool.execute('INSERT INTO site_visits (ip_hash, user_agent) VALUES (MD5($1), $2)', ip, user_agent)
-    # Фоновая очистка старых визитов (старше 24 часов)
+    # Удаляем старые записи в фоне
     asyncio.create_task(pool.execute("DELETE FROM site_visits WHERE timestamp < NOW() - INTERVAL '24 hours'"))
 
 async def save_wallet_state(address: str, balance: float, qc: float, network: str = 'MAINNET'):
@@ -168,7 +169,7 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
     ''', address, float(balance), float(qc), network)
 
 async def sync_wallet_data(data: dict):
-    """Метод для обработки POST запроса /api/wallet/sync."""
+    """Метод для обработки запроса /api/wallet/sync."""
     address = data.get('address')
     balance = data.get('balance', 0.0)
     qc = data.get('qc', 0.0)
@@ -235,20 +236,20 @@ async def log_ai_action(strategy, market, success_metric=0.0):
          int(strategy.get('urgency', 1)), strategy.get('reason'), 
          json.dumps(market), float(success_metric))
     
-    # Автоматическая очистка старых логов (старше 7 дней)
+    # Очистка старых логов в фоне
     asyncio.create_task(pool.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'"))
 
 # --- ВЕБ-СТАТИСТИКА ---
 
 async def get_stats_for_web():
     pool = await get_pool()
-    # Считаем уникальных активных за 30 минут
+    # Считаем уникальных за 30 минут
     active_users = await pool.fetchval('''
         SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
         WHERE timestamp > NOW() - INTERVAL '30 minutes'
     ''') or 0
 
-    # Последние 10 кошельков
+    # Список последних подключений
     rows = await pool.fetch('''
         SELECT address, balance_ton as amount, equity_qc as qc, status 
         FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
@@ -262,7 +263,7 @@ async def get_stats_for_web():
         "connections": int(total_wallets),
         "qc_balance": round(float(total_qc), 2),
         "balance": 0.0, 
-        "traffic": int((active_users or 1) * 8), # Имитация плотности трафика
+        "traffic": int((active_users or 1) * 8), # Коэффициент для визуальной плотности
         "roi_24h": roi,
         "recent_actions": [dict(r) for r in rows],
         "cpu": random.randint(18, 35)
