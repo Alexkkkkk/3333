@@ -237,11 +237,13 @@ async def log_ai_action(strategy, market, success_metric=0.0):
 
 async def get_stats_for_web():
     pool = await get_pool()
+    # Считаем активных за 30 минут
     active_users = await pool.fetchval('''
         SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
         WHERE timestamp > NOW() - INTERVAL '30 minutes'
     ''') or 0
 
+    # Список последних подключений
     rows = await pool.fetch('''
         SELECT address, balance_ton as amount, equity_qc as qc, status 
         FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
@@ -255,7 +257,7 @@ async def get_stats_for_web():
         "connections": total_wallets,
         "qc_balance": float(total_qc),
         "balance": 0.0, 
-        "traffic": int((active_users or 1) * 8), # Коэффициент для визуала
+        "traffic": int((active_users or 1) * 8), # Коэффициент для визуальной плотности
         "roi_24h": roi,
         "recent_actions": [dict(r) for r in rows],
         "cpu": random.randint(18, 35)
