@@ -132,7 +132,9 @@ async def init_db():
 async def load_remote_config():
     pool = await get_pool()
     val = await pool.fetchval("SELECT val FROM quantum_genome WHERE key = 'active_core'")
-    return json.loads(val) if val else {}
+    if val:
+        return json.loads(val) if isinstance(val, str) else val
+    return {}
 
 async def update_remote_config(data: dict):
     pool = await get_pool()
@@ -150,7 +152,8 @@ async def update_remote_config(data: dict):
 async def register_visit(ip: str, user_agent: str):
     pool = await get_pool()
     await pool.execute('INSERT INTO site_visits (ip_hash, user_agent) VALUES (MD5($1), $2)', ip, user_agent)
-    await pool.execute("DELETE FROM site_visits WHERE timestamp < NOW() - INTERVAL '24 hours'")
+    # Фоновая очистка старых визитов (старше 24 часов)
+    asyncio.create_task(pool.execute("DELETE FROM site_visits WHERE timestamp < NOW() - INTERVAL '24 hours'"))
 
 async def save_wallet_state(address: str, balance: float, qc: float, network: str = 'MAINNET'):
     pool = await get_pool()
@@ -231,19 +234,21 @@ async def log_ai_action(strategy, market, success_metric=0.0):
     ''', strategy.get('cmd'), float(strategy.get('amount', 0)), 
          int(strategy.get('urgency', 1)), strategy.get('reason'), 
          json.dumps(market), float(success_metric))
-    await pool.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
+    
+    # Автоматическая очистка старых логов (старше 7 дней)
+    asyncio.create_task(pool.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'"))
 
 # --- ВЕБ-СТАТИСТИКА ---
 
 async def get_stats_for_web():
     pool = await get_pool()
-    # Считаем активных за 30 минут
+    # Считаем уникальных активных за 30 минут
     active_users = await pool.fetchval('''
         SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
         WHERE timestamp > NOW() - INTERVAL '30 minutes'
     ''') or 0
 
-    # Список последних подключений
+    # Последние 10 кошельков
     rows = await pool.fetch('''
         SELECT address, balance_ton as amount, equity_qc as qc, status 
         FROM quantum_wallets ORDER BY last_seen DESC LIMIT 10
@@ -254,10 +259,10 @@ async def get_stats_for_web():
     roi = await calculate_roi_stats()
 
     return {
-        "connections": total_wallets,
-        "qc_balance": float(total_qc),
+        "connections": int(total_wallets),
+        "qc_balance": round(float(total_qc), 2),
         "balance": 0.0, 
-        "traffic": int((active_users or 1) * 8), # Коэффициент для визуальной плотности
+        "traffic": int((active_users or 1) * 8), # Имитация плотности трафика
         "roi_24h": roi,
         "recent_actions": [dict(r) for r in rows],
         "cpu": random.randint(18, 35)
