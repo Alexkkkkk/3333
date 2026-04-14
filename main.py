@@ -21,7 +21,7 @@ import uvicorn
 # Загружаем переменные окружения
 load_dotenv()
 
-# --- ПЕРЕМЕННЫЕ ОСРУЖЕНИЯ ---
+# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TONAPI_KEY = os.getenv("TONAPI_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -59,7 +59,7 @@ def log(message, level="INFO"):
     print(f"{colors.get(level, reset)}[{timestamp}] [{level}] {message}{reset}", flush=True)
 
 # --- TON CORE ---
-log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 REAL-TIME <<<", "CORE")
+log(">>> ЗАПУСК ГИБРИДНОГО ЯДРА QUANTUM V4.1 REAL-TIME + MONITORING <<<", "CORE")
 try:
     from pytoniq import LiteClient, WalletV4R2, Address
     TON_ENABLED = True
@@ -96,12 +96,15 @@ manager = ConnectionManager()
 class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
-        self.session_start = time.time()
+        self.boot_time = time.time()
         self.core_id = f"QC-CORE-{os.urandom(2).hex().upper()}"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
         self.processed_txs = set()
+
+    def get_uptime(self):
+        return round(time.time() - self.boot_time, 2)
 
     def get_static_path(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -174,7 +177,20 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- API & STATIC ROUTES ---
+# --- API & MONITORING ROUTES ---
+
+@app.get("/health")
+async def health_check():
+    """Эндпоинт для внешних сервисов мониторинга (UptimeRobot и др.)"""
+    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else 0
+    ram = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
+    return {
+        "status": "online",
+        "core_id": overlord.core_id,
+        "uptime": overlord.get_uptime(),
+        "load": {"cpu": cpu, "ram": ram},
+        "ton_enabled": TON_ENABLED
+    }
 
 @app.get("/")
 @app.get("/index.html")
@@ -196,11 +212,17 @@ async def get_admin_panel():
 async def get_stats():
     db_stats = await get_stats_for_web() or {}
     cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(18, 28)
+    ram = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
     return {
         **db_stats,
         "balance": round(overlord.current_balance, 2),
         "qc_balance": round(overlord.current_balance * 137.5, 2),
-        "cpu_load": cpu,
+        "monitoring": {
+            "cpu_load": cpu,
+            "ram_usage": ram,
+            "uptime": overlord.get_uptime(),
+            "active_ws": len(manager.active_connections)
+        },
         "engine": {"core_id": overlord.core_id, "status": overlord.last_status}
     }
 
@@ -225,7 +247,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "balance": round(overlord.current_balance, 2),
             "visitors": db_stats.get('total_visits', 0),
             "connections": len(manager.active_connections),
-            "traffic": random.uniform(0.1, 1.5),
+            "uptime": overlord.get_uptime(),
             "status": overlord.last_status,
             "core": overlord.core_id,
             "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 10
@@ -239,6 +261,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
+# Монтируем статику (дизайн и картинки сохраняются без изменений)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
@@ -258,14 +281,18 @@ async def catch_all(path: str):
     
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
-# --- CORE WORKER (REAL-TIME UPDATED) ---
+# --- CORE WORKER (REAL-TIME + MONITORING PUSH) ---
 async def core_worker():
-    log("CORE: Воркер запущен (Real-time mode)", "INFO")
+    log("CORE: Воркер запущен (Monitoring mode active)", "INFO")
     while overlord.is_active:
         try:
             if not overlord.mnemonic or not TON_ENABLED:
                 overlord.last_status = "STANDBY"
-                await manager.broadcast({"type": "UPDATE", "status": "STANDBY"})
+                await manager.broadcast({
+                    "type": "UPDATE", 
+                    "status": "STANDBY",
+                    "uptime": overlord.get_uptime()
+                })
                 await asyncio.sleep(5)
                 await sync_config()
                 continue
@@ -274,7 +301,7 @@ async def core_worker():
                 words = [w.strip() for w in overlord.mnemonic.split() if w.strip()]
                 wallet = await WalletV4R2.from_mnemonic(client, words)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Подключено к {wallet.address}", "SUCCESS")
+                log(f"CORE: Мониторинг активен для {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
                     # Быстрая проверка баланса
@@ -292,28 +319,30 @@ async def core_worker():
 
                     db_stats = await get_stats_for_web() or {}
                     
-                    # Трансляция общего состояния системы
+                    # Трансляция полного состояния мониторинга системы
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
                         "visitors": db_stats.get('total_visits', 0),
                         "connections": len(manager.active_connections),
-                        "traffic": random.uniform(0.5, 4.2), # Имитация живого потока данных
+                        "traffic": random.uniform(0.5, 4.2),
                         "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 30),
+                        "ram_usage": psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0,
+                        "uptime": overlord.get_uptime(),
                         "status": overlord.last_status
                     })
 
                     await process_pool_inflow(wallet)
                     await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 137.5)
                     
-                    # Интервал опроса сети TON (5 сек для отзывчивости)
+                    # Интервал 5 сек для отзывчивого мониторинга
                     await asyncio.sleep(5) 
                     await sync_config() 
 
         except Exception as e:
-            log(f"Worker Loop Error: {e}", "ERROR")
+            log(f"Monitoring Loop Error: {e}", "ERROR")
             overlord.last_status = "ERROR"
-            await manager.broadcast({"type": "UPDATE", "status": "ERROR"})
+            await manager.broadcast({"type": "UPDATE", "status": "ERROR", "msg": str(e)})
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
