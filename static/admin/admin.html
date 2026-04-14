@@ -103,10 +103,6 @@
             transition: all 0.2s ease !important;
         }
 
-        #ton-connect-button button:hover {
-            background-color: rgba(0, 210, 255, 0.15) !important;
-        }
-
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
 
         @keyframes pulse-opacity {
@@ -141,15 +137,15 @@
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
                 <a href="/admin/admin.html" class="nav-link active">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
                     Monitor
                 </a>
                 <a href="/admin/wallets.html" class="nav-link">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
                     Wallets
                 </a>
                 <a href="/admin/settings.html" class="nav-link">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
                     Settings
                 </a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
@@ -160,14 +156,14 @@
             <div class="quantum-card b-green p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Visitors</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">--</span>
+                    <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">0</span>
                 </div>
             </div>
 
             <div class="quantum-card b-blue p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Wallets_Linked</h3>
                 <div class="flex items-baseline gap-1">
-                    <span id="conn_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">--</span>
+                    <span id="conn_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">0</span>
                 </div>
             </div>
 
@@ -253,23 +249,14 @@
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             
-            // Если пришло обновление баланса или статуса
             if (data.type === 'UPDATE' || data.type === 'INIT') {
-                if(data.balance !== undefined) {
-                    document.getElementById('balance_val').innerText = data.balance.toFixed(2);
-                }
-                if(data.status) {
-                    const statusInd = document.getElementById('status_indicator');
-                    statusInd.innerText = data.status === 'ACTIVE' ? 'SYNC_ACTIVE' : data.status;
-                    statusInd.className = data.status === 'ACTIVE' ? "text-green-400" : "text-yellow-400";
-                }
-                addLog(`REALTIME_SYNC: Data packet received`, "SYNC");
+                updateUI(data);
+                if (data.type === 'INIT') addLog("DATABASE_UPLINK: Full state synchronized", "OK");
+                else addLog(`SYNC: Delta packet processed`, "SYNC");
             }
             
-            // Если пришло событие (например, депозит)
             if (data.type === 'EVENT' && data.event === 'deposit') {
                 addLog(`NETWORK: New deposit detected: +${data.amount} TON`, "OK");
-                // Можно добавить звуковой эффект или пуш
             }
         };
 
@@ -280,17 +267,37 @@
             statusInd.className = "text-red-500 pulse-log";
         };
 
-        // --- ОСТАЛЬНАЯ ЛОГИКА ДИЗАЙНА ---
+        function updateUI(data) {
+            if(data.balance !== undefined) document.getElementById('balance_val').innerText = data.balance.toFixed(2);
+            if(data.visitors !== undefined) document.getElementById('visitor_val').innerText = data.visitors;
+            if(data.traffic !== undefined) document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
+            if(data.connections !== undefined) document.getElementById('conn_val').innerText = data.connections;
+
+            if(data.cpu_load !== undefined) {
+                document.getElementById('cpu_label').innerText = data.cpu_load + '%';
+                document.getElementById('cpu_bar').style.width = data.cpu_load + '%';
+            }
+
+            if(data.status) {
+                const statusInd = document.getElementById('status_indicator');
+                statusInd.innerText = data.status === 'ACTIVE' ? 'SYNC_ACTIVE' : data.status;
+                statusInd.className = data.status === 'ACTIVE' ? "text-green-400" : "text-yellow-400";
+            }
+
+            // Update charts with incoming live data
+            updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
+        }
+
+        // --- TON CONNECT ---
         let tonConnectUI;
         try {
             tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                 manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                 buttonRootId: 'ton-connect-button'
             });
-        } catch (e) {
-            console.error("TON Connect Init Error:", e);
-        }
+        } catch (e) { console.error("TON Connect Init Error:", e); }
 
+        // --- CHARTS LOGIC ---
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
             g.addColorStop(0, color + '44');
@@ -309,7 +316,7 @@
                     ticks: { color: '#475569', font: { size: 9, family: 'Share Tech Mono' } } 
                 }
             },
-            animation: { duration: 0 }
+            animation: { duration: 800, easing: 'easeOutQuart' }
         };
 
         const trafficCtx = document.getElementById('trafficChart').getContext('2d');
@@ -361,18 +368,27 @@
             options: commonOptions
         });
 
+        function updateCharts(t, v, c) {
+            const charts = [
+                {chart: trafficChart, val: t},
+                {chart: visitorChart, val: v},
+                {chart: walletChart, val: c}
+            ];
+            charts.forEach(item => {
+                if(item.chart.data.datasets[0]) {
+                    item.chart.data.datasets[0].data.shift();
+                    item.chart.data.datasets[0].data.push(item.val);
+                    item.chart.update('none'); // Update without full animation for performance
+                }
+            });
+        }
+
+        // --- UTILS ---
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
-            if(!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
-            
-            const colors = {
-                "OK": "text-green-400",
-                "ERR": "text-red-500",
-                "SYNC": "text-purple-400",
-                "SYS": "text-blue-400"
-            };
+            const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYNC": "text-purple-400", "SYS": "text-blue-400" };
             const color = colors[type] || "text-slate-400";
             
             log.className = "border-l-2 border-white/5 pl-2 py-0.5 transition-all duration-500 opacity-0";
@@ -380,64 +396,33 @@
             
             container.prepend(log);
             setTimeout(() => log.classList.remove('opacity-0'), 10);
-            if (container.children.length > 40) container.lastChild.remove();
+            if (container.children.length > 50) container.lastChild.remove();
         }
 
         let startTime = Date.now();
         setInterval(() => {
-            const uptimeEl = document.getElementById('uptime_display');
-            if (!uptimeEl) return;
             const diff = Math.floor((Date.now() - startTime) / 1000);
             const h = String(Math.floor(diff / 3600)).padStart(2, '0');
             const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
             const s = String(diff % 60).padStart(2, '0');
-            uptimeEl.innerText = `${h}:${m}:${s}`;
+            document.getElementById('uptime_display').innerText = `${h}:${m}:${s}`;
         }, 1000);
 
-        async function syncData() {
-            // Фолбэк метод (оставляем для надежности, если WS упадет)
+        // Fallback polling if WebSocket is not active
+        async function fallbackSync() {
             if (ws.readyState !== WebSocket.OPEN) {
                 try {
                     const res = await fetch('/api/stats');
                     const data = await res.json();
-                    
-                    document.getElementById('balance_val').innerText = (data.balance ?? 0).toFixed(2);
-                    document.getElementById('visitor_val').innerText = data.visitors ?? 0;
-                    document.getElementById('traffic_val').innerText = (data.traffic ?? 0).toFixed(2);
-                    document.getElementById('conn_val').innerText = data.connections ?? 0;
-                    
-                    const cpu = data.cpu_load ?? 0;
-                    document.getElementById('cpu_label').innerText = cpu + '%';
-                    document.getElementById('cpu_bar').style.width = cpu + '%';
-
-                    updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
-                } catch(e) {
-                    console.error("Sync Error");
-                }
+                    updateUI(data);
+                } catch(e) { console.warn("API Fallback failed"); }
             }
         }
-
-        function updateCharts(t, v, c) {
-            const targets = [
-                {chart: trafficChart, value: t},
-                {chart: visitorChart, value: v},
-                {chart: walletChart, value: c}
-            ];
-            targets.forEach(target => {
-                if(target.chart && target.chart.data.datasets[0]) {
-                    target.chart.data.datasets[0].data.shift();
-                    target.chart.data.datasets[0].data.push(target.value);
-                    target.chart.update('none');
-                }
-            });
-        }
-
-        // Проверка через API каждые 5 сек только если WS не работает
-        setInterval(syncData, 5000);
+        setInterval(fallbackSync, 5000);
 
         window.onload = () => {
-            addLog("QUANTUM_CORE_INITIALIZED", "SYS");
-            addLog("REALTIME_UPLINK_READY", "OK");
+            addLog("QUANTUM_CORE_V4.1_INITIALIZED", "SYS");
+            addLog("UI_RENDER_COMPLETE: All modules active", "OK");
         };
     </script>
 </body>
