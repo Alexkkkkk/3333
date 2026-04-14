@@ -1,9 +1,10 @@
 # --- Веб-сервер и API ---
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 aiohttp>=3.9.0
 aiohttp_cors
+websockets
 
 # --- Телеграм и TON ---
 aiogram>=3.0.0
@@ -14,9 +15,9 @@ cryptography>=42.0.0
 requests
 
 # --- База данных ---
-aiosqlite
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.9
+aiosqlite
 
 # --- ИИ и утилиты ---
 openai>=1.0.0
