@@ -101,7 +101,6 @@
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
-        /* Toast Notification System */
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast-item { 
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
@@ -130,9 +129,9 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="/admin/admin.html" class="nav-link active">Monitor</a>
-                <a href="/admin/wallets.html" class="nav-link">Wallets</a>
-                <a href="/admin/settings.html" class="nav-link">Settings</a>
+                <a href="/static/admin/admin.html" class="nav-link active">Monitor</a>
+                <a href="/static/admin/wallets.html" class="nav-link">Wallets</a>
+                <a href="/static/admin/settings.html" class="nav-link">Settings</a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
@@ -224,8 +223,19 @@
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
         function connectWS() {
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            // Динамическое определение хоста для Bothost
+            const host = window.location.host;
+            ws = new WebSocket(`${protocol}//${host}/ws`);
             
+            ws.onopen = () => {
+                addLog("WS_CONNECTED: Линк с ядром активен", "OK");
+                const statusInd = document.getElementById('status_indicator');
+                if(statusInd) {
+                    statusInd.innerText = "SYNC_ACTIVE";
+                    statusInd.className = "text-green-400";
+                }
+            };
+
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
@@ -240,13 +250,18 @@
                 } catch (e) { console.error("WS Parse Error", e); }
             };
 
-            ws.onclose = () => {
+            ws.onclose = (e) => {
                 const statusInd = document.getElementById('status_indicator');
                 if(statusInd) {
-                    statusInd.innerText = "WS_OFFLINE";
-                    statusInd.className = "text-red-500 pulse-log";
+                    statusInd.innerText = "WS_RECONNECTING...";
+                    statusInd.className = "text-yellow-500 pulse-log";
                 }
-                setTimeout(connectWS, 5000); // Auto reconnect
+                console.log('WS Closed. Reason:', e.code);
+                setTimeout(connectWS, 3000); // Быстрый реконнект для стабильности на Bothost
+            };
+
+            ws.onerror = (err) => {
+                addLog("WS_ERROR: Ошибка связи", "ERR");
             };
         }
 
@@ -301,15 +316,18 @@
 
         function updateCharts(t, v, c) {
             [ {c: trafficChart, v: t}, {c: visitorChart, v: v}, {c: walletChart, v: c} ].forEach(item => {
-                item.c.data.datasets[0].data.shift();
-                item.c.data.datasets[0].data.push(item.v);
-                item.c.update('none');
+                if(item.c && item.c.data.datasets[0]) {
+                    item.c.data.datasets[0].data.shift();
+                    item.c.data.datasets[0].data.push(item.v);
+                    item.c.update('none');
+                }
             });
         }
 
         // --- UTILS ---
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
+            if(!container) return;
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
@@ -323,6 +341,7 @@
 
         function showToast(text) {
             const container = document.getElementById('toast-container');
+            if(!container) return;
             const toast = document.createElement('div');
             toast.className = 'toast-item';
             toast.innerText = text;
@@ -330,27 +349,28 @@
             setTimeout(() => toast.remove(), 4000);
         }
 
-        // Uptime Counter
         let startTime = Date.now();
         setInterval(() => {
             const diff = Math.floor((Date.now() - startTime) / 1000);
             const h = String(Math.floor(diff / 3600)).padStart(2, '0');
             const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
             const s = String(diff % 60).padStart(2, '0');
-            document.getElementById('uptime_display').innerText = `${h}:${m}:${s}`;
+            const uptimeElem = document.getElementById('uptime_display');
+            if(uptimeElem) uptimeElem.innerText = `${h}:${m}:${s}`;
         }, 1000);
 
         window.onload = () => {
             connectWS();
             addLog("QUANTUM_CORE_V4.1_INITIALIZED", "SYS");
             
-            // TON Connect
             try {
-                new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button'
-                });
-            } catch (e) { console.error(e); }
+                if (typeof TON_CONNECT_UI !== 'undefined') {
+                    new TON_CONNECT_UI.TonConnectUI({
+                        manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+                        buttonRootId: 'ton-connect-button'
+                    });
+                }
+            } catch (e) { console.error("TON Connect Error:", e); }
         };
     </script>
 </body>
