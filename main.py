@@ -67,11 +67,11 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
-            except:
-                continue
+            except Exception:
+                self.disconnect(connection)
 
 manager = ConnectionManager()
 
@@ -90,7 +90,7 @@ class OmniNeuralOverlord:
 
 overlord = OmniNeuralOverlord()
 
-# --- LIFESPAN ---
+# --- LIFESPAN (Запуск и остановка) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> QUANTUM HYBRID CORE V4.1 STARTING <<<", "CORE")
@@ -111,6 +111,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -137,15 +138,18 @@ async def get_settings():
     path = "static/admin/settings.html"
     return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "File not found"}, status_code=404)
 
-# Умный роут для картинок и фавиконок (исправляет 404 в логах)
+# Перехватчик для картинок (исправляет 404 ошибки в логах)
 @app.get("/images/{img}")
 async def get_image(img: str):
     path = f"static/images/{img}"
-    return FileResponse(path) if os.path.exists(path) else JSONResponse(None, 404)
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse({"error": "Not Found"}, status_code=404)
 
 @app.get("/favicon.ico")
 async def get_favicon():
-    return FileResponse("static/images/logo.png")
+    path = "static/images/logo.png"
+    return FileResponse(path) if os.path.exists(path) else JSONResponse(None, 404)
 
 # --- API ---
 
@@ -163,7 +167,7 @@ async def get_stats():
         "core_id": overlord.core_id
     }
 
-# --- WEBSOCKET SYNC ---
+# --- WEBSOCKET SYNC С ЗАЩИТОЙ ОТ ОБРЫВОВ ---
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -182,6 +186,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "core": overlord.core_id
         })
         while True:
+            # Ожидаем данные или пинг (поддерживает соединение живым)
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text("pong")
@@ -246,9 +251,17 @@ async def core_worker():
             overlord.last_status = "ERROR"
             await asyncio.sleep(10)
 
-# Монтируем статику
+# Монтируем статику (в самом конце)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT, proxy_headers=True, forwarded_allow_ips="*")
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=PORT, 
+        proxy_headers=True, 
+        forwarded_allow_ips="*",
+        ws_ping_interval=20,
+        ws_ping_timeout=20
+    )
