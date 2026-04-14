@@ -200,7 +200,32 @@
     </nav>
 
     <script>
-        // 1. Инициализация TON Connect
+        // --- 1. WebSocket Integration ---
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'UPDATE' || data.type === 'INIT') {
+                    const qcBalEl = document.getElementById('main-balance-qc');
+                    const tonBalEl = document.getElementById('main-balance-ton');
+                    
+                    if (qcBalEl && data.qc_balance !== undefined) {
+                        qcBalEl.innerText = parseFloat(data.qc_balance).toFixed(2) + " QC";
+                    }
+                    
+                    // Обновляем TON только если кошелек не подключен (чтобы не перебивать данные блокчейна)
+                    if (tonBalEl && data.balance !== undefined && !tonConnectUI.connected) {
+                        tonBalEl.innerText = parseFloat(data.balance).toFixed(2) + " TON";
+                    }
+                }
+            } catch (err) {
+                console.error("WS Parse Error", err);
+            }
+        };
+
+        // --- 2. TON Connect Setup ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
@@ -213,12 +238,10 @@
                 if (data.ok) return (parseFloat(data.result) / 1000000000).toFixed(2);
                 return "0.00";
             } catch (err) {
-                console.error("Network Error");
                 return null;
             }
         }
 
-        // 2. Логика TON Connect
         tonConnectUI.onStatusChange(async (wallet) => {
             const tonBalEl = document.getElementById('main-balance-ton');
             const statusEl = document.getElementById('core-id-display');
@@ -241,15 +264,13 @@
                     indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]";
                 }
 
-                // Синхронизация с сервером
                 fetch('/api/wallet/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ address: address, balance: realBalance || 0 })
-                }).catch(() => console.log("Sync standby..."));
+                }).catch(() => {});
 
             } else {
-                if (tonBalEl) tonBalEl.innerText = "0.00 TON";
                 if (statusEl) {
                     statusEl.innerText = "LINKING...";
                     statusEl.className = "text-cyan-500 italic";
@@ -258,28 +279,7 @@
             }
         });
 
-        // 3. Обновление балансов из базы данных
-        async function updateCoreData() {
-            try {
-                const response = await fetch('/api/stats');
-                if (!response.ok) return;
-                const data = await response.json();
-                
-                const qcBalEl = document.getElementById('main-balance-qc');
-                const tonBalEl = document.getElementById('main-balance-ton');
-                
-                if (qcBalEl) qcBalEl.innerText = (parseFloat(data.qc_balance) || 0).toFixed(2) + " QC";
-
-                // Если кошелек не подключен, берем баланс TON из базы
-                if (!tonConnectUI.connected && tonBalEl) {
-                    tonBalEl.innerText = (parseFloat(data.balance) || 0).toFixed(2) + " TON";
-                }
-            } catch (e) {
-                console.log("Stats sync delayed...");
-            }
-        }
-
-        // 4. Частицы фона
+        // --- 3. Background Animation ---
         const canvas = document.getElementById('bg-canvas');
         if (canvas) {
             const ctx = canvas.getContext('2d');
@@ -312,8 +312,20 @@
             animate();
         }
 
+        // Резервный метод обновления (раз в 30 сек)
+        async function updateCoreData() {
+            try {
+                const response = await fetch('/api/stats');
+                if (!response.ok) return;
+                const data = await response.json();
+                document.getElementById('main-balance-qc').innerText = (parseFloat(data.qc_balance) || 0).toFixed(2) + " QC";
+                if (!tonConnectUI.connected) {
+                    document.getElementById('main-balance-ton').innerText = (parseFloat(data.balance) || 0).toFixed(2) + " TON";
+                }
+            } catch (e) {}
+        }
         updateCoreData();
-        setInterval(updateCoreData, 10000);
+        setInterval(updateCoreData, 30000);
     </script>
 </body>
 </html>
