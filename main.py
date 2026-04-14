@@ -39,10 +39,10 @@ try:
     from database import (
         init_db, get_stats_for_web, register_visit, 
         save_wallet_state, log_ai_action, update_remote_config, 
-        load_remote_config
+        load_remote_config, sync_wallet_data
     )
 except ImportError:
-    print("\033[91m[ERROR] Файл database.py не найден!\033[0m")
+    print("\033[91m[ERROR] Файл database.py не найден или функции отсутствуют!\033[0m")
     sys.exit(1)
 
 # --- ЛОГИРОВАНИЕ ---
@@ -80,7 +80,6 @@ class ConnectionManager:
             try:
                 await connection.send_json(message)
             except Exception:
-                # Если соединение битое, оно удалится при disconnect
                 pass
 
 manager = ConnectionManager()
@@ -123,10 +122,8 @@ async def process_pool_inflow(wallet):
             if tx_hash in overlord.processed_txs: continue
             if tx.in_msg and tx.in_msg.value > 0:
                 amount = tx.in_msg.value / 1e9
-                sender = tx.in_msg.source.to_str() if tx.in_msg.source else "UNKNOWN"
                 log(f"POOL: Депозит {amount} TON", "SUCCESS")
                 await log_ai_action({'cmd': 'DEPOSIT', 'amount': amount}, {'status': 'active'})
-                # Уведомляем фронтенд о новом депозите
                 await manager.broadcast({"type": "EVENT", "event": "deposit", "amount": amount})
             overlord.processed_txs.add(tx_hash)
     except Exception as e:
@@ -145,7 +142,13 @@ async def lifespan(app: FastAPI):
     log("SYS: Ядро остановлено", "CORE")
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
 
 # --- API ROUTES ---
 
@@ -158,13 +161,26 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web() or {}
-    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(1, 10)
+    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 25)
     return {
+        **db_stats,
         "balance": round(overlord.current_balance, 2),
         "qc_balance": round(overlord.current_balance * 137.5, 2),
         "cpu_load": cpu,
         "engine": {"core_id": overlord.core_id, "status": overlord.last_status}
     }
+
+@app.post("/api/wallet/sync")
+async def wallet_sync(request: Request):
+    """Исправляет ошибку 405 Method Not Allowed"""
+    try:
+        data = await request.json()
+        success = await sync_wallet_data(data)
+        if success:
+            return {"status": "ok", "message": "Wallet synchronized"}
+        return JSONResponse({"status": "error", "message": "Invalid wallet data"}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 # --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws")
@@ -183,6 +199,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+# Статические файлы
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/{path:path}")
@@ -212,7 +229,7 @@ async def core_worker():
                     raw_balance = await wallet.get_balance()
                     new_balance = raw_balance / 1e9
                     
-                    # 2. Если баланс изменился — рассылаем всем мгновенно
+                    # 2. Обновление и Broadcast
                     if new_balance != overlord.current_balance:
                         overlord.current_balance = new_balance
                         await manager.broadcast({
@@ -222,17 +239,11 @@ async def core_worker():
                             "status": overlord.last_status
                         })
 
-                    # 3. Депозиты и выплата
+                    # 3. Депозиты и стейт
                     await process_pool_inflow(wallet)
-                    
-                    if overlord.pending_withdrawals:
-                        task = overlord.pending_withdrawals.pop(0)
-                        log(f"CORE: Выплата {task['amount']} TON", "CORE")
-                        # Логика транзакции здесь
-                    
                     await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance*137.5)
                     
-                    await asyncio.sleep(10) # Проверка каждые 10 сек для высокой точности
+                    await asyncio.sleep(10)
                     if not await sync_config(): break 
 
         except Exception as e:
