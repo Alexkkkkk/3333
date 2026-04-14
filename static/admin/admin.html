@@ -246,6 +246,41 @@
     </div>
 
     <script>
+        // --- WEBSOCKET REAL-TIME SYNC ---
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Если пришло обновление баланса или статуса
+            if (data.type === 'UPDATE' || data.type === 'INIT') {
+                if(data.balance !== undefined) {
+                    document.getElementById('balance_val').innerText = data.balance.toFixed(2);
+                }
+                if(data.status) {
+                    const statusInd = document.getElementById('status_indicator');
+                    statusInd.innerText = data.status === 'ACTIVE' ? 'SYNC_ACTIVE' : data.status;
+                    statusInd.className = data.status === 'ACTIVE' ? "text-green-400" : "text-yellow-400";
+                }
+                addLog(`REALTIME_SYNC: Data packet received`, "SYNC");
+            }
+            
+            // Если пришло событие (например, депозит)
+            if (data.type === 'EVENT' && data.event === 'deposit') {
+                addLog(`NETWORK: New deposit detected: +${data.amount} TON`, "OK");
+                // Можно добавить звуковой эффект или пуш
+            }
+        };
+
+        ws.onclose = () => {
+            addLog("WS_CONNECTION_LOST: Falling back to REST API", "ERR");
+            const statusInd = document.getElementById('status_indicator');
+            statusInd.innerText = "WS_OFFLINE";
+            statusInd.className = "text-red-500 pulse-log";
+        };
+
+        // --- ОСТАЛЬНАЯ ЛОГИКА ДИЗАЙНА ---
         let tonConnectUI;
         try {
             tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -360,42 +395,25 @@
         }, 1000);
 
         async function syncData() {
-            try {
-                const res = await fetch('/api/stats');
-                if (!res.ok) throw new Error("HTTP_ERROR_" + res.status);
-                
-                const data = await res.json();
-                
-                const setTxt = (id, val) => {
-                    const el = document.getElementById(id);
-                    if(el) el.innerText = val;
-                };
+            // Фолбэк метод (оставляем для надежности, если WS упадет)
+            if (ws.readyState !== WebSocket.OPEN) {
+                try {
+                    const res = await fetch('/api/stats');
+                    const data = await res.json();
+                    
+                    document.getElementById('balance_val').innerText = (data.balance ?? 0).toFixed(2);
+                    document.getElementById('visitor_val').innerText = data.visitors ?? 0;
+                    document.getElementById('traffic_val').innerText = (data.traffic ?? 0).toFixed(2);
+                    document.getElementById('conn_val').innerText = data.connections ?? 0;
+                    
+                    const cpu = data.cpu_load ?? 0;
+                    document.getElementById('cpu_label').innerText = cpu + '%';
+                    document.getElementById('cpu_bar').style.width = cpu + '%';
 
-                setTxt('conn_val', data.connections ?? 0);
-                setTxt('balance_val', (data.balance ?? 0).toFixed(2));
-                setTxt('visitor_val', data.visitors ?? 0);
-                setTxt('traffic_val', (data.traffic ?? 0).toFixed(2));
-                
-                const cpu = Math.min(Math.max(data.cpu ?? 0, 0), 100);
-                setTxt('cpu_label', cpu + '%');
-                const cpuBar = document.getElementById('cpu_bar');
-                if(cpuBar) cpuBar.style.width = cpu + '%';
-                
-                updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
-                
-                const statusInd = document.getElementById('status_indicator');
-                if(statusInd) {
-                    statusInd.innerText = "SYNC_ACTIVE";
-                    statusInd.className = "text-green-400";
+                    updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
+                } catch(e) {
+                    console.error("Sync Error");
                 }
-
-            } catch(e) {
-                const statusInd = document.getElementById('status_indicator');
-                if(statusInd) {
-                    statusInd.innerText = "CONNECTION_LOST";
-                    statusInd.className = "text-red-500 pulse-log";
-                }
-                addLog("DATABASE_OFFLINE: Retrying uplink...", "ERR");
             }
         }
 
@@ -405,7 +423,6 @@
                 {chart: visitorChart, value: v},
                 {chart: walletChart, value: c}
             ];
-
             targets.forEach(target => {
                 if(target.chart && target.chart.data.datasets[0]) {
                     target.chart.data.datasets[0].data.shift();
@@ -415,12 +432,12 @@
             });
         }
 
-        setInterval(syncData, 3000);
+        // Проверка через API каждые 5 сек только если WS не работает
+        setInterval(syncData, 5000);
 
         window.onload = () => {
             addLog("QUANTUM_CORE_INITIALIZED", "SYS");
-            addLog("NEURAL_PULSE_SYNC_ACTIVE", "OK");
-            syncData(); 
+            addLog("REALTIME_UPLINK_READY", "OK");
         };
     </script>
 </body>
