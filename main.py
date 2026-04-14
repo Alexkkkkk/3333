@@ -81,7 +81,6 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        """Отправка данных всем подключенным пользователям с очисткой 'битых' сокетов"""
         bad_connections = []
         for connection in self.active_connections:
             try:
@@ -118,7 +117,6 @@ async def sync_config():
     try:
         cfg = await load_remote_config()
         if cfg and cfg.get('mnemonic'):
-            # Очищаем мнемонику от лишних пробелов и переносов
             overlord.mnemonic = cfg['mnemonic'].strip()
             return True
     except Exception as e:
@@ -134,7 +132,6 @@ async def process_pool_inflow(wallet):
             tx_hash = tx.hash.hex()
             if tx_hash in overlord.processed_txs: continue
             
-            # Проверяем входящее сообщение с ценностью
             if tx.in_msg and tx.in_msg.value > 0:
                 amount = tx.in_msg.value / 1e9
                 log(f"POOL: Депозит {amount} TON", "SUCCESS")
@@ -156,12 +153,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     await sync_config() 
     
-    # Запуск фонового воркера
     worker_task = asyncio.create_task(core_worker())
-    
     yield
     
-    # Завершение работы
     overlord.is_active = False
     worker_task.cancel()
     try:
@@ -172,7 +166,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS настройки
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -181,7 +174,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- API ROUTES ---
+# --- API & STATIC ROUTES ---
 
 @app.get("/")
 @app.get("/index.html")
@@ -190,7 +183,15 @@ async def read_index(request: Request):
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return JSONResponse({"error": "index.html not found in static folder"}, status_code=404)
+    return JSONResponse({"error": "index.html not found"}, status_code=404)
+
+# Роут для админ-панели (согласно твоей структуре static/admin/admin.html)
+@app.get("/admin")
+async def get_admin_panel():
+    admin_path = os.path.join(static_dir, "admin", "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    return JSONResponse({"error": "Admin panel not found"}, status_code=404)
 
 @app.get("/api/stats")
 async def get_stats():
@@ -215,18 +216,20 @@ async def wallet_sync(request: Request):
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-# --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+    db_stats = await get_stats_for_web() or {}
     try:
-        # Стартовый пакет данных
         await websocket.send_json({
             "type": "INIT",
             "balance": round(overlord.current_balance, 2),
-            "qc_balance": round(overlord.current_balance * 137.5, 2),
+            "visitors": db_stats.get('total_visits', 0),
+            "connections": len(manager.active_connections),
+            "traffic": random.uniform(0.1, 1.5),
             "status": overlord.last_status,
-            "core": overlord.core_id
+            "core": overlord.core_id,
+            "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 10
         })
         while True:
             message = await websocket.receive_text()
@@ -237,18 +240,28 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
-# Статические файлы (Монтируем ПОСЛЕ основных API роутов)
+# Монтируем статику для прямого доступа к картинкам и ассетам
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Catch-all роут для всех HTML страниц (pools, staking, etc)
 @app.get("/{path:path}")
 async def catch_all(path: str):
+    # 1. Проверяем путь как есть
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
-    # Редирект на index.html для SPA роутинга
+    
+    # 2. Если расширение не указано, пробуем добавить .html
+    if not path.endswith(".html"):
+        html_path = file_path + ".html"
+        if os.path.isfile(html_path):
+            return FileResponse(html_path)
+    
+    # 3. Fallback на index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
+    
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 # --- CORE WORKER ---
@@ -262,30 +275,29 @@ async def core_worker():
                 await sync_config()
                 continue
 
-            # Использование контекстного менеджера pytoniq
             async with LiteClient.from_mainnet_config() as client:
-                # Безопасное разделение мнемоники
                 words = [w.strip() for w in overlord.mnemonic.split() if w.strip()]
                 wallet = await WalletV4R2.from_mnemonic(client, words)
                 overlord.last_status = "ACTIVE"
-                log(f"CORE: Подключено к кошельку {wallet.address}", "SUCCESS")
+                log(f"CORE: Подключено к {wallet.address}", "SUCCESS")
                 
                 while overlord.is_active:
-                    # 1. Синхронизация баланса
                     raw_balance = await wallet.get_balance()
                     new_balance = raw_balance / 1e9
+                    overlord.current_balance = new_balance
                     
-                    # 2. Обновление и Broadcast при изменении
-                    if abs(new_balance - overlord.current_balance) > 0.0001:
-                        overlord.current_balance = new_balance
-                        await manager.broadcast({
-                            "type": "UPDATE",
-                            "balance": round(overlord.current_balance, 2),
-                            "qc_balance": round(overlord.current_balance * 137.5, 2),
-                            "status": overlord.last_status
-                        })
+                    db_stats = await get_stats_for_web() or {}
+                    
+                    await manager.broadcast({
+                        "type": "UPDATE",
+                        "balance": round(overlord.current_balance, 2),
+                        "visitors": db_stats.get('total_visits', 0),
+                        "connections": len(manager.active_connections),
+                        "traffic": random.uniform(0.5, 4.2),
+                        "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 30),
+                        "status": overlord.last_status
+                    })
 
-                    # 3. Депозиты и сохранение состояния
                     await process_pool_inflow(wallet)
                     await save_wallet_state(
                         str(wallet.address), 
@@ -293,17 +305,8 @@ async def core_worker():
                         overlord.current_balance * 137.5
                     )
                     
-                    # 4. Визуальный тик для фронтенда
-                    await manager.broadcast({
-                        "type": "TICK", 
-                        "time": datetime.now().strftime("%H:%M:%S"),
-                        "core_load": random.randint(20, 45) if not PSUTIL_AVAILABLE else psutil.cpu_percent()
-                    })
-                    
                     await asyncio.sleep(15) 
-                    # Проверяем, не обновилась ли конфигурация в БД
-                    if not await sync_config(): 
-                        pass 
+                    await sync_config() 
 
         except Exception as e:
             log(f"Worker Loop Error: {e}", "ERROR")
@@ -311,7 +314,6 @@ async def core_worker():
             await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    # Запуск с поддержкой Proxy-заголовков для корректного определения IP на хостингах
     uvicorn.run(
         "main:app", 
         host="0.0.0.0", 
