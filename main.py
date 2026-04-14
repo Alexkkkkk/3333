@@ -114,11 +114,9 @@ async def core_worker():
                 overlord.last_status = "ACTIVE"
                 
                 while overlord.is_active:
-                    # 1. Запрос баланса
                     raw_bal = await wallet.get_balance()
                     new_balance = raw_bal / 1e9
                     
-                    # 2. Проверка новых депозитов
                     if new_balance > overlord.current_balance and overlord.current_balance > 0:
                         await manager.broadcast({
                             "type": "EVENT", "event": "deposit", 
@@ -128,7 +126,6 @@ async def core_worker():
                     overlord.current_balance = new_balance
                     db_stats = await get_stats_for_web()
 
-                    # 3. Трансляция статистики
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
@@ -142,7 +139,6 @@ async def core_worker():
                         "recent_actions": db_stats.get('recent_actions', [])
                     })
 
-                    # 4. Сохранение состояния
                     await save_wallet_state(
                         address=str(wallet.address), 
                         balance=overlord.current_balance, 
@@ -178,29 +174,63 @@ app.add_middleware(
 
 # --- РОУТИНГ ---
 
+# Главная
 @app.get("/")
 @app.get("/index.html")
 async def read_root(request: Request):
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     return FileResponse("static/index.html")
 
-@app.get("/admin/{page}")
-async def get_admin_pages(page: str):
-    path = f"static/admin/{page}"
+# Манифест TON Connect
+@app.get("/tonconnect-manifest.json")
+async def get_manifest():
+    return FileResponse("static/tonconnect-manifest.json")
+
+# API статистики для админ-панели
+@app.get("/api/stats")
+async def get_stats():
+    db_stats = await get_stats_for_web()
+    return JSONResponse({
+        "status": overlord.last_status,
+        "balance": round(overlord.current_balance, 2),
+        "uptime": overlord.get_uptime(),
+        **db_stats
+    })
+
+# Универсальный роут для всех страниц .html в корне static
+@app.get("/{page}.html")
+async def get_static_html(page: str):
+    path = f"static/{page}.html"
     if os.path.exists(path):
         return FileResponse(path)
     return FileResponse("static/index.html")
 
+# Продвинутый роут для админки (поддерживает вложенные пути)
+@app.get("/admin/{file_path:path}")
+async def get_admin_pages(file_path: str):
+    # Если путь пустой или заканчивается на /, ищем admin.html
+    if not file_path or file_path.endswith("/"):
+        path = "static/admin/admin.html"
+    else:
+        path = f"static/admin/{file_path}"
+    
+    if os.path.exists(path):
+        return FileResponse(path)
+    return FileResponse("static/index.html")
+
+# Изображения
 @app.get("/images/{img}")
 async def get_image(img: str):
     path = f"static/images/{img}"
     return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "Not Found"}, 404)
 
+# Логотип как фавикон
 @app.get("/favicon.ico")
 async def get_favicon():
     path = "static/images/logo.png"
     return FileResponse(path) if os.path.exists(path) else JSONResponse(None, 404)
 
+# WebSocket
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -221,6 +251,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+# Монтирование всей папки статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
