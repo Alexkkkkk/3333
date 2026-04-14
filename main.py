@@ -134,7 +134,7 @@ async def process_pool_inflow(wallet):
 async def lifespan(app: FastAPI):
     log("SYS: Nexus DB Connect...", "INFO")
     await init_db()
-    await sync_config()
+    await sync_config() # Сразу подгружаем конфигурацию
     worker_task = asyncio.create_task(core_worker())
     yield
     overlord.is_active = False
@@ -161,7 +161,7 @@ async def read_index(request: Request):
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web() or {}
-    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(15, 25)
+    cpu = psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(18, 28)
     return {
         **db_stats,
         "balance": round(overlord.current_balance, 2),
@@ -172,7 +172,7 @@ async def get_stats():
 
 @app.post("/api/wallet/sync")
 async def wallet_sync(request: Request):
-    """Исправляет ошибку 405 Method Not Allowed"""
+    """Синхронизация кошелька с фронтенда"""
     try:
         data = await request.json()
         success = await sync_wallet_data(data)
@@ -182,7 +182,7 @@ async def wallet_sync(request: Request):
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-# --- WEBSOCKET ENDPOINT ---
+# --- WEBSOCKET ENDPOINT (С поддержкой PING) ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -192,11 +192,17 @@ async def websocket_endpoint(websocket: WebSocket):
             "type": "INIT",
             "balance": round(overlord.current_balance, 2),
             "qc_balance": round(overlord.current_balance * 137.5, 2),
-            "status": overlord.last_status
+            "status": overlord.last_status,
+            "core": overlord.core_id
         })
         while True:
-            await websocket.receive_text() # Поддерживаем соединение
+            # Слушаем сообщения (например, ping от клиента для поддержания связи)
+            message = await websocket.receive_text()
+            if message == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
         manager.disconnect(websocket)
 
 # Статические файлы
@@ -207,6 +213,7 @@ async def catch_all(path: str):
     file_path = os.path.join(static_dir, path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
+    # Редирект на index.html для SPA роутинга
     return FileResponse(os.path.join(static_dir, "index.html"))
 
 # --- CORE WORKER ---
@@ -229,8 +236,8 @@ async def core_worker():
                     raw_balance = await wallet.get_balance()
                     new_balance = raw_balance / 1e9
                     
-                    # 2. Обновление и Broadcast
-                    if new_balance != overlord.current_balance:
+                    # 2. Обновление и Broadcast (Мгновенно для всех веб-сокетов)
+                    if abs(new_balance - overlord.current_balance) > 0.0001:
                         overlord.current_balance = new_balance
                         await manager.broadcast({
                             "type": "UPDATE",
@@ -239,16 +246,23 @@ async def core_worker():
                             "status": overlord.last_status
                         })
 
-                    # 3. Депозиты и стейт
+                    # 3. Депозиты и сохранение состояния
                     await process_pool_inflow(wallet)
-                    await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance*137.5)
+                    await save_wallet_state(
+                        str(wallet.address), 
+                        overlord.current_balance, 
+                        overlord.current_balance * 137.5
+                    )
                     
-                    await asyncio.sleep(10)
+                    # Периодический "тик" для фронтенда (чтобы оживить графики)
+                    await manager.broadcast({"type": "TICK", "time": datetime.now().strftime("%H:%M:%S")})
+                    
+                    await asyncio.sleep(15) # Оптимальный интервал для Bothost
                     if not await sync_config(): break 
 
         except Exception as e:
             log(f"Worker Loop Error: {e}", "ERROR")
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, proxy_headers=True, forwarded_allow_ips="*")
