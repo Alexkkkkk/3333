@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QUANTUM | NEURAL MONITOR V4.1</title>
+    <title>QUANTUM | ADMIN V4.1</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -42,7 +42,6 @@
             opacity: 0.15;
         }
 
-        /* Scanline Effect */
         body::after {
             content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
@@ -117,7 +116,6 @@
         }
         .pulse-log { animation: pulse-opacity 2s infinite; }
 
-        /* Custom Scrollbar for Logs */
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-track { background: transparent; }
         #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
@@ -142,7 +140,7 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="/" class="nav-link active">
+                <a href="/admin/admin.html" class="nav-link active">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     Monitor
                 </a>
@@ -248,7 +246,6 @@
     </div>
 
     <script>
-        // Инициализация TON Connect с проверкой
         let tonConnectUI;
         try {
             tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -259,7 +256,6 @@
             console.error("TON Connect Init Error:", e);
         }
 
-        // Вспомогательная функция для градиентов
         function getGradient(ctx, color) {
             const g = ctx.createLinearGradient(0, 0, 0, 300);
             g.addColorStop(0, color + '44');
@@ -281,7 +277,6 @@
             animation: { duration: 0 }
         };
 
-        // Трафик
         const trafficCtx = document.getElementById('trafficChart').getContext('2d');
         const trafficChart = new Chart(trafficCtx, {
             type: 'line',
@@ -300,7 +295,6 @@
             options: commonOptions
         });
 
-        // Визиты
         const visitorCtx = document.getElementById('visitorChart').getContext('2d');
         const visitorChart = new Chart(visitorCtx, {
             type: 'bar',
@@ -315,7 +309,6 @@
             options: commonOptions
         });
 
-        // Кошельки
         const walletCtx = document.getElementById('walletChart').getContext('2d');
         const walletChart = new Chart(walletCtx, {
             type: 'line',
@@ -333,7 +326,6 @@
             options: commonOptions
         });
 
-        // Логирование (добавление новых записей вверх)
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             if(!container) return;
@@ -353,11 +345,9 @@
             
             container.prepend(log);
             setTimeout(() => log.classList.remove('opacity-0'), 10);
-
             if (container.children.length > 40) container.lastChild.remove();
         }
 
-        // Аптайм
         let startTime = Date.now();
         setInterval(() => {
             const uptimeEl = document.getElementById('uptime_display');
@@ -369,7 +359,6 @@
             uptimeEl.innerText = `${h}:${m}:${s}`;
         }, 1000);
 
-        // Синхронизация данных
         async function syncData() {
             try {
                 const res = await fetch('/api/stats');
@@ -377,7 +366,6 @@
                 
                 const data = await res.json();
                 
-                // Обновление UI
                 const setTxt = (id, val) => {
                     const el = document.getElementById(id);
                     if(el) el.innerText = val;
@@ -388,16 +376,13 @@
                 setTxt('visitor_val', data.visitors ?? 0);
                 setTxt('traffic_val', (data.traffic ?? 0).toFixed(2));
                 
-                // CPU бар
                 const cpu = Math.min(Math.max(data.cpu ?? 0, 0), 100);
                 setTxt('cpu_label', cpu + '%');
                 const cpuBar = document.getElementById('cpu_bar');
                 if(cpuBar) cpuBar.style.width = cpu + '%';
                 
-                // Обновление графиков
                 updateCharts(data.traffic || 0, data.visitors || 0, data.connections || 0);
                 
-                // Обновление статуса
                 const statusInd = document.getElementById('status_indicator');
                 if(statusInd) {
                     statusInd.innerText = "SYNC_ACTIVE";
@@ -405,7 +390,6 @@
                 }
 
             } catch(e) {
-                console.warn("Uplink Lost:", e.message);
                 const statusInd = document.getElementById('status_indicator');
                 if(statusInd) {
                     statusInd.innerText = "CONNECTION_LOST";
@@ -431,7 +415,6 @@
             });
         }
 
-        // Главный цикл
         setInterval(syncData, 3000);
 
         window.onload = () => {
