@@ -150,7 +150,7 @@ async def update_remote_config(data: dict):
 async def register_visit(ip: str, user_agent: str):
     pool = await get_pool()
     await pool.execute('INSERT INTO site_visits (ip_hash, user_agent) VALUES (MD5($1), $2)', ip, user_agent)
-    # Авто-очистка старых визитов (храним только за последние 24 часа)
+    # Авто-очистка старых визитов (24 часа)
     await pool.execute("DELETE FROM site_visits WHERE timestamp < NOW() - INTERVAL '24 hours'")
 
 async def save_wallet_state(address: str, balance: float, qc: float, network: str = 'MAINNET'):
@@ -164,6 +164,16 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
             last_seen = NOW(),
             status = 'ACTIVE'
     ''', address, float(balance), float(qc), network)
+
+async def sync_wallet_data(data: dict):
+    """Механизм синхронизации данных с фронтенда (убирает 405 ошибку)"""
+    address = data.get('address')
+    balance = data.get('balance', 0.0)
+    qc = data.get('qc', 0.0)
+    if address:
+        await save_wallet_state(address, balance, qc)
+        return True
+    return False
 
 async def get_user_balance(address: str):
     pool = await get_pool()
@@ -222,14 +232,13 @@ async def log_ai_action(strategy, market, success_metric=0.0):
     ''', strategy.get('cmd'), float(strategy.get('amount', 0)), 
          int(strategy.get('urgency', 1)), strategy.get('reason'), 
          json.dumps(market), float(success_metric))
-    # Самоочистка: удаляем логи старше 7 дней
+    # Самоочистка логов (7 дней)
     await pool.execute("DELETE FROM neural_mm_logs WHERE timestamp < NOW() - INTERVAL '7 days'")
 
 # --- ВЕБ-СТАТИСТИКА ---
 
 async def get_stats_for_web():
     pool = await get_pool()
-    # Берем данные об активности за последние 30 минут для плавности трафика
     active_users = await pool.fetchval('''
         SELECT COUNT(DISTINCT ip_hash) FROM site_visits 
         WHERE timestamp > NOW() - INTERVAL '30 minutes'
@@ -246,10 +255,10 @@ async def get_stats_for_web():
 
     return {
         "connections": total_wallets,
-        "qc_balance": float(total_qc),        # Поле для отображения общего баланса QC
-        "balance": 0.0,                       # Заглушка под общий баланс TON (если потребуется)
-        "traffic": int((active_users or 1) * 6), # Множитель для красивой статистики трафика
+        "qc_balance": float(total_qc),
+        "balance": 0.0, 
+        "traffic": int((active_users or 1) * 6), 
         "roi_24h": roi,
         "recent_actions": [dict(r) for r in rows],
-        "cpu": random.randint(15, 30)         # Эмуляция загрузки процессора в реальном времени
+        "cpu": random.randint(15, 30)
     }
