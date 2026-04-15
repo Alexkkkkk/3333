@@ -21,22 +21,12 @@ import uvicorn
 load_dotenv()
 
 """
-🧬 PROJECT MAP / СТРУКТУРА ПРОЕКТА (DO NOT CHANGE):
+🧬 QUANTUM CORE 4.5.0 | FULL NATURAL MONITORING
+STRUCTURE:
 / (root)
-├── main.py                     # Основной сервер (этот файл)
-├── database.py                 # Логика БД (asyncpg)
-├── requirements.txt            # Зависимости
-├── Dockerfile                  # Контейнер
-└── static/                     # Статические ресурсы
-    ├── index.html              # Главная страница (Quantum Protocol)
-    ├── tonconnect-manifest.json
-    ├── style.css
-    ├── images/                 # Лого и картинки
-    │   └── logo.png
-    └── admin/                  # Панель управления
-        ├── admin.html          # Главная админки
-        ├── wallets.html        # Управление кошельками
-        └── settings.html       # Настройки ядра
+├── main.py
+├── database.py
+└── static/
 """
 
 # --- ИМПОРТ ФУНКЦИЙ БД ---
@@ -47,14 +37,14 @@ try:
         manager, get_pool, close_pool, QuantumOrchestrator
     )
 except ImportError:
-    print("\033[91m[ERROR] Файл database.py не найден или содержит ошибки!\033[0m")
+    print("\033[91m[ERROR] Critical Failure: database.py missing or contains errors!\033[0m")
     sys.exit(1)
 
 # --- КОНФИГУРАЦИЯ ---
 PORT = int(os.getenv("PORT", 3000))
 TON_ENABLED = False
 
-# Проверка psutil для системных данных
+# Проверка psutil для РЕАЛЬНОЙ телеметрии
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -67,7 +57,7 @@ try:
     TON_ENABLED = True
 except ImportError:
     TON_ENABLED = False
-    print("\033[93m[WARNING] Библиотеки TON не найдены. Работа в режиме STANDBY.\033[0m")
+    print("\033[93m[WARNING] TON libs not found. Network monitoring limited.\033[0m")
 
 # --- ЛОГИРОВАНИЕ ---
 def log(message, level="INFO"):
@@ -75,125 +65,156 @@ def log(message, level="INFO"):
     colors = {"INFO": "\033[94m", "SUCCESS": "\033[92m", "WARNING": "\033[93m", "ERROR": "\033[91m", "CORE": "\033[95m"}
     print(f"{colors.get(level, '')}[{timestamp}] [{level}] {message}\033[0m", flush=True)
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-def parse_tg_init_data(init_data: str):
-    """Парсит строку initData из Telegram WebApp"""
-    try:
-        if not init_data:
-            return {"id": "Unknown"}
-        parsed = parse_qs(init_data)
-        user_str = parsed.get("user", [None])[0]
-        if user_str:
-            return json.loads(user_str)
-        return {"id": "Guest"}
-    except Exception as e:
-        log(f"Error parsing TG data: {e}", "ERROR")
-        return {"id": "Error"}
-
-# --- ЯДРО СИСТЕМЫ ---
+# --- ЯДРО НАТУРАЛЬНОЙ ТЕЛЕМЕТРИИ ---
 class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.boot_time = time.time()
-        self.core_id = "QN-SYNC-4.1.0"
+        self.core_id = "QN-NATURAL-ULTRA-4.5.0"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
+        
+        if PSUTIL_AVAILABLE:
+            self.net_old = psutil.net_io_counters()
+            self.disk_old = psutil.disk_io_counters()
+            self.last_check_time = time.time()
 
     def get_uptime(self):
         return int(time.time() - self.boot_time)
 
+    def get_real_metrics(self):
+        if not PSUTIL_AVAILABLE:
+            return {"error": "psutil_unavailable"}
+        
+        now = time.time()
+        diff = max(now - self.last_check_time, 0.1)
+        self.last_check_time = now
+
+        # Расчет скорости сети (KB/s)
+        net_now = psutil.net_io_counters()
+        download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024
+        upload_speed = (net_now.bytes_sent - self.net_old.bytes_sent) / diff / 1024
+        self.net_old = net_now
+
+        # Память системы
+        mem = psutil.virtual_memory()
+        
+        # Дисковая активность
+        disk_now = psutil.disk_io_counters()
+        read_kb = (disk_now.read_bytes - self.disk_old.read_bytes) / diff / 1024
+        self.disk_old = disk_now
+
+        # Данные процесса
+        proc = psutil.Process()
+
+        return {
+            "cpu": {
+                "percent": psutil.cpu_percent(interval=None),
+                "freq": round(psutil.cpu_freq().current if psutil.cpu_freq() else 0, 2),
+                "threads": proc.num_threads()
+            },
+            "ram": {
+                "percent": mem.percent,
+                "used_gb": round(mem.used / (1024**3), 2),
+                "total_gb": round(mem.total / (1024**3), 2)
+            },
+            "network": {
+                "down_kbs": round(download_speed, 2),
+                "up_kbs": round(upload_speed, 2)
+            },
+            "disk": {
+                "usage_percent": psutil.disk_usage('/').percent,
+                "read_kbs": round(read_kb, 2)
+            },
+            "app_memory_mb": round(proc.memory_info().rss / (1024*1024), 2)
+        }
+
 overlord = OmniNeuralOverlord()
 
-# --- ФОНОВЫЙ ВОРКЕР (БИЕНИЕ СЕРДЦА) ---
+# --- ФОНОВЫЙ ВОРКЕР (SUPER MONITORING) ---
 async def core_worker():
-    log("CORE: Воркер мониторинга активен и синхронизирован", "SUCCESS")
+    log("CORE: Система супер-мониторинга активирована", "SUCCESS")
     while overlord.is_active:
         try:
+            # 1. Загрузка конфигурации
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
                 overlord.mnemonic = cfg['mnemonic'].strip()
 
-            if not overlord.mnemonic or not TON_ENABLED:
+            # 2. Сбор метрик
+            db_stats = await get_stats_for_web()
+            sys_metrics = overlord.get_real_metrics()
+            
+            # Проверка БД пула
+            pool = get_pool()
+            db_alive = pool is not None and not pool._closed
+
+            # 3. TON Телеметрия
+            ton_metrics = {"status": "OFFLINE", "block": 0}
+            if overlord.mnemonic and TON_ENABLED:
+                try:
+                    async with LiteClient.from_mainnet_config() as client:
+                        master_info = await client.get_masterchain_info()
+                        wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
+                        
+                        raw_bal = await wallet.get_balance()
+                        new_balance = raw_bal / 1e9
+                        
+                        if new_balance > overlord.current_balance and overlord.current_balance > 0:
+                            diff = round(new_balance - overlord.current_balance, 2)
+                            await log_ai_action("DEPOSIT", diff, f"Received {diff} TON")
+                        
+                        overlord.current_balance = new_balance
+                        overlord.last_status = "ACTIVE"
+                        ton_metrics = {
+                            "status": "ONLINE",
+                            "block": master_info['last']['seqno'],
+                            "wallet_preview": str(wallet.address)[:10] + "..."
+                        }
+                except Exception as ton_e:
+                    log(f"TON Sync Error: {ton_e}", "WARNING")
+                    overlord.last_status = "SYNC_LAG"
+            else:
                 overlord.last_status = "STANDBY"
-                # Периодическая рассылка даже в Standby
-                await manager.broadcast({
-                    "type": "UPDATE", "status": "STANDBY", 
-                    "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 2,
-                    "uptime": overlord.get_uptime()
-                })
-                await asyncio.sleep(10)
-                continue
 
-            async with LiteClient.from_mainnet_config() as client:
-                wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
-                overlord.last_status = "ACTIVE"
-                
-                while overlord.is_active:
-                    raw_bal = await wallet.get_balance()
-                    new_balance = raw_bal / 1e9
-                    
-                    if new_balance > overlord.current_balance and overlord.current_balance > 0:
-                        diff = round(new_balance - overlord.current_balance, 2)
-                        await log_ai_action("DEPOSIT", diff, f"Received {diff} TON")
-                        await manager.broadcast({
-                            "type": "EVENT", "event": "deposit", 
-                            "amount": diff
-                        })
-                    
-                    overlord.current_balance = new_balance
-                    db_stats = await get_stats_for_web()
+            # 4. ВЕЩАНИЕ (WebSocket)
+            await manager.broadcast({
+                "type": "UPDATE",
+                "data": {
+                    "balance": round(overlord.current_balance, 2),
+                    "traffic": db_stats.get('traffic', 0),
+                    "connections": db_stats.get('connections', 0),
+                    "qc_balance": db_stats.get('qc_balance', 0),
+                    "system": sys_metrics,
+                    "db_online": db_alive,
+                    "ton": ton_metrics,
+                    "ws_clients": len(manager.active_connections),
+                    "status": overlord.last_status,
+                    "uptime": overlord.get_uptime(),
+                    "recent_actions": db_stats.get('recent_actions', []),
+                    "ts": int(time.time() * 1000)
+                }
+            })
 
-                    # Основной широковещательный пакет данных
-                    await manager.broadcast({
-                        "type": "UPDATE",
-                        "balance": round(overlord.current_balance, 2),
-                        "visitors": db_stats.get('traffic', 0),
-                        "connections": db_stats.get('connections', 0),
-                        "qc_balance": db_stats.get('qc_balance', 0),
-                        "roi_24h": db_stats.get('roi_24h', 0),
-                        "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else random.randint(10, 20),
-                        "status": "ACTIVE",
-                        "uptime": overlord.get_uptime(),
-                        "recent_actions": db_stats.get('recent_actions', [])
-                    })
-
-                    await save_wallet_state(
-                        address=str(wallet.address), 
-                        balance=overlord.current_balance, 
-                        qc=overlord.current_balance * 135.5
-                    )
-                    await asyncio.sleep(5) 
+            await asyncio.sleep(2) # Натуральное обновление каждые 2 секунды
 
         except Exception as e:
-            log(f"Worker Loop Error: {e}", "ERROR")
-            overlord.last_status = "ERROR"
+            log(f"Critical Monitoring Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# --- LIFESPAN (Управление запуском и остановкой) ---
+# --- LIFESPAN (Жизненный цикл приложения) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
-    
-    # 1. Инициализация БД (Таблицы и индексы)
     await init_db()
-    
-    # 2. Запуск фоновых задач оркестратора (Пульс и Очистка)
     QuantumOrchestrator.start_background_tasks()
-    
-    # 3. Запуск основного TON воркера
     worker_task = asyncio.create_task(core_worker())
-    
     yield
-    
-    # --- SHUTDOWN ---
-    log("🔌 Завершение работы системы...", "WARNING")
+    log("🔌 Shutdown sequence initiated...", "WARNING")
     overlord.is_active = False
     worker_task.cancel()
-    
-    # Закрываем пул соединений БД
     await close_pool()
-    log("SYS: Core Shutdown Complete", "CORE")
 
 app = FastAPI(lifespan=lifespan)
 
@@ -210,15 +231,17 @@ app.add_middleware(
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
     init_data_raw = data.get("initData")
-    user_info = parse_tg_init_data(init_data_raw)
-    
+    try:
+        parsed = parse_qs(init_data_raw)
+        user_info = json.loads(parsed.get("user", ["{}"])[0])
+    except:
+        user_info = {"id": "Unknown", "username": "Guest"}
+
     await register_visit(
         request.client.host if request else "0.0.0.0", 
-        f"TG_ID:{user_info.get('id')} | {data.get('platform', 'unknown')}"
+        f"TG:{user_info.get('id')} | {data.get('platform', 'unknown')}"
     )
-    
-    log(f"VISIT: Пользователь {user_info.get('username', user_info.get('id'))} вошел в терминал", "SUCCESS")
-    return {"status": "ok", "core_sync": True}
+    return {"status": "ok", "monitored": True}
 
 @app.get("/")
 @app.get("/index.html")
@@ -227,7 +250,6 @@ async def read_root(request: Request):
     return FileResponse("static/index.html")
 
 @app.get("/admin")
-@app.get("/admin/")
 @app.get("/admin/admin.html")
 async def get_admin_root():
     return FileResponse("static/admin/admin.html")
@@ -237,64 +259,34 @@ async def get_admin_pages(file_path: str):
     path = f"static/admin/{file_path}"
     if not path.endswith(".html") and not os.path.isdir(path):
         path += ".html"
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("static/admin/admin.html")
+    return FileResponse(path) if os.path.exists(path) else FileResponse("static/admin/admin.html")
 
-@app.get("/tonconnect-manifest.json")
-async def get_manifest():
-    return FileResponse("static/tonconnect-manifest.json")
-
-@app.get("/api/stats")
-async def get_stats():
-    db_stats = await get_stats_for_web()
-    return JSONResponse({
-        "status": overlord.last_status,
-        "balance": round(overlord.current_balance, 2),
-        "uptime": overlord.get_uptime(),
-        "core_id": overlord.core_id,
-        **db_stats
-    })
-
-@app.get("/{page}.html")
-async def get_static_html(page: str):
-    path = f"static/{page}.html"
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("static/index.html")
-
-@app.get("/images/{img}")
-async def get_image(img: str):
-    path = f"static/images/{img}"
-    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "Not Found"}, 404)
-
-@app.get("/favicon.ico")
-async def get_favicon():
-    path = "static/images/logo.png"
-    return FileResponse(path) if os.path.exists(path) else JSONResponse(None, 404)
-
-# --- WEBSOCKET ---
+# --- WEBSOCKET (REAL-TIME STREAM) ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     db_stats = await get_stats_for_web()
     try:
+        # Первичный пакет (Handshake)
         await websocket.send_json({
             "type": "INIT",
-            "balance": round(overlord.current_balance, 2),
-            **db_stats,
-            "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 5,
-            "status": overlord.last_status,
-            "uptime": overlord.get_uptime(),
-            "core": overlord.core_id
+            "data": {
+                "balance": round(overlord.current_balance, 2),
+                "traffic": db_stats.get('traffic', 0),
+                "system": overlord.get_real_metrics(),
+                "status": overlord.last_status,
+                "uptime": overlord.get_uptime(),
+                "core": overlord.core_id
+            }
         })
         while True:
-            data = await websocket.receive_text()
-            if data == "ping":
+            msg = await websocket.receive_text()
+            if msg == "ping":
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+# Подключение статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
