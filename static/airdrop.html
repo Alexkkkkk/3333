@@ -167,8 +167,8 @@
         <div class="max-w-xl mx-auto px-6 flex justify-between items-center font-mono text-[9px] tracking-widest text-cyan-400">
             <div class="flex items-center gap-4">
                 <span class="flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
-                    AIRDROP_SYNC_ACTIVE
+                    <span id="sync-status" class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
+                    <span id="sync-text">AIRDROP_SYNC_ACTIVE</span>
                 </span>
                 <span class="opacity-30">|</span>
                 <span>PING: <span id="ping">18</span>ms</span>
@@ -201,11 +201,11 @@
                 <div class="bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4 flex justify-between items-center mb-6">
                     <div class="text-left">
                         <p class="text-[7px] text-cyan-400 font-bold uppercase">Rank Status</p>
-                        <p class="text-[10px] font-black uppercase italic">Unverified Initiate</p>
+                        <p id="user-rank" class="text-[10px] font-black uppercase italic">Unverified Initiate</p>
                     </div>
                     <div class="text-right">
                         <p class="text-[7px] text-slate-500 font-bold uppercase">Next Tier</p>
-                        <p class="text-[10px] font-black uppercase italic">500 QP</p>
+                        <p id="next-tier" class="text-[10px] font-black uppercase italic">500 QP</p>
                     </div>
                 </div>
                 <button onclick="claim()" class="btn-core w-full py-4 rounded-2xl shadow-lg">Claim Rewards</button>
@@ -231,7 +231,7 @@
                             <p class="text-[7px] text-cyan-500/60 font-bold tracking-widest uppercase">+100 QP per Node</p>
                         </div>
                     </div>
-                    <button class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Start</button>
+                    <button onclick="executeMission('task-1')" class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Start</button>
                 </div>
             </div>
 
@@ -247,7 +247,7 @@
                             <p class="text-[7px] text-cyan-500/60 font-bold tracking-widest uppercase">+50 QP / Global Auth</p>
                         </div>
                     </div>
-                    <button class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Link</button>
+                    <button onclick="executeMission('task-2')" class="btn-core btn-outline px-6 py-2 rounded-xl text-[8px]">Link</button>
                 </div>
             </div>
         </div>
@@ -255,7 +255,7 @@
 
     <div class="ticker-wrap">
         <div class="max-w-xl mx-auto overflow-hidden whitespace-nowrap">
-            <div class="inline-block animate-marquee mono text-[7px] text-slate-500 uppercase tracking-widest">
+            <div id="marquee-text" class="inline-block animate-marquee mono text-[7px] text-slate-500 uppercase tracking-widest">
                 [SYSTEM]: AIRDROP PHASE 1 ACTIVE... [NOTICE]: 1,000,000 QP POOL REMAINING... [SECURE]: ALL DATA ENCRYPTED... [EVENT]: NEW USER REGISTERED: ID_9921... [TX]: QP_REWARD_DISTRIBUTED...
             </div>
         </div>
@@ -295,21 +295,116 @@
     </nav>
 
     <script>
+        // --- TON CONNECT ИНИЦИАЛИЗАЦИЯ ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'connectBtn'
         });
 
+        // --- РЕАЛЬНОЕ ВРЕМЯ (WEBSOCKET) ---
+        let socket;
+        function initRealtime() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            socket.onopen = () => {
+                document.getElementById('sync-status').classList.replace('bg-red-500', 'bg-cyan-500');
+                document.getElementById('sync-text').innerText = 'AIRDROP_SYNC_ACTIVE';
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                // Живое обновление баланса
+                if (data.qc_balance !== undefined) {
+                    updatePointsDisplay(data.qc_balance);
+                }
+
+                // Обновление статуса ранга
+                if (data.rank) {
+                    document.getElementById('user-rank').innerText = data.rank;
+                }
+
+                // Динамический пинг
+                const ping = document.getElementById('ping');
+                if(ping) ping.innerText = Math.floor(Math.random() * 5 + 10);
+            };
+
+            socket.onclose = () => {
+                document.getElementById('sync-status').classList.replace('bg-cyan-500', 'bg-red-500');
+                document.getElementById('sync-text').innerText = 'CONNECTION_LOST_RETRYING';
+                setTimeout(initRealtime, 3000);
+            };
+        }
+
+        // Плавная анимация цифр баланса
+        function updatePointsDisplay(targetValue) {
+            const el = document.getElementById('points-val');
+            const startValue = parseInt(el.innerText) || 0;
+            const duration = 1000;
+            let start = null;
+
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                const progress = Math.min((timestamp - start) / duration, 1);
+                const current = Math.floor(progress * (targetValue - startValue) + startValue);
+                el.innerHTML = current.toString().padStart(3, '0') + '<span class="text-2xl text-cyan-500/40">.QP</span>';
+                if (progress < 1) requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // --- ФУНКЦИОНАЛ МИССИЙ ---
+        async function executeMission(taskId) {
+            const btn = document.querySelector(`#${taskId} button`);
+            const originalText = btn.innerText;
+            
+            if (!tonConnectUI.connected) {
+                alert("CRITICAL ERROR: Connect TON Wallet to authorize mission protocol.");
+                tonConnectUI.openModal();
+                return;
+            }
+
+            btn.innerText = "SYNCING...";
+            btn.disabled = true;
+
+            try {
+                // Эмуляция сетевой задержки для иммерсивности
+                await new Promise(r => setTimeout(r, 1200));
+
+                const response = await fetch('/api/complete-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        wallet: tonConnectUI.account.address
+                    })
+                });
+
+                if (response.ok) {
+                    btn.innerText = "VERIFIED";
+                    btn.classList.add('bg-cyan-500/20', 'text-cyan-400');
+                    btn.disabled = true;
+                } else {
+                    throw new Error();
+                }
+            } catch (e) {
+                alert("ACCESS DENIED: Neural link failed. Try again.");
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- СИСТЕМНЫЕ ЭФФЕКТЫ ---
+        // Часы
         setInterval(() => {
             const now = new Date();
             const ms = Math.floor(now.getMilliseconds() / 10).toString().padStart(2, '0');
             const clock = document.getElementById('sys-clock');
-            if(clock) clock.innerText = now.toLocaleTimeString() + ':' + ms;
-            
-            const ping = document.getElementById('ping');
-            if(ping) ping.innerText = Math.floor(Math.random() * 5 + 12);
+            if(clock) clock.innerText = now.toLocaleTimeString('en-GB') + ':' + ms;
         }, 50);
 
+        // Tilt эффект
         function tilt(id) {
             const el = document.getElementById(id);
             if(!el) return;
@@ -321,10 +416,8 @@
             });
             el.addEventListener('mouseleave', () => el.style.transform = 'none');
         }
-        tilt('card-main');
-        tilt('task-1');
-        tilt('task-2');
-
+        
+        // Canvas фон
         const canvas = document.getElementById('bg-canvas');
         if(canvas) {
             const ctx = canvas.getContext('2d');
@@ -351,6 +444,14 @@
             }
             alert("ACCESS DENIED: Insufficient QP balance for gas verification.");
         }
+
+        // Инициализация при загрузке
+        window.onload = () => {
+            initRealtime();
+            tilt('card-main');
+            tilt('task-1');
+            tilt('task-2');
+        };
     </script>
 </body>
 </html>
