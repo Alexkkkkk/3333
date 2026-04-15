@@ -44,7 +44,7 @@ try:
     from database import (
         init_db, get_stats_for_web, register_visit, 
         save_wallet_state, log_ai_action, load_remote_config,
-        manager, get_pool 
+        manager, get_pool, close_pool, QuantumOrchestrator
     )
 except ImportError:
     print("\033[91m[ERROR] Файл database.py не найден или содержит ошибки!\033[0m")
@@ -116,6 +116,7 @@ async def core_worker():
 
             if not overlord.mnemonic or not TON_ENABLED:
                 overlord.last_status = "STANDBY"
+                # Периодическая рассылка даже в Standby
                 await manager.broadcast({
                     "type": "UPDATE", "status": "STANDBY", 
                     "cpu_load": psutil.cpu_percent() if PSUTIL_AVAILABLE else 2,
@@ -143,6 +144,7 @@ async def core_worker():
                     overlord.current_balance = new_balance
                     db_stats = await get_stats_for_web()
 
+                    # Основной широковещательный пакет данных
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
@@ -168,18 +170,29 @@ async def core_worker():
             overlord.last_status = "ERROR"
             await asyncio.sleep(10)
 
-# --- LIFESPAN ---
+# --- LIFESPAN (Управление запуском и остановкой) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
+    
+    # 1. Инициализация БД (Таблицы и индексы)
     await init_db()
+    
+    # 2. Запуск фоновых задач оркестратора (Пульс и Очистка)
+    QuantumOrchestrator.start_background_tasks()
+    
+    # 3. Запуск основного TON воркера
     worker_task = asyncio.create_task(core_worker())
+    
     yield
+    
+    # --- SHUTDOWN ---
+    log("🔌 Завершение работы системы...", "WARNING")
     overlord.is_active = False
     worker_task.cancel()
-    pool = await get_pool()
-    if pool:
-        await pool.close()
+    
+    # Закрываем пул соединений БД
+    await close_pool()
     log("SYS: Core Shutdown Complete", "CORE")
 
 app = FastAPI(lifespan=lifespan)
@@ -194,13 +207,11 @@ app.add_middleware(
 
 # --- РОУТИНГ ---
 
-# Трекинг визитов (Новый эндпоинт)
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
     init_data_raw = data.get("initData")
     user_info = parse_tg_init_data(init_data_raw)
     
-    # Регистрируем в БД (используем существующую функцию или расширяем её)
     await register_visit(
         request.client.host if request else "0.0.0.0", 
         f"TG_ID:{user_info.get('id')} | {data.get('platform', 'unknown')}"
@@ -212,7 +223,6 @@ async def api_register_visit(data: dict = Body(...), request: Request = None):
 @app.get("/")
 @app.get("/index.html")
 async def read_root(request: Request):
-    # Стандартный лог для веб-браузеров
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     return FileResponse("static/index.html")
 
