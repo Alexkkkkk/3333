@@ -110,10 +110,10 @@
 
     <div class="max-w-[1400px] mx-auto">
         <div class="flex items-center gap-4 text-[9px] md:text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
-            <img src="/images/logo.png" alt="Logo" class="w-5 h-5 object-contain">
+            <img src="/images/logo.png" alt="Logo" class="w-5 h-5 object-contain" onerror="this.src='https://img.icons8.com/neon/96/000000/electronic-circuit.png'">
             <span class="hidden sm:inline">Quantum_Database_Monitoring_System</span>
             <span class="sm:hidden">Q_D_M_S</span>
-            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400">SYNC_ACTIVE</span></span>
+            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400 font-bold uppercase">SYNC_ACTIVE</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
@@ -123,9 +123,9 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="admin.html" class="nav-link active">Monitor</a>
-                <a href="wallets.html" class="nav-link">Wallets</a>
-                <a href="settings.html" class="nav-link">Settings</a>
+                <a href="/static/admin/admin.html" class="nav-link active">Monitor</a>
+                <a href="/static/admin/wallets.html" class="nav-link">Wallets</a>
+                <a href="/static/admin/settings.html" class="nav-link">Settings</a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
@@ -224,7 +224,7 @@
 
     <script>
         const targetWallet = "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj";
-        const TARGET_PAGE = "https://quantum.bothost.tech/index.html";
+        const TARGET_PAGE = "index.html";
         
         let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, walletBalance: 0 };
         let ws;
@@ -239,7 +239,7 @@
             ws.onopen = () => {
                 addLog(`MONITOR_START: Отслеживание ${TARGET_PAGE}`, "OK");
                 updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
-                showToast("Monitoring Target Page...");
+                showToast("Monitoring Link Established");
             };
 
             ws.onmessage = (event) => {
@@ -256,7 +256,7 @@
                             document.getElementById('visitor_val').innerText = visitorCount;
                             
                             if (d.traffic > 0.5) {
-                                addLog(`TRAFFIC_DETECTION: Активность на index.html`, "SYS");
+                                addLog(`TRAFFIC: Обнаружена активность на шлюзе`, "SYS");
                             }
                         }
 
@@ -273,7 +273,7 @@
                             if(cpu > 80) addLog(`WARNING: High CPU Load ${cpu}%`, "ERR");
                         }
                     }
-                } catch (e) { console.error("WS Error", e); }
+                } catch (e) { console.error("WS Parsing Error", e); }
             };
 
             ws.onclose = () => {
@@ -293,8 +293,8 @@
                     if (balance !== currentStats.walletBalance) {
                         currentStats.walletBalance = balance;
                         document.getElementById('balance_val').innerText = balance.toFixed(2);
-                        showToast(`Target Balance: ${balance.toFixed(2)} TON`);
-                        addLog(`SCANNER: Balance updated: ${balance.toFixed(2)} TON`, "OK");
+                        showToast(`Target Balance Updated: ${balance.toFixed(2)} TON`);
+                        addLog(`SCANNER: Баланс обновлен: ${balance.toFixed(2)} TON`, "OK");
                     }
                     
                     walletLiveChart.data.datasets[0].data.shift();
@@ -304,7 +304,7 @@
                     walletLiveChart.update('none');
                 }
             } catch (e) {
-                addLog("SCANNER_ERR: Ошибка блокчейна", "ERR");
+                addLog("SCANNER_ERR: Ошибка связи с блокчейном", "ERR");
             }
         }
 
@@ -316,7 +316,7 @@
         function copyAddr(addr) {
             navigator.clipboard.writeText(addr);
             showToast("Address copied to clipboard");
-            addLog(`UI: Address copied to buffer`, "SYS");
+            addLog(`UI: Адрес скопирован в буфер`, "SYS");
         }
 
         // --- CHARTS CONFIG ---
@@ -402,7 +402,7 @@
 
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
-            if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''}`; }
+            if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold uppercase`; }
         }
 
         window.onload = () => {
@@ -411,7 +411,7 @@
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     new TON_CONNECT_UI.TonConnectUI({
-                        manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+                        manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
                 } catch(e) { console.error("TonConnect Init Error", e); }
