@@ -239,12 +239,13 @@
     </div>
 
     <script>
-        // --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ (REAL-TIME BUFFER) ---
+        // --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ (BUFFER) ---
         let currentStats = {
             traffic: 0,
             visitors: 0,
             connections: 0,
-            cpu: 0
+            cpu: 0,
+            balance: 0
         };
 
         let ws;
@@ -261,41 +262,56 @@
 
             ws.onmessage = (event) => {
                 try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'UPDATE' || data.type === 'INIT') {
-                        if(data.traffic !== undefined) currentStats.traffic = data.traffic;
-                        if(data.visitors !== undefined) currentStats.visitors = data.visitors;
-                        if(data.connections !== undefined) currentStats.connections = data.connections;
-                        if(data.cpu_load !== undefined) currentStats.cpu = data.cpu_load;
+                    const rawData = JSON.parse(event.data);
+                    
+                    // Обработка формата из database.py: {"type": "UPDATE", "data": {...}}
+                    if ((rawData.type === 'UPDATE' || rawData.type === 'INIT') && rawData.data) {
+                        const data = rawData.data;
 
-                        updateTextUI(data);
-                        if (data.type === 'INIT') addLog("DATABASE_UPLINK: Synchronized", "OK");
+                        // Обновляем буфер для графиков
+                        if(data.traffic !== undefined) currentStats.traffic = data.traffic;
+                        if(data.connections !== undefined) currentStats.connections = data.connections;
+                        
+                        // Сопоставление qc_balance -> UI Balance
+                        if(data.qc_balance !== undefined) {
+                            currentStats.balance = data.qc_balance;
+                            document.getElementById('balance_val').innerText = data.qc_balance.toFixed(2);
+                        }
+
+                        // Сопоставление system.cpu -> UI CPU
+                        if(data.system && data.system.cpu !== undefined) {
+                            currentStats.cpu = data.system.cpu;
+                            const cpu = data.system.cpu;
+                            document.getElementById('cpu_label').innerText = cpu + '%';
+                            document.getElementById('cpu_bar').style.width = cpu + '%';
+                            document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
+                        }
+
+                        // Остальные текстовые поля
+                        if(data.traffic !== undefined) {
+                            document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
+                            // Имитация посетителей на основе трафика для наглядности
+                            document.getElementById('visitor_val').innerText = Math.floor(data.traffic * 12);
+                        }
+                        if(data.connections !== undefined) document.getElementById('conn_val').innerText = data.connections;
+
+                        if (rawData.type === 'INIT') addLog("DATABASE_UPLINK: Synchronized", "OK");
                     }
-                    if (data.type === 'EVENT' && data.event === 'deposit') {
-                        showToast(`NEW DEPOSIT: +${data.amount} TON`);
-                        addLog(`NETWORK: New deposit: +${data.amount} TON`, "OK");
+                    
+                    // Обработка специальных событий (депозиты и т.д.)
+                    if (rawData.type === 'EVENT' && rawData.event === 'deposit') {
+                        showToast(`NEW DEPOSIT: +${rawData.amount} TON`);
+                        addLog(`NETWORK: New deposit: +${rawData.amount} TON`, "OK");
                     }
-                } catch (e) { console.error("WS Parse Error", e); }
+                } catch (e) { 
+                    console.error("WS Parse Error", e);
+                }
             };
 
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
                 setTimeout(connectWS, 3000);
             };
-        }
-
-        function updateTextUI(data) {
-            if(data.balance !== undefined) document.getElementById('balance_val').innerText = data.balance.toFixed(2);
-            if(data.visitors !== undefined) document.getElementById('visitor_val').innerText = data.visitors;
-            if(data.traffic !== undefined) document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
-            if(data.connections !== undefined) document.getElementById('conn_val').innerText = data.connections;
-
-            if(data.cpu_load !== undefined) {
-                const cpu = data.cpu_load;
-                document.getElementById('cpu_label').innerText = cpu + '%';
-                document.getElementById('cpu_bar').style.width = cpu + '%';
-                document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
-            }
         }
 
         // --- КОНФИГУРАЦИЯ ГРАФИКОВ ---
@@ -334,10 +350,11 @@
             options: commonOptions
         });
 
+        // Интервал обновления графиков (согласован с пульсом сервера)
         setInterval(() => {
             const charts = [
                 { c: trafficChart, v: currentStats.traffic },
-                { c: visitorChart, v: currentStats.visitors },
+                { c: visitorChart, v: Math.floor(currentStats.traffic * 12) },
                 { c: walletChart, v: currentStats.connections }
             ];
 
@@ -348,7 +365,7 @@
                     item.c.update('normal');
                 }
             });
-        }, 2000);
+        }, 3000);
 
         function updateStatusIndicator(text, colorClass, pulse) {
             const statusInd = document.getElementById('status_indicator');
@@ -403,7 +420,6 @@
             try {
                 if (typeof TON_CONNECT_UI !== 'undefined') {
                     new TON_CONNECT_UI.TonConnectUI({
-                        // Путь к манифесту из корня static
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
