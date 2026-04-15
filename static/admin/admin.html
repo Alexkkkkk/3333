@@ -60,6 +60,7 @@
         .b-green { border-left: 4px solid var(--neon-green); }
         .b-purple { border-left: 4px solid var(--neon-purple); }
         .b-yellow { border-left: 4px solid var(--neon-yellow); }
+        .b-red { border-left: 4px solid var(--neon-red); }
 
         .terminal-text { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
         
@@ -75,16 +76,25 @@
 
         .action-btn {
             font-family: 'Share Tech Mono', monospace; font-size: 10px;
-            padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.2s; color: rgba(255,255,255,0.5); background: transparent;
+            padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.02);
+            text-transform: uppercase;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
+        .action-btn.danger:hover { border-color: var(--neon-red); color: var(--neon-red); background: rgba(255, 71, 87, 0.1); }
         
         #ton-connect-button button {
             background-color: rgba(0, 210, 255, 0.05) !important; 
             border: 1px solid var(--neon-blue) !important;
             color: #fff !important; border-radius: 12px !important; 
             font-size: 11px !important; font-family: 'Share Tech Mono' !important;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        @media (max-width: 640px) {
+            .terminal-text { font-size: 1.25rem !important; letter-spacing: 1px; }
+            .quantum-card { padding: 1.25rem !important; }
+            #ton-connect-button button { width: 100% !important; }
         }
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
@@ -168,6 +178,16 @@
                     <div class="h-[280px] w-full"><canvas id="walletLiveChart"></canvas></div>
                 </div>
 
+                <div class="quantum-card p-6 b-red">
+                    <h2 class="text-xs terminal-text text-red-400 uppercase tracking-widest mb-6">Target_Control_Terminal</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button onclick="triggerAction('SYNC_BLOCKCHAIN')" class="action-btn">Force Sync</button>
+                        <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Viewers</button>
+                        <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
+                        <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Cut Link</button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="quantum-card p-6">
                         <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Core_Visitor_Pulse</h2>
@@ -216,7 +236,7 @@
                             <button onclick="document.getElementById('log-container').innerHTML=''" class="action-btn">CLEAR</button>
                         </div>
                     </div>
-                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-64 overflow-y-auto pr-2 text-slate-400"></div>
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
             </div>
         </div>
@@ -246,19 +266,15 @@
                     const rawData = JSON.parse(event.data);
                     if (rawData.data) {
                         const d = rawData.data;
-
                         if(d.traffic !== undefined) {
                             currentStats.traffic = d.traffic;
                             document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                            const visitorCount = Math.floor(d.traffic * 12);
-                            document.getElementById('visitor_val').innerText = visitorCount;
+                            document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 12);
                         }
-
                         if(d.connections !== undefined) {
                             currentStats.connections = d.connections;
                             document.getElementById('conn_val').innerText = d.connections;
                         }
-
                         if(d.system?.cpu !== undefined) {
                             const cpu = d.system.cpu;
                             currentStats.cpu = cpu;
@@ -293,12 +309,27 @@
             } catch (e) { addLog("SCANNER: Connection Lost", "ERR"); }
         }
 
+        function triggerAction(action) {
+            addLog(`COMMAND: ${action} initiated`, "SYS");
+            showToast(`Executing: ${action}`);
+            
+            if(action === 'RESET_COUNTERS') {
+                document.getElementById('visitor_val').innerText = "0";
+                addLog("UI: Viewers counter cleared locally", "OK");
+            }
+            if(action === 'EMERGENCY_STOP') {
+                ws.close();
+                addLog("CRITICAL: Manual link termination confirmed", "ERR");
+            }
+        }
+
         function copyAddr(addr) {
             navigator.clipboard.writeText(addr);
             showToast("Address copied");
             addLog(`UI: Копирование ${addr.substring(0,8)}...`, "SYS");
         }
 
+        // --- Charts Initialization ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
@@ -333,6 +364,7 @@
             options: commonOptions
         });
 
+        // Intervals
         setInterval(() => {
             [visitorChart, trafficChart].forEach((chart, idx) => {
                 const val = idx === 0 ? Math.floor(currentStats.traffic * 12 + Math.random() * 3) : currentStats.traffic;
@@ -343,6 +375,7 @@
         }, 3000);
 
         setInterval(fetchWalletData, 15000);
+        
         setInterval(() => {
             const diff = Math.floor((Date.now() - startTime) / 1000);
             const fmt = (s) => String(s).padStart(2, '0');
@@ -356,8 +389,9 @@
             log.className = "border-l-2 border-white/5 pl-2 py-0.5";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
             log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type]} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
-            container.prepend(log);
-            if (container.children.length > 50) container.lastChild.remove();
+            container.appendChild(log);
+            if (container.children.length > 100) container.firstChild.remove();
+            container.scrollTop = container.scrollHeight;
         }
 
         function showToast(text) {
@@ -372,6 +406,11 @@
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
             if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`; }
+        }
+
+        function reconnectWS() {
+            addLog("SYSTEM: Manual Reboot Initiated...", "SYS");
+            connectWS();
         }
 
         window.onload = () => {
