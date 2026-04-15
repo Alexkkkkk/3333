@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QUANTUM | ADMIN V4.1</title>
+    <title>QUANTUM | ADMIN V4.2 LIVE</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,36 +40,22 @@
             pointer-events: none; animation: scan 8s linear infinite;
         }
 
-        @keyframes scan { 
-            0% { bottom: 100%; }
-            100% { bottom: -100px; }
-        }
+        @keyframes scan { 0% { bottom: 100%; } 100% { bottom: -100px; } }
 
         .grid-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: linear-gradient(var(--border-color) 1px, transparent 1px), 
-                              linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-            background-size: 40px 40px;
-            z-index: -1;
-            opacity: 0.15;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+            background-size: 40px 40px; z-index: -1; opacity: 0.15;
         }
 
         .quantum-card { 
-            background: var(--panel-bg); 
-            backdrop-filter: blur(16px); 
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
+            background: var(--panel-bg); backdrop-filter: blur(16px); 
+            border: 1px solid var(--border-color); border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .quantum-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(0, 210, 255, 0.3);
-            box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1);
-        }
-
+        .quantum-card:hover { transform: translateY(-5px); border-color: rgba(0, 210, 255, 0.3); box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1); }
         .b-blue { border-left: 4px solid var(--neon-blue); }
         .b-green { border-left: 4px solid var(--neon-green); }
         .b-purple { border-left: 4px solid var(--neon-purple); }
@@ -85,17 +71,12 @@
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .nav-link:hover, .nav-link.active {
-            background: rgba(0, 210, 255, 0.15);
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
-            color: #fff; border-color: var(--neon-blue);
-        }
+        .nav-link:hover, .nav-link.active { background: rgba(0, 210, 255, 0.15); box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); color: #fff; border-color: var(--neon-blue); }
 
         .action-btn {
             font-family: 'Share Tech Mono', monospace; font-size: 10px;
             padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.2s; color: rgba(255,255,255,0.5);
-            background: transparent;
+            transition: all 0.2s; color: rgba(255,255,255,0.5); background: transparent;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
         
@@ -107,12 +88,8 @@
         }
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
-
-        @keyframes pulse-opacity {
-            0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; }
-        }
+        @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .pulse-log { animation: pulse-opacity 2s infinite; }
-
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
@@ -120,8 +97,7 @@
         .toast-item { 
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out;
-            color: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out; color: #fff;
         }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
@@ -142,7 +118,7 @@
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
             <div>
                 <h1 class="text-3xl md:text-4xl font-bold terminal-text uppercase">Quancore_<span class="text-blue-500">OS</span></h1>
-                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.1.0</span> // NEURAL_UPLINK_READY</p>
+                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.2.0</span> // TRACKING_TARGET_ACTIVE</p>
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
@@ -163,14 +139,14 @@
                 <span id="conn_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">0</span>
             </div>
             <div class="quantum-card b-purple p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Throughput</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Network_Load</h3>
                 <div class="flex items-baseline gap-2">
                     <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.00</span>
                     <span class="text-[10px] text-purple-600 font-mono uppercase">MB/S</span>
                 </div>
             </div>
             <div class="quantum-card b-yellow p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Total_Equity</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Target_Balance</h3>
                 <div class="flex items-baseline gap-2">
                     <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
@@ -181,21 +157,24 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
             <div class="lg:col-span-8 space-y-8">
                 <div class="quantum-card p-6 md:p-8">
-                    <div class="flex justify-between items-start mb-6">
-                        <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Neural_Traffic_Analysis</h2>
-                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-log">DATA_FLOW_LIVE</span>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <div>
+                            <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Wallet_Live_Pulse</h2>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all">ADDR: EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj</p>
+                        </div>
+                        <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">BLOCKCHAIN_SYNC_ON</span>
                     </div>
-                    <div class="h-[280px] w-full"><canvas id="trafficChart"></canvas></div>
+                    <div class="h-[280px] w-full"><canvas id="walletLiveChart"></canvas></div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Visitor_Pulse_24h</h2>
+                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Core_Visitor_Pulse</h2>
                         <div class="h-[150px]"><canvas id="visitorChart"></canvas></div>
                     </div>
                     <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-blue-400 uppercase mb-4">Wallet_Sync_Protocol</h2>
-                        <div class="h-[150px]"><canvas id="walletChart"></canvas></div>
+                        <h2 class="text-[10px] terminal-text text-purple-400 uppercase mb-4">Traffic_Sync_History</h2>
+                        <div class="h-[150px]"><canvas id="trafficChart"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -204,7 +183,7 @@
                 <div class="quantum-card p-6 b-blue">
                     <div class="flex justify-between items-center mb-5">
                         <h3 class="text-[10px] text-slate-500 uppercase font-mono tracking-widest">System_Resources</h3>
-                        <button onclick="connectWS()" class="action-btn">REBOOT_LINK</button>
+                        <button onclick="reconnectWS()" class="action-btn">REBOOT_LINK</button>
                     </div>
                     <div class="space-y-6">
                         <div>
@@ -218,8 +197,8 @@
                         </div>
                         <div class="pt-4 border-t border-white/5 space-y-3">
                             <div class="flex justify-between text-[10px] font-mono">
-                                <span class="text-slate-500">MEMORY_ALLOC</span>
-                                <span class="text-blue-400 uppercase">Stable</span>
+                                <span class="text-slate-500 uppercase">Scanner_Status</span>
+                                <span class="text-green-400 uppercase text-[9px]">Active</span>
                             </div>
                             <div class="flex justify-between text-[10px] font-mono">
                                 <span class="text-slate-500 uppercase">Uptime</span>
@@ -243,13 +222,15 @@
     </div>
 
     <script>
-        let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, balance: 0 };
+        const targetWallet = "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj";
+        let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, walletBalance: 0 };
         let ws;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
+        // --- WEBSOCKET CORE ---
         function connectWS() {
-            const host = window.location.host;
-            ws = new WebSocket(`${protocol}//${host}/ws`);
+            if (ws) { ws.close(); }
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
             
             ws.onopen = () => {
                 addLog("WS_CONNECTED: Линк с ядром активен", "OK");
@@ -259,67 +240,86 @@
             ws.onmessage = (event) => {
                 try {
                     const rawData = JSON.parse(event.data);
-                    if ((rawData.type === 'UPDATE' || rawData.type === 'INIT') && rawData.data) {
-                        const data = rawData.data;
-
-                        if(data.traffic !== undefined) {
-                            currentStats.traffic = data.traffic;
-                            document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
-                            document.getElementById('visitor_val').innerText = Math.floor(data.traffic * 12);
+                    if (rawData.data) {
+                        const d = rawData.data;
+                        if(d.traffic !== undefined) {
+                            currentStats.traffic = d.traffic;
+                            document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
+                            document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 12);
                         }
-                        if(data.connections !== undefined) {
-                            currentStats.connections = data.connections;
-                            document.getElementById('conn_val').innerText = data.connections;
+                        if(d.connections !== undefined) {
+                            currentStats.connections = d.connections;
+                            document.getElementById('conn_val').innerText = d.connections;
                         }
-                        if(data.qc_balance !== undefined) {
-                            currentStats.balance = data.qc_balance;
-                            document.getElementById('balance_val').innerText = data.qc_balance.toFixed(2);
-                        }
-                        if(data.system && data.system.cpu !== undefined) {
-                            const cpu = data.system.cpu;
+                        if(d.system?.cpu !== undefined) {
+                            const cpu = d.system.cpu;
                             currentStats.cpu = cpu;
                             document.getElementById('cpu_label').innerText = cpu + '%';
                             document.getElementById('cpu_bar').style.width = cpu + '%';
-                            document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
                         }
-                        if (rawData.type === 'INIT') addLog("DATABASE_UPLINK: Synchronized", "OK");
                     }
-                    
-                    if (rawData.type === 'EVENT' && rawData.event === 'deposit') {
-                        showToast(`NEW DEPOSIT: +${rawData.amount} TON`);
-                        addLog(`NETWORK: New deposit: +${rawData.amount} TON`, "OK");
-                    }
-                } catch (e) { console.error("WS Parse Error", e); }
+                } catch (e) { console.error("WS Error", e); }
             };
 
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
-                setTimeout(connectWS, 3000);
+                setTimeout(connectWS, 5000);
             };
         }
 
-        // Charts Configuration
+        // --- WALLET SCANNER MODULE ---
+        async function fetchWalletData() {
+            try {
+                const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${targetWallet}`);
+                const data = await response.json();
+                if (data.ok) {
+                    const balance = parseFloat(data.result.balance) / 1000000000;
+                    currentStats.walletBalance = balance;
+                    document.getElementById('balance_val').innerText = balance.toFixed(2);
+                    
+                    // Обновляем главный график кошелька
+                    walletLiveChart.data.datasets[0].data.shift();
+                    walletLiveChart.data.datasets[0].data.push(balance);
+                    walletLiveChart.data.labels.shift();
+                    walletLiveChart.data.labels.push(new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}));
+                    walletLiveChart.update('none');
+
+                    if (balance > 0) addLog(`SCANNER: Target balance confirmed: ${balance.toFixed(2)} TON`, "OK");
+                }
+            } catch (e) {
+                addLog("SCANNER_ERR: Ошибка связи с блокчейном", "ERR");
+            }
+        }
+
+        function reconnectWS() { addLog("SYSTEM: Manual Reboot...", "SYS"); connectWS(); }
+
+        // --- CHARTS CONFIG ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 1000, easing: 'easeInOutQuad' },
+            animation: { duration: 1000 },
             plugins: { legend: { display: false } },
-            scales: { 
-                x: { display: false },
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } }
-            }
+            scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } }
         };
 
-        const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
+        // Главный график кошелька
+        const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
             type: 'line',
-            data: {
-                labels: Array(30).fill(''),
-                datasets: [{
-                    data: Array(30).fill(0),
-                    borderColor: '#00d2ff', fill: true,
-                    backgroundColor: 'rgba(0, 210, 255, 0.1)', borderWeight: 2, tension: 0.4, pointRadius: 0
-                }]
+            data: { 
+                labels: Array(20).fill(''), 
+                datasets: [{ 
+                    data: Array(20).fill(0), 
+                    borderColor: '#00d2ff', 
+                    fill: true, 
+                    backgroundColor: 'rgba(0, 210, 255, 0.1)', 
+                    borderWidth: 3,
+                    tension: 0.4, 
+                    pointRadius: 2 
+                }] 
             },
-            options: commonOptions
+            options: {
+                ...commonOptions,
+                scales: { x: { display: true, ticks: { color: '#1e293b', font: { size: 8 } } }, y: { position: 'right', grid: { color: 'rgba(255,255,255,0.05)' } } }
+            }
         });
 
         const visitorChart = new Chart(document.getElementById('visitorChart').getContext('2d'), {
@@ -328,33 +328,29 @@
             options: commonOptions
         });
 
-        const walletChart = new Chart(document.getElementById('walletChart').getContext('2d'), {
+        const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
             type: 'line',
-            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', pointRadius: 2, tension: 0.3 }] },
+            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', pointRadius: 0, tension: 0.3 }] },
             options: commonOptions
         });
 
+        // --- INTERVALS ---
         setInterval(() => {
-            const charts = [
-                { c: trafficChart, v: currentStats.traffic },
-                { c: visitorChart, v: Math.floor(currentStats.traffic * 12) },
-                { c: walletChart, v: currentStats.connections }
-            ];
-            charts.forEach(item => {
-                if(item.c && item.c.data.datasets[0]) {
-                    item.c.data.datasets[0].data.shift();
-                    item.c.data.datasets[0].data.push(item.v);
-                    item.c.update('normal');
-                }
+            // Апдейт вторичных графиков
+            [visitorChart, trafficChart].forEach((chart, idx) => {
+                const val = idx === 0 ? Math.floor(currentStats.traffic * 12) : currentStats.traffic;
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[0].data.push(val);
+                chart.update();
             });
         }, 3000);
 
+        setInterval(fetchWalletData, 15000); // Скан кошелька каждые 15 сек
+
+        // --- UI HELPERS ---
         function updateStatusIndicator(text, colorClass, pulse) {
-            const statusInd = document.getElementById('status_indicator');
-            if(statusInd) {
-                statusInd.innerText = text;
-                statusInd.className = `${colorClass} ${pulse ? 'pulse-log' : ''}`;
-            }
+            const el = document.getElementById('status_indicator');
+            if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''}`; }
         }
 
         function addLog(msg, type = "SYS") {
@@ -371,31 +367,23 @@
 
         function showToast(text) {
             const container = document.getElementById('toast-container');
-            if(!container) return;
             const toast = document.createElement('div');
             toast.className = 'toast-item';
             toast.innerText = text;
             container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 4000);
         }
 
         let startTime = Date.now();
         setInterval(() => {
             const diff = Math.floor((Date.now() - startTime) / 1000);
-            const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
-            const s = String(diff % 60).padStart(2, '0');
-            const uptimeElem = document.getElementById('uptime_display');
-            if(uptimeElem) uptimeElem.innerText = `${h}:${m}:${s}`;
+            const fmt = (s) => String(s).padStart(2, '0');
+            document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
         }, 1000);
 
         window.onload = () => {
             connectWS();
-            addLog("QUANTUM_CORE_V4.1_INITIALIZED", "SYS");
+            fetchWalletData();
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 new TON_CONNECT_UI.TonConnectUI({
                     manifestUrl: window.location.origin + '/tonconnect-manifest.json',
