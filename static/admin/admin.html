@@ -108,7 +108,7 @@
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
-            min-width: 200px;
+            min-width: 200px; transition: opacity 0.4s;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
@@ -313,9 +313,23 @@
             addLog(`COMMAND: ${action} initiated`, "SYS");
             showToast(`Executing: ${action}`);
             
+            if(action === 'SYNC_BLOCKCHAIN') {
+                fetchWalletData();
+                addLog("ACTION: Blockchain data re-synced", "OK");
+            }
             if(action === 'RESET_COUNTERS') {
                 document.getElementById('visitor_val').innerText = "0";
                 addLog("UI: Viewers counter cleared locally", "OK");
+            }
+            if(action === 'EXPORT_LOGS') {
+                const logs = Array.from(document.querySelectorAll('#log-container div'))
+                                  .map(el => el.innerText).join('\n');
+                const blob = new Blob([logs], {type: 'text/plain'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `quantum_logs_${Date.now()}.txt`;
+                a.click();
+                addLog("SYSTEM: Log data exported to file", "OK");
             }
             if(action === 'EMERGENCY_STOP') {
                 ws.close();
@@ -364,12 +378,15 @@
             options: commonOptions
         });
 
-        // Intervals
+        // Intervals for fake visual movement
         setInterval(() => {
             [visitorChart, trafficChart].forEach((chart, idx) => {
-                const val = idx === 0 ? Math.floor(currentStats.traffic * 12 + Math.random() * 3) : currentStats.traffic;
+                const baseVal = idx === 0 ? Math.floor(currentStats.traffic * 12) : currentStats.traffic;
+                const randomOffset = Math.random() * (baseVal * 0.2);
+                const finalVal = Math.max(0, baseVal + (Math.random() > 0.5 ? randomOffset : -randomOffset));
+                
                 chart.data.datasets[0].data.shift();
-                chart.data.datasets[0].data.push(val);
+                chart.data.datasets[0].data.push(finalVal);
                 chart.update('none');
             });
         }, 3000);
