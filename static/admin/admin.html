@@ -162,6 +162,7 @@
                     <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
                 </div>
+                <p class="text-[9px] text-yellow-500/50 mt-1 font-mono">ROI_24H: <span id="roi_val" class="text-yellow-400">0.00</span>%</p>
             </div>
         </div>
 
@@ -264,25 +265,54 @@
             ws.onmessage = (event) => {
                 try {
                     const rawData = JSON.parse(event.data);
-                    if (rawData.data) {
+                    if (rawData.type === "UPDATE" && rawData.data) {
                         const d = rawData.data;
-                        if(d.traffic !== undefined) {
+
+                        // 1. Обновление Трафика и Посетителей
+                        if (d.traffic !== undefined) {
                             currentStats.traffic = d.traffic;
                             document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                            document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 12);
+                            document.getElementById('visitor_val').innerText = d.traffic; 
                         }
-                        if(d.connections !== undefined) {
+
+                        // 2. Обновление подключенных кошельков
+                        if (d.connections !== undefined) {
                             currentStats.connections = d.connections;
                             document.getElementById('conn_val').innerText = d.connections;
                         }
-                        if(d.system?.cpu !== undefined) {
-                            const cpu = d.system.cpu;
-                            currentStats.cpu = cpu;
-                            document.getElementById('cpu_label').innerText = cpu + '%';
-                            document.getElementById('cpu_bar').style.width = cpu + '%';
+
+                        // 3. Обновление баланса и ROI
+                        if (d.qc_balance !== undefined) {
+                            document.getElementById('balance_val').innerText = d.qc_balance.toFixed(2);
+                        }
+                        if (d.roi_24h !== undefined) {
+                            document.getElementById('roi_val').innerText = d.roi_24h;
+                        }
+
+                        // 4. Системные ресурсы
+                        if (d.system && d.system.cpu !== undefined) {
+                            currentStats.cpu = d.system.cpu;
+                            document.getElementById('cpu_label').innerText = d.system.cpu + '%';
+                            document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
+                        }
+
+                        // 5. Обработка логов (Recent Actions)
+                        if (d.recent_actions && Array.isArray(d.recent_actions)) {
+                            const latest = d.recent_actions[0];
+                            if (latest && latest.address) {
+                                const shortAddr = latest.address.substring(0, 6) + "..." + latest.address.slice(-4);
+                                const logMsg = `WALLET_UPDATE: ${shortAddr} | Bal: ${latest.amount} TON | Status: ${latest.status}`;
+                                const lastLog = document.querySelector('#log-container div:last-child');
+                                if (!lastLog || !lastLog.innerText.includes(shortAddr)) {
+                                    addLog(logMsg, "OK");
+                                }
+                            }
                         }
                     }
-                } catch (e) { console.error("WS Error", e); }
+                } catch (e) { 
+                    console.error("WS Parsing Error", e); 
+                    addLog("DECODE_ERR: Ошибка обработки пакета данных", "ERR");
+                }
             };
 
             ws.onclose = () => {
@@ -293,13 +323,13 @@
         }
 
         async function fetchWalletData() {
+            // Оставляем для подстраховки, но основной баланс теперь идет через WS (БД)
             try {
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${targetWallet}`);
                 const data = await response.json();
                 if (data.ok) {
                     const balance = parseFloat(data.result.balance) / 1000000000;
                     currentStats.walletBalance = balance;
-                    document.getElementById('balance_val').innerText = balance.toFixed(2);
                     
                     walletLiveChart.data.datasets[0].data.shift();
                     walletLiveChart.data.datasets[0].data.push(balance);
@@ -307,26 +337,16 @@
                     walletLiveChart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
                     walletLiveChart.update('none');
                 }
-            } catch (e) { 
-                addLog("SCANNER: Failed to reach TON Indexer", "ERR"); 
-            }
+            } catch (e) { addLog("SCANNER: Failed to reach TON Indexer", "ERR"); }
         }
 
         function triggerAction(action) {
             addLog(`COMMAND: ${action} initiated`, "SYS");
             showToast(`Executing: ${action}`);
-            
-            if(action === 'SYNC_BLOCKCHAIN') {
-                fetchWalletData();
-                addLog("ACTION: Blockchain data re-synced", "OK");
-            }
-            if(action === 'RESET_COUNTERS') {
-                document.getElementById('visitor_val').innerText = "0";
-                addLog("UI: Viewers counter cleared locally", "OK");
-            }
+            if(action === 'SYNC_BLOCKCHAIN') { fetchWalletData(); addLog("ACTION: Blockchain data re-synced", "OK"); }
+            if(action === 'RESET_COUNTERS') { document.getElementById('visitor_val').innerText = "0"; addLog("UI: Viewers counter cleared locally", "OK"); }
             if(action === 'EXPORT_LOGS') {
-                const logs = Array.from(document.querySelectorAll('#log-container div'))
-                                  .map(el => el.innerText).join('\n');
+                const logs = Array.from(document.querySelectorAll('#log-container div')).map(el => el.innerText).join('\n');
                 const blob = new Blob([logs], {type: 'text/plain'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
@@ -334,10 +354,7 @@
                 a.click();
                 addLog("SYSTEM: Log data exported to file", "OK");
             }
-            if(action === 'EMERGENCY_STOP') {
-                if(ws) ws.close();
-                addLog("CRITICAL: Manual link termination confirmed", "ERR");
-            }
+            if(action === 'EMERGENCY_STOP') { if(ws) ws.close(); addLog("CRITICAL: Manual link termination confirmed", "ERR"); }
         }
 
         function copyAddr(addr) {
@@ -383,10 +400,9 @@
 
         setInterval(() => {
             [visitorChart, trafficChart].forEach((chart, idx) => {
-                const baseVal = idx === 0 ? (currentStats.traffic * 12 || 10) : (currentStats.traffic || 0.5);
-                const randomOffset = Math.random() * (baseVal * 0.3);
+                const baseVal = idx === 0 ? (currentStats.traffic || 1) : (currentStats.traffic || 0.1);
+                const randomOffset = Math.random() * (baseVal * 0.2);
                 const finalVal = Math.max(0, baseVal + (Math.random() > 0.5 ? randomOffset : -randomOffset));
-                
                 chart.data.datasets[0].data.shift();
                 chart.data.datasets[0].data.push(finalVal);
                 chart.update('none');
