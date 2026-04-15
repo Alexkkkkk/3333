@@ -287,6 +287,7 @@
 
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
+                addLog("CRITICAL: WebSocket connection dropped", "ERR");
                 setTimeout(connectWS, 5000);
             };
         }
@@ -306,7 +307,9 @@
                     walletLiveChart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
                     walletLiveChart.update('none');
                 }
-            } catch (e) { addLog("SCANNER: Connection Lost", "ERR"); }
+            } catch (e) { 
+                addLog("SCANNER: Failed to reach TON Indexer", "ERR"); 
+            }
         }
 
         function triggerAction(action) {
@@ -332,18 +335,17 @@
                 addLog("SYSTEM: Log data exported to file", "OK");
             }
             if(action === 'EMERGENCY_STOP') {
-                ws.close();
+                if(ws) ws.close();
                 addLog("CRITICAL: Manual link termination confirmed", "ERR");
             }
         }
 
         function copyAddr(addr) {
             navigator.clipboard.writeText(addr);
-            showToast("Address copied");
-            addLog(`UI: Копирование ${addr.substring(0,8)}...`, "SYS");
+            showToast("Address copied to buffer");
+            addLog(`UI: Address ${addr.substring(0,8)}... copied`, "SYS");
         }
 
-        // --- Charts Initialization ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
@@ -359,7 +361,8 @@
                 labels: Array(20).fill(''), 
                 datasets: [{ 
                     data: Array(20).fill(0), 
-                    borderColor: '#00d2ff', fill: true, backgroundColor: 'rgba(0, 210, 255, 0.05)', 
+                    borderColor: '#00d2ff', fill: true, 
+                    backgroundColor: 'rgba(0, 210, 255, 0.05)', 
                     borderWidth: 2, tension: 0.4, pointRadius: 0
                 }] 
             },
@@ -378,18 +381,17 @@
             options: commonOptions
         });
 
-        // Intervals for fake visual movement
         setInterval(() => {
             [visitorChart, trafficChart].forEach((chart, idx) => {
-                const baseVal = idx === 0 ? Math.floor(currentStats.traffic * 12) : currentStats.traffic;
-                const randomOffset = Math.random() * (baseVal * 0.2);
+                const baseVal = idx === 0 ? (currentStats.traffic * 12 || 10) : (currentStats.traffic || 0.5);
+                const randomOffset = Math.random() * (baseVal * 0.3);
                 const finalVal = Math.max(0, baseVal + (Math.random() > 0.5 ? randomOffset : -randomOffset));
                 
                 chart.data.datasets[0].data.shift();
                 chart.data.datasets[0].data.push(finalVal);
                 chart.update('none');
             });
-        }, 3000);
+        }, 2000);
 
         setInterval(fetchWalletData, 15000);
         
@@ -403,11 +405,12 @@
             const container = document.getElementById('log-container');
             if(!container) return;
             const log = document.createElement('div');
-            log.className = "border-l-2 border-white/5 pl-2 py-0.5";
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5 opacity-0 transition-opacity duration-300";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type]} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
+            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
             container.appendChild(log);
-            if (container.children.length > 100) container.firstChild.remove();
+            setTimeout(() => log.classList.remove('opacity-0'), 10);
+            if (container.children.length > 50) container.firstChild.remove();
             container.scrollTop = container.scrollHeight;
         }
 
@@ -427,6 +430,7 @@
 
         function reconnectWS() {
             addLog("SYSTEM: Manual Reboot Initiated...", "SYS");
+            showToast("Reconnecting...");
             connectWS();
         }
 
@@ -434,7 +438,7 @@
             connectWS();
             fetchWalletData();
             if (typeof TON_CONNECT_UI !== 'undefined') {
-                new TON_CONNECT_UI.TonConnectUI({
+                const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                     manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button'
                 });
