@@ -4,13 +4,14 @@ import json
 import time
 import sys
 import random
+from urllib.parse import parse_qs
 from datetime import datetime
 from typing import List
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # FastAPI компоненты
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Body
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -74,6 +75,21 @@ def log(message, level="INFO"):
     colors = {"INFO": "\033[94m", "SUCCESS": "\033[92m", "WARNING": "\033[93m", "ERROR": "\033[91m", "CORE": "\033[95m"}
     print(f"{colors.get(level, '')}[{timestamp}] [{level}] {message}\033[0m", flush=True)
 
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+def parse_tg_init_data(init_data: str):
+    """Парсит строку initData из Telegram WebApp"""
+    try:
+        if not init_data:
+            return {"id": "Unknown"}
+        parsed = parse_qs(init_data)
+        user_str = parsed.get("user", [None])[0]
+        if user_str:
+            return json.loads(user_str)
+        return {"id": "Guest"}
+    except Exception as e:
+        log(f"Error parsing TG data: {e}", "ERROR")
+        return {"id": "Error"}
+
 # --- ЯДРО СИСТЕМЫ ---
 class OmniNeuralOverlord:
     def __init__(self):
@@ -94,7 +110,6 @@ async def core_worker():
     log("CORE: Воркер мониторинга активен и синхронизирован", "SUCCESS")
     while overlord.is_active:
         try:
-            # Загружаем конфигурацию из таблицы quantum_genome
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
                 overlord.mnemonic = cfg['mnemonic'].strip()
@@ -117,7 +132,6 @@ async def core_worker():
                     raw_bal = await wallet.get_balance()
                     new_balance = raw_bal / 1e9
                     
-                    # Обработка входящего депозита
                     if new_balance > overlord.current_balance and overlord.current_balance > 0:
                         diff = round(new_balance - overlord.current_balance, 2)
                         await log_ai_action("DEPOSIT", diff, f"Received {diff} TON")
@@ -127,11 +141,8 @@ async def core_worker():
                         })
                     
                     overlord.current_balance = new_balance
-                    
-                    # Получаем статистику из БД
                     db_stats = await get_stats_for_web()
 
-                    # Трансляция обновления всем подключенным клиентам (Admin Dashboard)
                     await manager.broadcast({
                         "type": "UPDATE",
                         "balance": round(overlord.current_balance, 2),
@@ -145,7 +156,6 @@ async def core_worker():
                         "recent_actions": db_stats.get('recent_actions', [])
                     })
 
-                    # Сохраняем состояние узла
                     await save_wallet_state(
                         address=str(wallet.address), 
                         balance=overlord.current_balance, 
@@ -158,7 +168,7 @@ async def core_worker():
             overlord.last_status = "ERROR"
             await asyncio.sleep(10)
 
-# --- LIFESPAN (Управление ресурсами) ---
+# --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
@@ -184,14 +194,28 @@ app.add_middleware(
 
 # --- РОУТИНГ ---
 
-# Главная (Client side)
+# Трекинг визитов (Новый эндпоинт)
+@app.post("/api/track-visit")
+async def api_register_visit(data: dict = Body(...), request: Request = None):
+    init_data_raw = data.get("initData")
+    user_info = parse_tg_init_data(init_data_raw)
+    
+    # Регистрируем в БД (используем существующую функцию или расширяем её)
+    await register_visit(
+        request.client.host if request else "0.0.0.0", 
+        f"TG_ID:{user_info.get('id')} | {data.get('platform', 'unknown')}"
+    )
+    
+    log(f"VISIT: Пользователь {user_info.get('username', user_info.get('id'))} вошел в терминал", "SUCCESS")
+    return {"status": "ok", "core_sync": True}
+
 @app.get("/")
 @app.get("/index.html")
 async def read_root(request: Request):
+    # Стандартный лог для веб-браузеров
     await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     return FileResponse("static/index.html")
 
-# Роутинг для админки (static/admin/)
 @app.get("/admin")
 @app.get("/admin/")
 @app.get("/admin/admin.html")
@@ -201,20 +225,16 @@ async def get_admin_root():
 @app.get("/admin/{file_path:path}")
 async def get_admin_pages(file_path: str):
     path = f"static/admin/{file_path}"
-    # Если файл без .html, пробуем добавить его
     if not path.endswith(".html") and not os.path.isdir(path):
         path += ".html"
-        
     if os.path.exists(path):
         return FileResponse(path)
     return FileResponse("static/admin/admin.html")
 
-# Манифест для TON Connect
 @app.get("/tonconnect-manifest.json")
 async def get_manifest():
     return FileResponse("static/tonconnect-manifest.json")
 
-# Статистика API
 @app.get("/api/stats")
 async def get_stats():
     db_stats = await get_stats_for_web()
@@ -226,7 +246,6 @@ async def get_stats():
         **db_stats
     })
 
-# Общий роут для файлов в корне static
 @app.get("/{page}.html")
 async def get_static_html(page: str):
     path = f"static/{page}.html"
@@ -234,7 +253,6 @@ async def get_static_html(page: str):
         return FileResponse(path)
     return FileResponse("static/index.html")
 
-# Картинки и Фавикон
 @app.get("/images/{img}")
 async def get_image(img: str):
     path = f"static/images/{img}"
@@ -251,7 +269,6 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     db_stats = await get_stats_for_web()
     try:
-        # Первичный пакет данных при подключении
         await websocket.send_json({
             "type": "INIT",
             "balance": round(overlord.current_balance, 2),
@@ -268,7 +285,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# Монтирование статики (для прямого доступа к CSS/JS)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
