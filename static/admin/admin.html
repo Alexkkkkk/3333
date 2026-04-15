@@ -133,7 +133,7 @@
 
     <div class="max-w-[1400px] mx-auto">
         <div class="flex items-center gap-4 text-[9px] md:text-[10px] tracking-[3px] text-blue-400/50 uppercase mb-6 font-bold font-mono">
-            <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5 object-contain">
+            <img src="/images/logo.png" alt="Logo" class="w-5 h-5 object-contain">
             <span class="hidden sm:inline">Quantum_Database_Monitoring_System</span>
             <span class="sm:hidden">Q_D_M_S</span>
             <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400">SYNC_ACTIVE</span></span>
@@ -243,15 +243,7 @@
     </div>
 
     <script>
-        // --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ (BUFFER) ---
-        let currentStats = {
-            traffic: 0,
-            visitors: 0,
-            connections: 0,
-            cpu: 0,
-            balance: 0
-        };
-
+        let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, balance: 0 };
         let ws;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
@@ -267,37 +259,29 @@
             ws.onmessage = (event) => {
                 try {
                     const rawData = JSON.parse(event.data);
-                    
                     if ((rawData.type === 'UPDATE' || rawData.type === 'INIT') && rawData.data) {
                         const data = rawData.data;
 
-                        if(data.traffic !== undefined) currentStats.traffic = data.traffic;
-                        if(data.connections !== undefined) currentStats.connections = data.connections;
-                        
-                        // Баланс
-                        if(data.qc_balance !== undefined) {
-                            currentStats.balance = data.qc_balance;
-                            document.getElementById('balance_val').innerText = data.qc_balance.toFixed(2);
-                        }
-
-                        // CPU
-                        if(data.system && data.system.cpu !== undefined) {
-                            currentStats.cpu = data.system.cpu;
-                            const cpu = data.system.cpu;
-                            document.getElementById('cpu_label').innerText = cpu + '%';
-                            document.getElementById('cpu_bar').style.width = cpu + '%';
-                            document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
-                        }
-
-                        // Текстовые данные
                         if(data.traffic !== undefined) {
+                            currentStats.traffic = data.traffic;
                             document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
                             document.getElementById('visitor_val').innerText = Math.floor(data.traffic * 12);
                         }
                         if(data.connections !== undefined) {
+                            currentStats.connections = data.connections;
                             document.getElementById('conn_val').innerText = data.connections;
                         }
-
+                        if(data.qc_balance !== undefined) {
+                            currentStats.balance = data.qc_balance;
+                            document.getElementById('balance_val').innerText = data.qc_balance.toFixed(2);
+                        }
+                        if(data.system && data.system.cpu !== undefined) {
+                            const cpu = data.system.cpu;
+                            currentStats.cpu = cpu;
+                            document.getElementById('cpu_label').innerText = cpu + '%';
+                            document.getElementById('cpu_bar').style.width = cpu + '%';
+                            document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
+                        }
                         if (rawData.type === 'INIT') addLog("DATABASE_UPLINK: Synchronized", "OK");
                     }
                     
@@ -305,9 +289,7 @@
                         showToast(`NEW DEPOSIT: +${rawData.amount} TON`);
                         addLog(`NETWORK: New deposit: +${rawData.amount} TON`, "OK");
                     }
-                } catch (e) { 
-                    console.error("WS Parse Error", e);
-                }
+                } catch (e) { console.error("WS Parse Error", e); }
             };
 
             ws.onclose = () => {
@@ -316,7 +298,7 @@
             };
         }
 
-        // --- КОНФИГУРАЦИЯ ГРАФИКОВ ---
+        // Charts Configuration
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 1000, easing: 'easeInOutQuad' },
@@ -358,7 +340,6 @@
                 { c: visitorChart, v: Math.floor(currentStats.traffic * 12) },
                 { c: walletChart, v: currentStats.connections }
             ];
-
             charts.forEach(item => {
                 if(item.c && item.c.data.datasets[0]) {
                     item.c.data.datasets[0].data.shift();
@@ -382,10 +363,8 @@
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            
             log.className = "border-l-2 border-white/5 pl-2 py-0.5";
             log.innerHTML = `<span class="opacity-30 text-[9px]">[${time}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
-            
             container.prepend(log);
             if (container.children.length > 50) container.lastChild.remove();
         }
@@ -417,15 +396,12 @@
         window.onload = () => {
             connectWS();
             addLog("QUANTUM_CORE_V4.1_INITIALIZED", "SYS");
-            
-            try {
-                if (typeof TON_CONNECT_UI !== 'undefined') {
-                    new TON_CONNECT_UI.TonConnectUI({
-                        manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
-                        buttonRootId: 'ton-connect-button'
-                    });
-                }
-            } catch (e) { console.error("TON Connect Error:", e); }
+            if (typeof TON_CONNECT_UI !== 'undefined') {
+                new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button'
+                });
+            }
         };
     </script>
 </body>
