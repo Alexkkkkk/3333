@@ -8,6 +8,13 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import WebSocket
 
+# --- ВСПОМОГАТЕЛЬНЫЙ КОДИРОВЩИК ---
+def quantum_json_serializer(obj):
+    """Сериализатор для сложных типов данных (дата, время)."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
 # --- ГЛОБАЛЬНЫЙ ПУЛ СОЕДИНЕНИЙ ---
 _pool = None
 
@@ -40,13 +47,24 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+            try:
+                self.active_connections.remove(websocket)
+            except ValueError:
+                pass
 
     async def broadcast(self, message: dict):
         """Безопасная рассылка данных всем активным клиентам."""
+        # Подготавливаем JSON заранее, чтобы не делать это в цикле
+        try:
+            payload = json.dumps(message, default=quantum_json_serializer)
+        except Exception as e:
+            print(f"Broadcast serialization error: {e}")
+            return
+
         for connection in list(self.active_connections):
             try:
-                await connection.send_json(message)
+                # Используем send_text, так как мы уже упаковали JSON сами
+                await connection.send_text(payload)
             except Exception:
                 self.disconnect(connection)
 
@@ -230,7 +248,7 @@ async def log_ai_action(cmd, amount=0.0, reason="System Action", market=None):
     await pool.execute('''
         INSERT INTO neural_mm_logs (cmd, amount, urgency, reason, market_snapshot) 
         VALUES ($1, $2, $3, $4, $5)
-    ''', cmd_text, amt, urgency, reason_text, json.dumps(market or {}))
+    ''', cmd_text, amt, urgency, reason_text, json.dumps(market or {}, default=quantum_json_serializer))
 
 # --- ПОЛУЧЕНИЕ СТАТИСТИКИ ДЛЯ WEB ---
 async def get_stats_for_web():
@@ -271,8 +289,8 @@ class QuantumOrchestrator:
             try:
                 stats = await get_stats_for_web()
                 await manager.broadcast({"type": "UPDATE", "event": "CORE_PULSE", "data": stats})
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Pulse error: {e}")
             await asyncio.sleep(5)
 
     @staticmethod
