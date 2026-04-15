@@ -13,7 +13,7 @@
     
     <style>
         :root { 
-            --panel-bg: rgba(13, 17, 23, 0.8);
+            --panel-bg: rgba(13, 17, 23, 0.85);
             --border-color: rgba(0, 210, 255, 0.15);
             --neon-blue: #00d2ff;
             --neon-green: #00ff95;
@@ -93,13 +93,14 @@
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
-        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast-item { 
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out; color: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
+            min-width: 200px;
         }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -160,7 +161,7 @@
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
                             <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Wallet_Live_Pulse</h2>
-                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all">ADDR: EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj</p>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-blue-400 transition-colors" onclick="copyAddr('EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj')">ADDR: EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj</p>
                         </div>
                         <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">BLOCKCHAIN_SYNC_ON</span>
                     </div>
@@ -235,6 +236,7 @@
             ws.onopen = () => {
                 addLog("WS_CONNECTED: Линк с ядром активен", "OK");
                 updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
+                showToast("System Link Established");
             };
 
             ws.onmessage = (event) => {
@@ -256,6 +258,7 @@
                             currentStats.cpu = cpu;
                             document.getElementById('cpu_label').innerText = cpu + '%';
                             document.getElementById('cpu_bar').style.width = cpu + '%';
+                            if(cpu > 80) addLog(`WARNING: High CPU Load ${cpu}%`, "ERR");
                         }
                     }
                 } catch (e) { console.error("WS Error", e); }
@@ -263,6 +266,7 @@
 
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
+                showToast("System Link Lost - Reconnecting...");
                 setTimeout(connectWS, 5000);
             };
         }
@@ -274,7 +278,12 @@
                 const data = await response.json();
                 if (data.ok) {
                     const balance = parseFloat(data.result.balance) / 1000000000;
-                    currentStats.walletBalance = balance;
+                    
+                    if (balance !== currentStats.walletBalance) {
+                        if(currentStats.walletBalance !== 0) showToast(`Balance Updated: ${balance.toFixed(2)} TON`);
+                        currentStats.walletBalance = balance;
+                    }
+
                     document.getElementById('balance_val').innerText = balance.toFixed(2);
                     
                     // Обновляем главный график кошелька
@@ -291,17 +300,31 @@
             }
         }
 
-        function reconnectWS() { addLog("SYSTEM: Manual Reboot...", "SYS"); connectWS(); }
+        function reconnectWS() { 
+            addLog("SYSTEM: Manual Reboot Sequence Started...", "SYS"); 
+            connectWS(); 
+        }
+
+        function copyAddr(addr) {
+            navigator.clipboard.writeText(addr);
+            showToast("Address copied to clipboard");
+            addLog(`UI: Address copied to buffer`, "SYS");
+        }
 
         // --- CHARTS CONFIG ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 1000 },
             plugins: { legend: { display: false } },
-            scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } }
+            scales: { 
+                x: { display: false }, 
+                y: { 
+                    grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
+                    ticks: { color: '#475569', font: { size: 9 } } 
+                } 
+            }
         };
 
-        // Главный график кошелька
         const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
             type: 'line',
             data: { 
@@ -310,42 +333,45 @@
                     data: Array(20).fill(0), 
                     borderColor: '#00d2ff', 
                     fill: true, 
-                    backgroundColor: 'rgba(0, 210, 255, 0.1)', 
-                    borderWidth: 3,
+                    backgroundColor: 'rgba(0, 210, 255, 0.05)', 
+                    borderWidth: 2,
                     tension: 0.4, 
-                    pointRadius: 2 
+                    pointRadius: 0,
+                    pointHoverRadius: 4
                 }] 
             },
             options: {
                 ...commonOptions,
-                scales: { x: { display: true, ticks: { color: '#1e293b', font: { size: 8 } } }, y: { position: 'right', grid: { color: 'rgba(255,255,255,0.05)' } } }
+                scales: { 
+                    x: { display: true, ticks: { color: '#334155', font: { size: 8 } }, grid: { display: false } }, 
+                    y: { position: 'right', grid: { color: 'rgba(255,255,255,0.05)' } } 
+                }
             }
         });
 
         const visitorChart = new Chart(document.getElementById('visitorChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), backgroundColor: '#00ff95', borderRadius: 4 }] },
+            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), backgroundColor: '#00ff95', borderRadius: 2 }] },
             options: commonOptions
         });
 
         const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
             type: 'line',
-            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', pointRadius: 0, tension: 0.3 }] },
+            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', borderWidth: 2, pointRadius: 0, tension: 0.3 }] },
             options: commonOptions
         });
 
         // --- INTERVALS ---
         setInterval(() => {
-            // Апдейт вторичных графиков
             [visitorChart, trafficChart].forEach((chart, idx) => {
-                const val = idx === 0 ? Math.floor(currentStats.traffic * 12) : currentStats.traffic;
+                const val = idx === 0 ? Math.floor(currentStats.traffic * 12 + Math.random() * 2) : currentStats.traffic;
                 chart.data.datasets[0].data.shift();
                 chart.data.datasets[0].data.push(val);
-                chart.update();
+                chart.update('none');
             });
         }, 3000);
 
-        setInterval(fetchWalletData, 15000); // Скан кошелька каждые 15 сек
+        setInterval(fetchWalletData, 15000);
 
         // --- UI HELPERS ---
         function updateStatusIndicator(text, colorClass, pulse) {
@@ -359,7 +385,7 @@
             const log = document.createElement('div');
             const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            log.className = "border-l-2 border-white/5 pl-2 py-0.5";
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5 animate-pulse-once";
             log.innerHTML = `<span class="opacity-30 text-[9px]">[${time}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
             container.prepend(log);
             if (container.children.length > 50) container.lastChild.remove();
@@ -371,7 +397,12 @@
             toast.className = 'toast-item';
             toast.innerText = text;
             container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 4000);
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                toast.style.transform = 'translateX(110%)'; 
+                toast.style.transition = 'all 0.4s ease';
+                setTimeout(() => toast.remove(), 400); 
+            }, 4000);
         }
 
         let startTime = Date.now();
@@ -385,10 +416,12 @@
             connectWS();
             fetchWalletData();
             if (typeof TON_CONNECT_UI !== 'undefined') {
-                new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: window.location.origin + '/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button'
-                });
+                try {
+                    new TON_CONNECT_UI.TonConnectUI({
+                        manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+                        buttonRootId: 'ton-connect-button'
+                    });
+                } catch(e) { console.error("TonConnect Init Error", e); }
             }
         };
     </script>
