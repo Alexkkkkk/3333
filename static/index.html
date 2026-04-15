@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QUANCORE | TERMINAL</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         
@@ -18,7 +20,6 @@
         }
         
         #bg-canvas { position: fixed; top: 0; left: 0; z-index: 0; pointer-events: none; }
-        
         .mono { font-family: 'JetBrains Mono', monospace; }
         
         /* Glassmorphism Cards */
@@ -200,30 +201,56 @@
     </nav>
 
     <script>
-        // --- 1. WebSocket Integration ---
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+        // --- 0. Telegram Mini App Initialize ---
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
 
-        ws.onmessage = (event) => {
+        // --- NEW: Visit Tracking ---
+        async function trackVisit() {
             try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'UPDATE' || data.type === 'INIT') {
-                    const qcBalEl = document.getElementById('main-balance-qc');
-                    const tonBalEl = document.getElementById('main-balance-ton');
-                    
-                    if (qcBalEl && data.qc_balance !== undefined) {
-                        qcBalEl.innerText = parseFloat(data.qc_balance).toFixed(2) + " QC";
+                // Отправляем данные инициализации на сервер для регистрации визита
+                await fetch('/api/track-visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        initData: tg.initData,
+                        platform: tg.platform,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } catch (e) { console.error("Tracking Error", e); }
+        }
+        trackVisit(); // Регистрация при входе
+
+        // --- 1. WebSocket Integration ---
+        let ws;
+        function connectWS() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'UPDATE' || data.type === 'INIT') {
+                        const qcBalEl = document.getElementById('main-balance-qc');
+                        const tonBalEl = document.getElementById('main-balance-ton');
+                        
+                        if (qcBalEl && data.qc_balance !== undefined) {
+                            qcBalEl.innerText = parseFloat(data.qc_balance).toFixed(2) + " QC";
+                        }
+                        
+                        if (tonBalEl && data.balance !== undefined && !tonConnectUI.connected) {
+                            tonBalEl.innerText = parseFloat(data.balance).toFixed(2) + " TON";
+                        }
                     }
-                    
-                    // Обновляем TON только если кошелек не подключен (чтобы не перебивать данные блокчейна)
-                    if (tonBalEl && data.balance !== undefined && !tonConnectUI.connected) {
-                        tonBalEl.innerText = parseFloat(data.balance).toFixed(2) + " TON";
-                    }
-                }
-            } catch (err) {
-                console.error("WS Parse Error", err);
-            }
-        };
+                } catch (err) { console.error("WS Parse Error", err); }
+            };
+
+            ws.onclose = () => { setTimeout(connectWS, 3000); };
+            ws.onerror = () => { ws.close(); };
+        }
+        connectWS();
 
         // --- 2. TON Connect Setup ---
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -236,10 +263,8 @@
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
                 const data = await response.json();
                 if (data.ok) return (parseFloat(data.result) / 1000000000).toFixed(2);
-                return "0.00";
-            } catch (err) {
                 return null;
-            }
+            } catch (err) { return null; }
         }
 
         tonConnectUI.onStatusChange(async (wallet) => {
@@ -267,7 +292,11 @@
                 fetch('/api/wallet/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ address: address, balance: realBalance || 0 })
+                    body: JSON.stringify({ 
+                        address: address, 
+                        balance: realBalance || 0,
+                        tg_data: tg.initData 
+                    })
                 }).catch(() => {});
 
             } else {
@@ -284,10 +313,14 @@
         if (canvas) {
             const ctx = canvas.getContext('2d');
             let particles = [];
-            const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+            const resize = () => { 
+                canvas.width = window.innerWidth; 
+                canvas.height = window.innerHeight;
+                particles = []; 
+                for(let i=0; i<80; i++) particles.push(new Particle());
+            };
             window.addEventListener('resize', resize);
-            resize();
-
+            
             class Particle {
                 constructor() { this.init(); }
                 init() {
@@ -303,7 +336,7 @@
                     ctx.fillRect(this.x, this.y, this.size, this.size); 
                 }
             }
-            for(let i=0; i<80; i++) particles.push(new Particle());
+            resize();
             function animate() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 particles.forEach(p => { p.update(); p.draw(); });
@@ -312,7 +345,6 @@
             animate();
         }
 
-        // Резервный метод обновления (раз в 30 сек)
         async function updateCoreData() {
             try {
                 const response = await fetch('/api/stats');
