@@ -36,6 +36,13 @@ async def get_pool():
         )
     return _pool
 
+async def close_pool():
+    """Безопасное закрытие пула при остановке сервера."""
+    global _pool
+    if _pool:
+        await _pool.close()
+        print("🔌 [DATABASE] Connection pool closed.")
+
 # --- МЕНЕДЖЕР REAL-TIME СОЕДИНЕНИЙ ---
 class ConnectionManager:
     def __init__(self):
@@ -54,7 +61,6 @@ class ConnectionManager:
 
     async def broadcast(self, message: dict):
         """Безопасная рассылка данных всем активным клиентам."""
-        # Подготавливаем JSON заранее, чтобы не делать это в цикле
         try:
             payload = json.dumps(message, default=quantum_json_serializer)
         except Exception as e:
@@ -63,7 +69,6 @@ class ConnectionManager:
 
         for connection in list(self.active_connections):
             try:
-                # Используем send_text, так как мы уже упаковали JSON сами
                 await connection.send_text(payload)
             except Exception:
                 self.disconnect(connection)
@@ -86,7 +91,7 @@ async def init_db():
             )
         ''')
 
-        # 2. ТАБЛИЦА КОШЕЛЬКОВ (Узлы системы)
+        # 2. ТАБЛИЦА КОШЕЛЬКОВ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS quantum_wallets (
                 address TEXT PRIMARY KEY,
@@ -98,7 +103,7 @@ async def init_db():
             )
         ''')
 
-        # 3. ТАБЛИЦА НЕЙРО-ЛОГОВ (Опыт системы)
+        # 3. ТАБЛИЦА НЕЙРО-ЛОГОВ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS neural_mm_logs (
                 id SERIAL PRIMARY KEY,
@@ -112,7 +117,7 @@ async def init_db():
             )
         ''')
 
-        # 4. ТАБЛИЦА ПОСЕЩЕНИЙ (Аналитика трафика)
+        # 4. ТАБЛИЦА ПОСЕЩЕНИЙ
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS site_visits (
                 id SERIAL PRIMARY KEY,
@@ -163,7 +168,7 @@ async def init_db():
             ON CONFLICT DO NOTHING
         ''', json.dumps(default_val))
 
-        # Индексы для оптимизации
+        # Индексы
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
@@ -285,6 +290,7 @@ class QuantumOrchestrator:
     @staticmethod
     async def pulse():
         """Периодическая рассылка статистики всем клиентам по WS."""
+        print("💓 [CORE] Heartbeat Pulse started.")
         while True:
             try:
                 stats = await get_stats_for_web()
@@ -305,3 +311,11 @@ class QuantumOrchestrator:
                 print("🧹 [DATABASE] Cleanup completed.")
             except Exception as e:
                 print(f"Cleanup error: {e}")
+
+    @classmethod
+    def start_background_tasks(cls):
+        """Запуск всех фоновых процессов."""
+        loop = asyncio.get_event_loop()
+        loop.create_task(cls.pulse())
+        loop.create_task(cls.cleanup())
+        print("🚀 [SYSTEM] Background Tasks Orchestrated.")
