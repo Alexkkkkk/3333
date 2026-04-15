@@ -95,6 +95,7 @@
             font-family: 'Share Tech Mono', monospace; font-size: 10px;
             padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.2s; color: rgba(255,255,255,0.5);
+            background: transparent;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
         
@@ -120,6 +121,7 @@
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out;
+            color: #fff;
         }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
@@ -230,7 +232,9 @@
                 <div class="quantum-card p-6">
                     <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
                         <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
-                        <button onclick="document.getElementById('log-container').innerHTML=''" class="action-btn">CLEAR</button>
+                        <div class="flex gap-2">
+                            <button onclick="document.getElementById('log-container').innerHTML=''" class="action-btn">CLEAR</button>
+                        </div>
                     </div>
                     <div id="log-container" class="text-[11px] font-mono space-y-2 h-64 overflow-y-auto pr-2 text-slate-400"></div>
                 </div>
@@ -264,21 +268,19 @@
                 try {
                     const rawData = JSON.parse(event.data);
                     
-                    // Обработка формата из database.py: {"type": "UPDATE", "data": {...}}
                     if ((rawData.type === 'UPDATE' || rawData.type === 'INIT') && rawData.data) {
                         const data = rawData.data;
 
-                        // Обновляем буфер для графиков
                         if(data.traffic !== undefined) currentStats.traffic = data.traffic;
                         if(data.connections !== undefined) currentStats.connections = data.connections;
                         
-                        // Сопоставление qc_balance -> UI Balance
+                        // Баланс
                         if(data.qc_balance !== undefined) {
                             currentStats.balance = data.qc_balance;
                             document.getElementById('balance_val').innerText = data.qc_balance.toFixed(2);
                         }
 
-                        // Сопоставление system.cpu -> UI CPU
+                        // CPU
                         if(data.system && data.system.cpu !== undefined) {
                             currentStats.cpu = data.system.cpu;
                             const cpu = data.system.cpu;
@@ -287,18 +289,18 @@
                             document.getElementById('cpu_label').className = cpu > 80 ? 'text-red-500' : 'text-green-400';
                         }
 
-                        // Остальные текстовые поля
+                        // Текстовые данные
                         if(data.traffic !== undefined) {
                             document.getElementById('traffic_val').innerText = data.traffic.toFixed(2);
-                            // Имитация посетителей на основе трафика для наглядности
                             document.getElementById('visitor_val').innerText = Math.floor(data.traffic * 12);
                         }
-                        if(data.connections !== undefined) document.getElementById('conn_val').innerText = data.connections;
+                        if(data.connections !== undefined) {
+                            document.getElementById('conn_val').innerText = data.connections;
+                        }
 
                         if (rawData.type === 'INIT') addLog("DATABASE_UPLINK: Synchronized", "OK");
                     }
                     
-                    // Обработка специальных событий (депозиты и т.д.)
                     if (rawData.type === 'EVENT' && rawData.event === 'deposit') {
                         showToast(`NEW DEPOSIT: +${rawData.amount} TON`);
                         addLog(`NETWORK: New deposit: +${rawData.amount} TON`, "OK");
@@ -350,7 +352,6 @@
             options: commonOptions
         });
 
-        // Интервал обновления графиков (согласован с пульсом сервера)
         setInterval(() => {
             const charts = [
                 { c: trafficChart, v: currentStats.traffic },
