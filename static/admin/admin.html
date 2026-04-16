@@ -90,14 +90,9 @@
             font-size: 11px !important; font-family: 'Share Tech Mono' !important;
         }
 
-        @media (max-width: 640px) {
-            .terminal-text { font-size: 1.25rem !important; letter-spacing: 1px; }
-            .quantum-card { padding: 1.25rem !important; }
-        }
-
-        .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
-        @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .pulse-log { animation: pulse-opacity 2s infinite; }
+        @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        
         #log-container::-webkit-scrollbar { width: 4px; }
         #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
@@ -106,7 +101,6 @@
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
-            min-width: 200px;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
@@ -121,7 +115,7 @@
             <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5 object-contain" onerror="this.src='https://img.icons8.com/neon/96/000000/electronic-circuit.png'">
             <span class="hidden sm:inline">Quantum_Database_Monitoring_System</span>
             <span class="sm:hidden">Q_D_M_S</span>
-            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400 font-bold uppercase">INITIALIZING</span></span>
+            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400 font-bold uppercase">STANDBY</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
@@ -141,7 +135,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
             <div class="quantum-card b-green p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Traffic</h3>
-                <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">0</span>
+                <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">12</span>
             </div>
             <div class="quantum-card b-blue p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">DB_Engine</h3>
@@ -150,7 +144,7 @@
             <div class="quantum-card b-purple p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Network_Up</h3>
                 <div class="flex items-baseline gap-2">
-                    <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.00</span>
+                    <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.61</span>
                     <span class="text-[10px] text-purple-600 font-mono uppercase">KB/S</span>
                 </div>
             </div>
@@ -160,7 +154,7 @@
                     <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
                 </div>
-                <p class="text-[9px] text-yellow-500/50 mt-1 font-mono">EST: <span id="est_usd" class="text-yellow-400">0.00</span> USD</p>
+                <p class="text-[9px] text-yellow-500/50 mt-1 font-mono uppercase">Est: <span id="est_usd" class="text-yellow-400">0.00</span> USD</p>
             </div>
         </div>
 
@@ -170,7 +164,7 @@
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
                             <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Quantum_Balance_Live_Pulse</h2>
-                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all uppercase">Node_Status: <span class="text-blue-500">Synchronized</span></p>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 uppercase">Node_Status: <span class="text-blue-500">Synchronized</span></p>
                         </div>
                         <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">NETWORK_LIVE</span>
                     </div>
@@ -184,17 +178,6 @@
                         <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Counters</button>
                         <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
                         <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Emergency Stop</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Traffic_Density</h2>
-                        <div class="h-[150px]"><canvas id="visitorChart"></canvas></div>
-                    </div>
-                    <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-purple-400 uppercase mb-4">Sync_Speed_Pulse</h2>
-                        <div class="h-[150px]"><canvas id="trafficChart"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -212,7 +195,7 @@
                                 <span id="cpu_label" class="text-green-400 font-bold">0%</span>
                             </div>
                             <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                                <div id="cpu_bar" class="bg-gradient-to-r from-blue-500 to-green-400 h-full transition-all duration-700 ease-out" style="width: 0%"></div>
                             </div>
                         </div>
                         <div>
@@ -242,7 +225,7 @@
                         <h3 class="text-[11px] terminal-text text-blue-400 uppercase">System_Events</h3>
                         <button onclick="clearLogs()" class="action-btn">CLEAR</button>
                     </div>
-                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[400px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[350px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
             </div>
         </div>
@@ -253,7 +236,6 @@
         let ws;
         let pingInterval;
         
-        // 1. WebSocket Logic
         function connectWS() {
             if (ws) { ws.close(); }
             clearInterval(pingInterval);
@@ -264,37 +246,21 @@
                 addLog(`QUANTUM_LINK: Socket established with nl7 node`, "OK");
                 updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
                 showToast("Connection Secure");
-                
-                // Keep-alive ping
-                pingInterval = setInterval(() => {
-                    if(ws.readyState === WebSocket.OPEN) ws.send("ping");
-                }, 25000);
+                pingInterval = setInterval(() => { if(ws.readyState === WebSocket.OPEN) ws.send("ping"); }, 25000);
             };
 
             ws.onmessage = (event) => {
                 if (event.data === "pong") return;
-                
                 try {
                     const msg = JSON.parse(event.data);
-                    
-                    // Обработка данных из main.py (типы INIT и UPDATE)
                     if ((msg.type === "UPDATE" || msg.type === "INIT") && msg.data) {
                         const d = msg.data;
-
-                        // 1. Баланс
                         if (d.balance !== undefined) {
                             document.getElementById('balance_val').innerText = d.balance.toFixed(2);
-                            document.getElementById('est_usd').innerText = (d.balance * 2.5).toFixed(2); // Примерный курс
+                            document.getElementById('est_usd').innerText = (d.balance * 2.5).toFixed(2);
                             updateChart(walletLiveChart, d.balance);
                         }
-
-                        // 2. Трафик (из БД)
-                        if (d.traffic !== undefined) {
-                            document.getElementById('visitor_val').innerText = d.traffic;
-                            updateChart(visitorChart, d.traffic);
-                        }
-
-                        // 3. Системные ресурсы
+                        if (d.traffic !== undefined) document.getElementById('visitor_val').innerText = d.traffic;
                         if (d.system) {
                             if (d.system.cpu) {
                                 let cpu = Math.round(d.system.cpu.percent);
@@ -306,35 +272,11 @@
                                 document.getElementById('ram_label').innerText = ram + '%';
                                 document.getElementById('ram_bar').style.width = ram + '%';
                             }
-                            if (d.system.network) {
-                                let speed = d.system.network.up_kbs;
-                                document.getElementById('traffic_val').innerText = speed.toFixed(2);
-                                updateChart(trafficChart, speed);
-                            }
-                            if (d.system.app_memory_mb) {
-                                document.getElementById('app_mem_val').innerText = d.system.app_memory_mb + ' MB';
-                            }
+                            if (d.system.network) document.getElementById('traffic_val').innerText = d.system.network.up_kbs.toFixed(2);
+                            if (d.system.app_memory_mb) document.getElementById('app_mem_val').innerText = d.system.app_memory_mb + ' MB';
                         }
-
-                        // 4. Статус и БД
-                        if (d.status) updateStatusIndicator(d.status, d.status === 'ACTIVE' ? 'text-green-400' : 'text-yellow-400');
-                        if (d.db_online !== undefined) {
-                            document.getElementById('db_status_val').innerText = d.db_online ? "ON" : "ERR";
-                            document.getElementById('db_status_val').className = d.db_online ? "text-blue-400" : "text-red-500";
-                        }
-
-                        // 5. Логи из БД (recent_actions)
-                        if (d.recent_actions && d.recent_actions.length > 0) {
-                            // Берем только последний лог, чтобы не дублировать
-                            const lastAction = d.recent_actions[0];
-                            addLog(`${lastAction.action}: ${lastAction.details}`, "SYS");
-                        }
-
-                        // 6. Прямой лог (log_entry)
-                        if (d.log_entry) addLog(d.log_entry.msg, d.log_entry.type || "SYS");
-                        
-                        // 7. Аптайм
                         if (d.uptime) updateUptime(d.uptime);
+                        if (d.log_entry) addLog(d.log_entry.msg, d.log_entry.type || "SYS");
                     }
                 } catch (e) { console.error("WS Dispatch Error", e); }
             };
@@ -346,32 +288,11 @@
             };
         }
 
-        // 2. Charts
-        const commonOptions = {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { 
-                x: { display: false }, 
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } 
-            }
-        };
-
+        // Charts Initialization
         const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
             type: 'line',
             data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor: '#00d2ff', fill: true, backgroundColor: 'rgba(0, 210, 255, 0.05)', borderWidth: 2, tension: 0.4, pointRadius: 0 }] },
-            options: { ...commonOptions, scales: { x: { display: true }, y: { position: 'right' } } }
-        });
-
-        const visitorChart = new Chart(document.getElementById('visitorChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), backgroundColor: '#00ff95' }] },
-            options: commonOptions
-        });
-
-        const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
-            type: 'line',
-            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', borderWidth: 2, pointRadius: 0 }] },
-            options: commonOptions
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { position: 'right', grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } } }
         });
 
         function updateChart(chart, newVal) {
@@ -380,13 +301,10 @@
             chart.update('none');
         }
 
-        // 3. UI Helpers
         function triggerAction(action) {
             addLog(`SIGNAL_SENT: ${action}`, "SYS");
             showToast(`Task ${action} Sent`);
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "COMMAND", action: action }));
-            }
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "COMMAND", action: action }));
         }
 
         function updateUptime(seconds) {
@@ -397,16 +315,13 @@
             document.getElementById('uptime_display').innerText = `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
         }
 
-        function clearLogs() { document.getElementById('log-container').innerHTML = ''; }
-
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             const logItem = document.createElement('div');
-            logItem.className = "border-l-2 border-white/5 pl-2 py-1 opacity-0 transition-opacity duration-300";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
+            logItem.className = "border-l-2 border-white/5 pl-2 py-1";
             logItem.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
-            container.prepend(logItem); // Новые логи сверху
-            setTimeout(() => logItem.classList.remove('opacity-0'), 10);
+            container.prepend(logItem);
             if (container.children.length > 50) container.lastChild.remove();
         }
 
@@ -424,36 +339,18 @@
             if(el) { el.innerText = text; el.className = `${colorClass} font-bold uppercase ${pulse ? 'pulse-log' : ''}`; }
         }
 
-        function reconnectWS() {
-            addLog("REBOOT: Resetting node interface...", "SYS");
-            connectWS();
-        }
-
-        // Initial Data Fetch
-        async function loadInitialStats() {
-            try {
-                const res = await fetch('/api/stats');
-                const d = await res.json();
-                if (d) {
-                    document.getElementById('visitor_val').innerText = d.visitors || 0;
-                    document.getElementById('balance_val').innerText = (d.balance || 0).toFixed(2);
-                    updateUptime(d.uptime || 0);
-                    if (d.status) updateStatusIndicator(d.status, 'text-blue-400');
-                }
-            } catch(e) { console.log("Init API unavailable"); }
-        }
+        function clearLogs() { document.getElementById('log-container').innerHTML = ''; }
+        function reconnectWS() { addLog("REBOOT: Resetting node interface...", "SYS"); connectWS(); }
 
         window.onload = () => {
-            loadInitialStats();
             connectWS();
-            
             if (typeof TonConnectUI !== 'undefined') {
                 try {
                     new TonConnectUI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
-                } catch(e) {}
+                } catch(e) { console.error("TON Connect Error", e); }
             }
         };
     </script>
