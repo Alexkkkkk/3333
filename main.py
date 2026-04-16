@@ -216,6 +216,25 @@ async def get_image(img: str):
         return FileResponse(path)
     return JSONResponse({"error": "Image not found"}, 404)
 
+# --- API ЭНДПОИНТЫ ---
+
+@app.get("/api/stats")
+async def get_api_stats():
+    """
+    Эндпоинт для получения текущей статистики. 
+    Устраняет ошибку 404 Not Found для фронтенда админки.
+    """
+    db_stats = await get_stats_for_web()
+    return {
+        "status": overlord.last_status,
+        "visitors": db_stats.get('traffic', 0),
+        "balance": round(overlord.current_balance, 2),
+        "uptime": overlord.get_uptime(),
+        "system": overlord.get_real_metrics(),
+        "recent_actions": db_stats.get('recent_actions', []),
+        "core_id": overlord.core_id
+    }
+
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
     try:
