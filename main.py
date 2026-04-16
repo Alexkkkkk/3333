@@ -21,12 +21,7 @@ import uvicorn
 load_dotenv()
 
 """
-🧬 QUANTUM CORE 4.5.0 | FULL NATURAL MONITORING
-STRUCTURE:
-/ (root)
-├── main.py
-├── database.py
-└── static/
+🧬 QUANTUM CORE 4.6.0 | FINAL REPAIR EDITION
 """
 
 # --- ИМПОРТ ФУНКЦИЙ БД ---
@@ -70,7 +65,7 @@ class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.boot_time = time.time()
-        self.core_id = "QN-NATURAL-ULTRA-4.5.0"
+        self.core_id = "QN-NATURAL-ULTRA-4.6.0"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
@@ -146,8 +141,8 @@ async def core_worker():
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
-            # Проверка БД пула
-            pool = get_pool()
+            # --- ИСПРАВЛЕННАЯ ПРОВЕРКА БД ---
+            pool = await get_pool() # Добавлен await для исправления ошибки coroutine
             db_alive = pool is not None and not pool._closed
 
             # 3. TON Телеметрия
@@ -197,13 +192,13 @@ async def core_worker():
                 }
             })
 
-            await asyncio.sleep(2) # Натуральное обновление каждые 2 секунды
+            await asyncio.sleep(2) 
 
         except Exception as e:
             log(f"Critical Monitoring Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# --- LIFESPAN (Жизненный цикл приложения) ---
+# --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
@@ -227,6 +222,17 @@ app.add_middleware(
 )
 
 # --- РОУТИНГ ---
+
+@app.get("/api/stats") # Возвращаем эндпоинт для совместимости с админкой
+async def get_stats_api():
+    db_stats = await get_stats_for_web()
+    return {
+        "status": overlord.last_status,
+        "balance": round(overlord.current_balance, 2),
+        "uptime": overlord.get_uptime(),
+        "system": overlord.get_real_metrics(),
+        **db_stats
+    }
 
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
@@ -261,13 +267,12 @@ async def get_admin_pages(file_path: str):
         path += ".html"
     return FileResponse(path) if os.path.exists(path) else FileResponse("static/admin/admin.html")
 
-# --- WEBSOCKET (REAL-TIME STREAM) ---
+# --- WEBSOCKET ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     db_stats = await get_stats_for_web()
     try:
-        # Первичный пакет (Handshake)
         await websocket.send_json({
             "type": "INIT",
             "data": {
@@ -286,7 +291,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# Подключение статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
