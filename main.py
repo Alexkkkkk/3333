@@ -124,7 +124,6 @@ async def core_worker():
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
-            # Проверка БД с await
             try:
                 pool = await get_pool()
                 db_alive = pool is not None and not pool._closed
@@ -211,13 +210,11 @@ async def get_stats_api():
 async def read_root(request: Request):
     return FileResponse("static/index.html")
 
-# Роутинг для страниц в корне (swap.html, pools.html и т.д.)
 @app.get("/{page}.html")
 async def get_root_html(page: str):
     path = f"static/{page}.html"
     return FileResponse(path) if os.path.exists(path) else FileResponse("static/index.html")
 
-# Роутинг для админки
 @app.get("/admin")
 @app.get("/admin/admin.html")
 async def get_admin_root():
@@ -239,29 +236,66 @@ async def get_image(img: str):
     path = f"static/images/{img}"
     return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "Not Found"}, 404)
 
-# --- WEBSOCKET ---
+# --- WEBSOCKET С ОБРАБОТКОЙ КОМАНД ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        if websocket.client_state == WebSocketState.CONNECTED:
-            db_stats = await get_stats_for_web()
-            await websocket.send_json({
-                "type": "INIT",
-                "data": {
-                    "balance": round(overlord.current_balance, 2),
-                    "traffic": db_stats.get('traffic', 0),
-                    "system": overlord.get_real_metrics(),
-                    "status": overlord.last_status,
-                    "uptime": overlord.get_uptime(),
-                    "core": overlord.core_id
-                }
-            })
+        # Отправляем начальные данные сразу после подключения
+        db_stats = await get_stats_for_web()
+        await websocket.send_json({
+            "type": "INIT",
+            "data": {
+                "balance": round(overlord.current_balance, 2),
+                "traffic": db_stats.get('traffic', 0),
+                "system": overlord.get_real_metrics(),
+                "status": overlord.last_status,
+                "uptime": overlord.get_uptime(),
+                "core": overlord.core_id
+            }
+        })
+
         while True:
-            msg = await websocket.receive_text()
-            if msg == "ping": await websocket.send_text("pong")
-    except (WebSocketDisconnect, RuntimeError): pass
-    finally: manager.disconnect(websocket)
+            # Слушаем входящие сообщения от клиента
+            data = await websocket.receive_text()
+            
+            if data == "ping":
+                await websocket.send_text("pong")
+                continue
+                
+            try:
+                message = json.loads(data)
+                if message.get("type") == "COMMAND":
+                    action = message.get("action")
+                    log(f"Received command: {action}", "CORE")
+                    
+                    if action == "SYNC_BLOCKCHAIN":
+                        # Здесь можно вызвать принудительный запуск логики из core_worker
+                        await websocket.send_json({
+                            "type": "UPDATE", 
+                            "data": {"log_entry": {"msg": "Blockchain sync triggered manually", "type": "OK"}}
+                        })
+
+                    elif action == "RESET_COUNTERS":
+                        # Место для вызова функции сброса из database.py
+                        await websocket.send_json({
+                            "type": "UPDATE", 
+                            "data": {"log_entry": {"msg": "Database counters reset initiated", "type": "SYS"}}
+                        })
+
+                    elif action == "EMERGENCY_STOP":
+                        overlord.last_status = "EMERGENCY_STOP"
+                        await websocket.send_json({
+                            "type": "UPDATE", 
+                            "data": {"log_entry": {"msg": "EMERGENCY STOP ACTIVATED", "type": "ERR"}}
+                        })
+            except json.JSONDecodeError:
+                pass
+
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        manager.disconnect(websocket)
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
