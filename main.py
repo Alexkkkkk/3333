@@ -3,10 +3,8 @@ import os
 import json
 import time
 import sys
-import random
 from urllib.parse import parse_qs
 from datetime import datetime
-from typing import List
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
@@ -144,6 +142,7 @@ async def core_worker():
                 except: overlord.last_status = "SYNC_LAG"
             else: overlord.last_status = "STANDBY"
 
+            # Рассылка всем подключенным через WebSocket
             await manager.broadcast({
                 "type": "UPDATE",
                 "data": {
@@ -176,9 +175,15 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
 
-# --- РОУТИНГ ---
+# --- РОУТИНГ СТАТИКИ ---
 
 @app.get("/")
 @app.get("/index.html")
@@ -188,9 +193,7 @@ async def read_root():
 @app.get("/{page}.html")
 async def get_static_html(page: str):
     path = f"static/{page}.html"
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("static/index.html")
+    return FileResponse(path) if os.path.exists(path) else FileResponse("static/index.html")
 
 @app.get("/admin")
 @app.get("/admin/admin.html")
@@ -201,9 +204,7 @@ async def get_admin_main():
 async def get_admin_subpages(file_path: str):
     clean_name = file_path.replace(".html", "")
     path = f"static/admin/{clean_name}.html"
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("static/admin/admin.html")
+    return FileResponse(path) if os.path.exists(path) else FileResponse("static/admin/admin.html")
 
 @app.get("/tonconnect-manifest.json")
 async def get_manifest():
@@ -212,18 +213,12 @@ async def get_manifest():
 @app.get("/images/{img}")
 async def get_image(img: str):
     path = f"static/images/{img}"
-    if os.path.exists(path):
-        return FileResponse(path)
-    return JSONResponse({"error": "Image not found"}, 404)
+    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "Image not found"}, 404)
 
 # --- API ЭНДПОИНТЫ ---
 
 @app.get("/api/stats")
 async def get_api_stats():
-    """
-    Эндпоинт для получения текущей статистики. 
-    Устраняет ошибку 404 Not Found для фронтенда админки.
-    """
     db_stats = await get_stats_for_web()
     return {
         "status": overlord.last_status,
@@ -251,6 +246,7 @@ async def api_register_visit(data: dict = Body(...), request: Request = None):
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
+        # Отправляем начальные данные при подключении
         db_stats = await get_stats_for_web()
         await websocket.send_json({
             "type": "INIT",
@@ -277,21 +273,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     log(f"Command received: {action}", "CORE")
                     
                     if action == "SYNC_BLOCKCHAIN":
-                        await websocket.send_json({
-                            "type": "UPDATE", 
-                            "data": {"log_entry": {"msg": "Manual Sync Triggered", "type": "OK"}}
-                        })
+                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "Manual Sync Triggered", "type": "OK"}}})
                     elif action == "RESET_COUNTERS":
-                        await websocket.send_json({
-                            "type": "UPDATE", 
-                            "data": {"log_entry": {"msg": "Counters Reset Command Sent", "type": "SYS"}}
-                        })
+                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "Counters Reset Command Sent", "type": "SYS"}}})
                     elif action == "EMERGENCY_STOP":
+                        overlord.is_active = False # Реальная остановка воркера
                         overlord.last_status = "EMERGENCY"
-                        await websocket.send_json({
-                            "type": "UPDATE", 
-                            "data": {"log_entry": {"msg": "EMERGENCY STOP ACTIVE", "type": "ERR"}}
-                        })
+                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "CORE HALTED BY ADMIN", "type": "ERR"}}})
             except: pass
 
     except (WebSocketDisconnect, RuntimeError):
@@ -299,6 +287,7 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         manager.disconnect(websocket)
 
+# Монтирование статики (последним приоритетом)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
