@@ -91,13 +91,6 @@
             display: flex; align-items: center; justify-content: center;
         }
 
-        @media (max-width: 640px) {
-            .terminal-text { font-size: 1.25rem !important; letter-spacing: 1px; }
-            .quantum-card { padding: 1.25rem !important; }
-            #ton-connect-button button { width: 100% !important; }
-        }
-
-        .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
         @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .pulse-log { animation: pulse-opacity 2s infinite; }
         #log-container::-webkit-scrollbar { width: 4px; }
@@ -157,7 +150,7 @@
                 </div>
             </div>
             <div class="quantum-card b-yellow p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Target_Balance</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Target_Total</h3>
                 <div class="flex items-baseline gap-2">
                     <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
@@ -167,16 +160,27 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-            <div class="lg:col-span-8 space-y-8">
-                <div class="quantum-card p-6 md:p-8">
+            <div class="lg:col-span-8 space-y-6">
+                <div class="quantum-card p-6 b-blue">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
-                            <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Wallet_Live_Pulse</h2>
-                            <p id="active_addr_display" class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-blue-400 transition-colors" onclick="copyAddr(this.innerText.replace('ADDR: ', ''))">ADDR: EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda</p>
+                            <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Alpha_Pulse</h2>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-blue-400 transition-colors" onclick="copyAddr('EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda')">ADDR: EQCSAT3Nh...tZda</p>
                         </div>
-                        <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">BLOCKCHAIN_SYNC_ON</span>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-log">SYNCING_W1</span>
                     </div>
-                    <div class="h-[280px] w-full"><canvas id="walletLiveChart"></canvas></div>
+                    <div class="h-[200px] w-full"><canvas id="walletChart1"></canvas></div>
+                </div>
+
+                <div class="quantum-card p-6 b-purple">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <div>
+                            <h2 class="text-xs terminal-text text-purple-400 uppercase tracking-widest">Target_Beta_Pulse</h2>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-purple-400 transition-colors" onclick="copyAddr('EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj')">ADDR: EQD-qDSm...HXCj</p>
+                        </div>
+                        <span class="text-[10px] bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 pulse-log">SYNCING_W2</span>
+                    </div>
+                    <div class="h-[200px] w-full"><canvas id="walletChart2"></canvas></div>
                 </div>
 
                 <div class="quantum-card p-6 b-red">
@@ -188,24 +192,13 @@
                         <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Cut Link</button>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Core_Visitor_Pulse</h2>
-                        <div class="h-[150px]"><canvas id="visitorChart"></canvas></div>
-                    </div>
-                    <div class="quantum-card p-6">
-                        <h2 class="text-[10px] terminal-text text-purple-400 uppercase mb-4">Traffic_Sync_History</h2>
-                        <div class="h-[150px]"><canvas id="trafficChart"></canvas></div>
-                    </div>
-                </div>
             </div>
 
             <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6 b-blue">
                     <div class="flex justify-between items-center mb-5">
                         <h3 class="text-[10px] text-slate-500 uppercase font-mono tracking-widest">System_Resources</h3>
-                        <button onclick="reconnectWS()" class="action-btn">REBOOT_LINK</button>
+                        <button onclick="reconnectWS()" class="action-btn">REBOOT</button>
                     </div>
                     <div class="space-y-6">
                         <div>
@@ -214,14 +207,10 @@
                                 <span id="cpu_label" class="text-green-400 font-bold">0%</span>
                             </div>
                             <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                                <div id="cpu_bar" class="h-full bg-gradient-to-r from-blue-500 to-green-400 transition-all duration-700 ease-out" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="pt-4 border-t border-white/5 space-y-3">
-                            <div class="flex justify-between text-[10px] font-mono">
-                                <span class="text-slate-500 uppercase">Scanner_Status</span>
-                                <span class="text-green-400 uppercase text-[9px]">Active</span>
-                            </div>
                             <div class="flex justify-between text-[10px] font-mono">
                                 <span class="text-slate-500 uppercase">Uptime</span>
                                 <span id="uptime_display" class="text-slate-300">00:00:00</span>
@@ -231,12 +220,7 @@
                 </div>
 
                 <div class="quantum-card p-6">
-                    <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
-                        <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
-                        <div class="flex gap-2">
-                            <button onclick="document.getElementById('log-container').innerHTML=''" class="action-btn">CLEAR</button>
-                        </div>
-                    </div>
+                    <h3 class="text-[11px] terminal-text text-blue-400 uppercase mb-4">Kernel_Log</h3>
                     <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
             </div>
@@ -244,186 +228,102 @@
     </div>
 
     <script>
-        // Новый адрес мониторинга добавлен
-        const targetWallet = "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda";
-        const TARGET_PAGE = "index.html";
+        const w1_addr = "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda";
+        const w2_addr = "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj";
         
-        let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, walletBalance: 0 };
+        let chart1, chart2;
         let ws;
         let startTime = Date.now();
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        
-        function connectWS() {
-            if (ws) { ws.close(); }
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-            
-            ws.onopen = () => {
-                addLog(`MONITOR_START: Отслеживание ${TARGET_PAGE}`, "OK");
-                addLog(`TARGET_ADDR: Monitoring ${targetWallet.substring(0,8)}...`, "SYS");
-                updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
-                showToast("Monitoring Link Established");
-            };
 
-            ws.onmessage = (event) => {
-                try {
-                    const rawData = JSON.parse(event.data);
-                    if (rawData.type === "UPDATE" && rawData.data) {
-                        const d = rawData.data;
-
-                        if (d.traffic !== undefined) {
-                            currentStats.traffic = d.traffic;
-                            document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                            document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5); 
-                        }
-
-                        if (d.connections !== undefined) {
-                            currentStats.connections = d.connections;
-                            document.getElementById('conn_val').innerText = d.connections;
-                        }
-
-                        if (d.qc_balance !== undefined) {
-                            document.getElementById('balance_val').innerText = d.qc_balance.toFixed(2);
-                        }
-                        if (d.roi_24h !== undefined) {
-                            document.getElementById('roi_val').innerText = d.roi_24h;
-                        }
-
-                        if (d.system && d.system.cpu !== undefined) {
-                            currentStats.cpu = d.system.cpu;
-                            document.getElementById('cpu_label').innerText = d.system.cpu + '%';
-                            document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
-                        }
-
-                        if (d.recent_actions && Array.isArray(d.recent_actions)) {
-                            const latest = d.recent_actions[0];
-                            if (latest && latest.address) {
-                                const shortAddr = latest.address.substring(0, 6) + "..." + latest.address.slice(-4);
-                                const logMsg = `WALLET_UPDATE: ${shortAddr} | Bal: ${latest.amount} TON | Status: ${latest.status}`;
-                                const lastLog = document.querySelector('#log-container div:last-child');
-                                if (!lastLog || !lastLog.innerText.includes(shortAddr)) {
-                                    addLog(logMsg, "OK");
-                                }
-                            }
-                        }
+        function initCharts() {
+            const createConfig = (color, bg) => ({
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        data: Array(20).fill(0),
+                        borderColor: color,
+                        backgroundColor: bg,
+                        fill: true,
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { position: 'right', grid: { color: 'rgba(255,255,255,0.02)' }, ticks: { color: '#475569', font: { size: 9 } } }
                     }
-                } catch (e) { 
-                    console.error("WS Parsing Error", e); 
-                    addLog("DECODE_ERR: Ошибка обработки пакета данных", "ERR");
+                }
+            });
+
+            chart1 = new Chart(document.getElementById('walletChart1').getContext('2d'), createConfig('#00d2ff', 'rgba(0, 210, 255, 0.05)'));
+            chart2 = new Chart(document.getElementById('walletChart2').getContext('2d'), createConfig('#a855f7', 'rgba(168, 85, 247, 0.05)'));
+        }
+
+        async function fetchWallet(addr, chartObj) {
+            try {
+                const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${addr}`);
+                const data = await response.json();
+                if (data.ok) {
+                    const balance = parseFloat(data.result.balance) / 1000000000;
+                    chartObj.data.datasets[0].data.shift();
+                    chartObj.data.datasets[0].data.push(balance);
+                    chartObj.data.labels.shift();
+                    chartObj.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
+                    chartObj.update('none');
+                    return balance;
+                }
+            } catch (e) { console.error("API Error", e); }
+            return 0;
+        }
+
+        async function syncAll() {
+            const b1 = await fetchWallet(w1_addr, chart1);
+            const b2 = await fetchWallet(w2_addr, chart2);
+            document.getElementById('balance_val').innerText = (b1 + b2).toFixed(2);
+            addLog(`SYNC: W1[${b1.toFixed(2)}] W2[${b2.toFixed(2)}]`, "OK");
+        }
+
+        function connectWS() {
+            if (ws) ws.close();
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            ws.onopen = () => {
+                addLog("MONITOR: WebSocket Link Established", "OK");
+                updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
+            };
+            ws.onmessage = (event) => {
+                const raw = JSON.parse(event.data);
+                if (raw.type === "UPDATE" && raw.data) {
+                    const d = raw.data;
+                    if (d.traffic) {
+                        document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
+                        document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5);
+                    }
+                    if (d.connections) document.getElementById('conn_val').innerText = d.connections;
+                    if (d.system && d.system.cpu) {
+                        document.getElementById('cpu_label').innerText = d.system.cpu + '%';
+                        document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
+                    }
                 }
             };
-
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
-                addLog("CRITICAL: WebSocket connection dropped", "ERR");
                 setTimeout(connectWS, 5000);
             };
         }
 
-        async function fetchWalletData() {
-            try {
-                const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${targetWallet}`);
-                const data = await response.json();
-                if (data.ok) {
-                    const balance = parseFloat(data.result.balance) / 1000000000;
-                    currentStats.walletBalance = balance;
-                    
-                    document.getElementById('balance_val').innerText = balance.toFixed(2);
-
-                    walletLiveChart.data.datasets[0].data.shift();
-                    walletLiveChart.data.datasets[0].data.push(balance);
-                    walletLiveChart.data.labels.shift();
-                    walletLiveChart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
-                    walletLiveChart.update('none');
-                }
-            } catch (e) { addLog("SCANNER: Failed to reach TON Indexer", "ERR"); }
-        }
-
-        function triggerAction(action) {
-            addLog(`COMMAND: ${action} initiated`, "SYS");
-            showToast(`Executing: ${action}`);
-            if(action === 'SYNC_BLOCKCHAIN') { fetchWalletData(); addLog("ACTION: Blockchain data re-synced", "OK"); }
-            if(action === 'RESET_COUNTERS') { document.getElementById('visitor_val').innerText = "0"; addLog("UI: Viewers counter cleared locally", "OK"); }
-            if(action === 'EXPORT_LOGS') {
-                const logs = Array.from(document.querySelectorAll('#log-container div')).map(el => el.innerText).join('\n');
-                const blob = new Blob([logs], {type: 'text/plain'});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `quantum_logs_${Date.now()}.txt`;
-                a.click();
-                addLog("SYSTEM: Log data exported to file", "OK");
-            }
-            if(action === 'EMERGENCY_STOP') { if(ws) ws.close(); addLog("CRITICAL: Manual link termination confirmed", "ERR"); }
-        }
-
-        function copyAddr(addr) {
-            navigator.clipboard.writeText(addr);
-            showToast("Address copied to buffer");
-            addLog(`UI: Address ${addr.substring(0,8)}... copied`, "SYS");
-        }
-
-        const commonOptions = {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { 
-                x: { display: false }, 
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } 
-            }
-        };
-
-        const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
-            type: 'line',
-            data: { 
-                labels: Array(20).fill(''), 
-                datasets: [{ 
-                    data: Array(20).fill(0), 
-                    borderColor: '#00d2ff', fill: true, 
-                    backgroundColor: 'rgba(0, 210, 255, 0.05)', 
-                    borderWidth: 2, tension: 0.4, pointRadius: 0
-                }] 
-            },
-            options: { ...commonOptions, scales: { x: { display: true, ticks: { color: '#334155' } }, y: { position: 'right' } } }
-        });
-
-        const visitorChart = new Chart(document.getElementById('visitorChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), backgroundColor: '#00ff95' }] },
-            options: commonOptions
-        });
-
-        const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
-            type: 'line',
-            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', borderWidth: 2, pointRadius: 0 }] },
-            options: commonOptions
-        });
-
-        setInterval(() => {
-            [visitorChart, trafficChart].forEach((chart, idx) => {
-                const baseVal = idx === 0 ? (currentStats.traffic || 1) : (currentStats.traffic || 0.1);
-                const randomOffset = Math.random() * (baseVal * 0.2);
-                const finalVal = Math.max(0, baseVal + (Math.random() > 0.5 ? randomOffset : -randomOffset));
-                chart.data.datasets[0].data.shift();
-                chart.data.datasets[0].data.push(finalVal);
-                chart.update('none');
-            });
-        }, 2000);
-
-        setInterval(fetchWalletData, 15000);
-        
-        setInterval(() => {
-            const diff = Math.floor((Date.now() - startTime) / 1000);
-            const fmt = (s) => String(s).padStart(2, '0');
-            document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
-        }, 1000);
-
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
-            if(!container) return;
             const log = document.createElement('div');
-            log.className = "border-l-2 border-white/5 pl-2 py-0.5 opacity-0 transition-opacity duration-300";
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
+            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type]} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
             container.appendChild(log);
-            setTimeout(() => log.classList.remove('opacity-0'), 10);
             if (container.children.length > 50) container.firstChild.remove();
             container.scrollTop = container.scrollHeight;
         }
@@ -437,22 +337,45 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
         }
 
+        function triggerAction(action) {
+            addLog(`CMD: ${action}`, "SYS");
+            showToast(`Executing ${action}`);
+            if(action === 'SYNC_BLOCKCHAIN') syncAll();
+            if(action === 'EXPORT_LOGS') {
+                const data = Array.from(document.querySelectorAll('#log-container div')).map(e => e.innerText).join('\n');
+                const blob = new Blob([data], {type: 'text/plain'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'quantum_logs.txt';
+                a.click();
+            }
+        }
+
+        function copyAddr(addr) {
+            navigator.clipboard.writeText(addr);
+            showToast("Address Copied");
+        }
+
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
-            if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`; }
+            el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`;
         }
 
-        function reconnectWS() {
-            addLog("SYSTEM: Manual Reboot Initiated...", "SYS");
-            showToast("Reconnecting...");
-            connectWS();
-        }
+        function reconnectWS() { connectWS(); showToast("Rebooting Link..."); }
 
         window.onload = () => {
+            initCharts();
             connectWS();
-            fetchWalletData();
+            syncAll();
+            setInterval(syncAll, 15000);
+            setInterval(() => {
+                const diff = Math.floor((Date.now() - startTime) / 1000);
+                const fmt = (s) => String(s).padStart(2, '0');
+                document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
+            }, 1000);
+
             if (typeof TON_CONNECT_UI !== 'undefined') {
-                const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                new TON_CONNECT_UI.TonConnectUI({
                     manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-button'
                 });
