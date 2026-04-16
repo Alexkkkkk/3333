@@ -278,39 +278,58 @@
                     chartObj.update('none');
                     return balance;
                 }
-            } catch (e) { console.error("API Error", e); }
+            } catch (e) { 
+                addLog(`API ERR: Failed to sync ${addr.substring(0,6)}`, "ERR");
+            }
             return 0;
         }
 
         async function syncAll() {
             const b1 = await fetchWallet(w1_addr, chart1);
             const b2 = await fetchWallet(w2_addr, chart2);
-            document.getElementById('balance_val').innerText = (b1 + b2).toFixed(2);
-            addLog(`SYNC: W1[${b1.toFixed(2)}] W2[${b2.toFixed(2)}]`, "OK");
+            const total = b1 + b2;
+            
+            // Плавная анимация числа баланса
+            const el = document.getElementById('balance_val');
+            const current = parseFloat(el.innerText);
+            if(total !== current) {
+                el.innerText = total.toFixed(2);
+            }
+            
+            addLog(`SYNC: Alpha[${b1.toFixed(2)}] Beta[${b2.toFixed(2)}]`, "OK");
         }
 
         function connectWS() {
             if (ws) ws.close();
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            // Попытка подключения к серверу
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            ws = new WebSocket(wsUrl);
+            
             ws.onopen = () => {
                 addLog("MONITOR: WebSocket Link Established", "OK");
                 updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
             };
+            
             ws.onmessage = (event) => {
-                const raw = JSON.parse(event.data);
-                if (raw.type === "UPDATE" && raw.data) {
-                    const d = raw.data;
-                    if (d.traffic) {
-                        document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                        document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5);
+                try {
+                    const raw = JSON.parse(event.data);
+                    if (raw.type === "UPDATE" && raw.data) {
+                        const d = raw.data;
+                        if (d.traffic) {
+                            document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
+                            document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5);
+                        }
+                        if (d.connections) document.getElementById('conn_val').innerText = d.connections;
+                        if (d.system && d.system.cpu) {
+                            document.getElementById('cpu_label').innerText = d.system.cpu + '%';
+                            document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
+                        }
                     }
-                    if (d.connections) document.getElementById('conn_val').innerText = d.connections;
-                    if (d.system && d.system.cpu) {
-                        document.getElementById('cpu_label').innerText = d.system.cpu + '%';
-                        document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
-                    }
+                } catch(e) {
+                    console.error("WS Data Error", e);
                 }
             };
+            
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
                 setTimeout(connectWS, 5000);
@@ -320,11 +339,23 @@
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             const log = document.createElement('div');
-            log.className = "border-l-2 border-white/5 pl-2 py-0.5";
-            const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type]} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5 animate-pulse-once";
+            
+            const colors = { 
+                "OK": "text-green-400", 
+                "ERR": "text-red-500", 
+                "SYS": "text-blue-400",
+                "CMD": "text-yellow-400"
+            };
+            
+            log.innerHTML = `
+                <span class="opacity-30 text-[9px] font-mono">[${new Date().toLocaleTimeString()}]</span> 
+                <span class="${colors[type] || 'text-slate-400'} font-bold text-[10px]">${type}</span> 
+                <span class="ml-2">${msg}</span>
+            `;
+            
             container.appendChild(log);
-            if (container.children.length > 50) container.firstChild.remove();
+            if (container.children.length > 100) container.firstChild.remove();
             container.scrollTop = container.scrollHeight;
         }
 
@@ -334,51 +365,80 @@
             toast.className = 'toast-item';
             toast.innerText = text;
             container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                setTimeout(() => toast.remove(), 400); 
+            }, 3000);
         }
 
         function triggerAction(action) {
-            addLog(`CMD: ${action}`, "SYS");
-            showToast(`Executing ${action}`);
+            addLog(`EXECUTE: ${action}`, "CMD");
+            showToast(`Command sent: ${action}`);
+            
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
+            
+            if(action === 'RESET_COUNTERS') {
+                document.getElementById('visitor_val').innerText = "0";
+                addLog("Viewers counter cleared locally", "SYS");
+            }
+
             if(action === 'EXPORT_LOGS') {
                 const data = Array.from(document.querySelectorAll('#log-container div')).map(e => e.innerText).join('\n');
                 const blob = new Blob([data], {type: 'text/plain'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'quantum_logs.txt';
+                a.download = `quantum_logs_${new Date().getTime()}.txt`;
                 a.click();
             }
         }
 
         function copyAddr(addr) {
             navigator.clipboard.writeText(addr);
-            showToast("Address Copied");
+            showToast("Address Copied to Buffer");
+            addLog(`COPY: ${addr.substring(0,12)}...`, "SYS");
         }
 
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
-            el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`;
+            el.innerText = text; 
+            el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`;
         }
 
-        function reconnectWS() { connectWS(); showToast("Rebooting Link..."); }
+        function reconnectWS() { 
+            addLog("SYSTEM: Manual Kernel Reboot Initiated", "SYS");
+            connectWS(); 
+            showToast("Rebooting Link..."); 
+        }
 
+        // Инициализация при загрузке
         window.onload = () => {
             initCharts();
             connectWS();
             syncAll();
-            setInterval(syncAll, 15000);
+            
+            // Интервал обновления данных кошельков
+            setInterval(syncAll, 30000); 
+
+            // Обновление аптайма
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
-                document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
+                const h = Math.floor(diff/3600);
+                const m = Math.floor((diff%3600)/60);
+                const s = diff%60;
+                document.getElementById('uptime_display').innerText = `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
             }, 1000);
 
+            // Инициализация TonConnect
             if (typeof TON_CONNECT_UI !== 'undefined') {
-                new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button'
-                });
+                try {
+                    new TON_CONNECT_UI.TonConnectUI({
+                        manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+                        buttonRootId: 'ton-connect-button'
+                    });
+                } catch(e) {
+                    addLog("TON_CONNECT: Error loading manifest", "ERR");
+                }
             }
         };
     </script>
