@@ -93,8 +93,8 @@
         .pulse-log { animation: pulse-opacity 2s infinite; }
         @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         
-        #log-container::-webkit-scrollbar { width: 4px; }
-        #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+        #log-container::-webkit-scrollbar, .custom-scroll::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-thumb, .custom-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast-item { 
@@ -103,6 +103,8 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .wallet-row:hover { background: rgba(0, 210, 255, 0.05); }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -135,7 +137,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
             <div class="quantum-card b-green p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Traffic</h3>
-                <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">12</span>
+                <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">0</span>
             </div>
             <div class="quantum-card b-blue p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">DB_Engine</h3>
@@ -144,7 +146,7 @@
             <div class="quantum-card b-purple p-5">
                 <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Network_Up</h3>
                 <div class="flex items-baseline gap-2">
-                    <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.61</span>
+                    <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.00</span>
                     <span class="text-[10px] text-purple-600 font-mono uppercase">KB/S</span>
                 </div>
             </div>
@@ -169,6 +171,29 @@
                         <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">NETWORK_LIVE</span>
                     </div>
                     <div class="h-[280px] w-full"><canvas id="walletLiveChart"></canvas></div>
+                </div>
+
+                <div class="quantum-card p-6 b-blue overflow-hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Active_Target_Nodes</h2>
+                        <span id="wallet_count" class="text-[10px] font-mono text-slate-500">CONNECTED: 0</span>
+                    </div>
+                    <div class="overflow-x-auto custom-scroll">
+                        <table class="w-full text-left font-mono text-[11px]">
+                            <thead>
+                                <tr class="text-slate-500 border-b border-white/5 uppercase">
+                                    <th class="pb-3 font-medium">Wallet_Address</th>
+                                    <th class="pb-3 font-medium">Balance</th>
+                                    <th class="pb-3 font-medium text-right">Last_Ping</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wallet_list_body" class="text-slate-300">
+                                <tr>
+                                    <td colspan="3" class="py-10 text-center text-slate-600 italic">Waiting for incoming node data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="quantum-card p-6 b-red">
@@ -225,7 +250,7 @@
                         <h3 class="text-[11px] terminal-text text-blue-400 uppercase">System_Events</h3>
                         <button onclick="clearLogs()" class="action-btn">CLEAR</button>
                     </div>
-                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[350px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
             </div>
         </div>
@@ -255,12 +280,22 @@
                     const msg = JSON.parse(event.data);
                     if ((msg.type === "UPDATE" || msg.type === "INIT") && msg.data) {
                         const d = msg.data;
+                        
+                        // Update Balances
                         if (d.balance !== undefined) {
                             document.getElementById('balance_val').innerText = d.balance.toFixed(2);
                             document.getElementById('est_usd').innerText = (d.balance * 2.5).toFixed(2);
                             updateChart(walletLiveChart, d.balance);
                         }
+                        
+                        // Update Wallet List
+                        if (d.wallets && Array.isArray(d.wallets)) {
+                            renderWallets(d.wallets);
+                        }
+
                         if (d.traffic !== undefined) document.getElementById('visitor_val').innerText = d.traffic;
+                        
+                        // System Stats
                         if (d.system) {
                             if (d.system.cpu) {
                                 let cpu = Math.round(d.system.cpu.percent);
@@ -275,6 +310,7 @@
                             if (d.system.network) document.getElementById('traffic_val').innerText = d.system.network.up_kbs.toFixed(2);
                             if (d.system.app_memory_mb) document.getElementById('app_mem_val').innerText = d.system.app_memory_mb + ' MB';
                         }
+                        
                         if (d.uptime) updateUptime(d.uptime);
                         if (d.log_entry) addLog(d.log_entry.msg, d.log_entry.type || "SYS");
                     }
@@ -286,6 +322,29 @@
                 addLog("CRITICAL: Connection dropped by node", "ERR");
                 setTimeout(connectWS, 5000);
             };
+        }
+
+        function renderWallets(wallets) {
+            const tbody = document.getElementById('wallet_list_body');
+            document.getElementById('wallet_count').innerText = `CONNECTED: ${wallets.length}`;
+            
+            if (wallets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="py-10 text-center text-slate-600 italic">No nodes detected.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = wallets.map(w => `
+                <tr class="wallet-row border-b border-white/5 transition-colors">
+                    <td class="py-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#00d2ff]"></div>
+                            <span class="text-blue-400 font-bold">${w.address.slice(0,6)}...${w.address.slice(-6)}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 font-bold text-white">${Number(w.balance).toFixed(2)} <span class="text-[9px] text-slate-500">TON</span></td>
+                    <td class="py-4 text-right text-slate-500 text-[10px] uppercase">${w.last_seen || 'Active'}</td>
+                </tr>
+            `).join('');
         }
 
         // Charts Initialization
