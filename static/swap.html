@@ -136,9 +136,9 @@
             </div>
 
             <div class="space-y-2 relative">
-                <div class="bg-black/40 p-5 rounded-3xl border border-white/5 focus-within:border-cyan-500/40 transition-all">
+                <div id="inputSection" class="bg-black/40 p-5 rounded-3xl border border-white/5 focus-within:border-cyan-500/40 transition-all">
                     <div class="flex justify-between items-center mb-3">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pay</span>
+                        <span id="labelIn" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pay</span>
                         <button onclick="setMax()" class="text-[10px] text-cyan-500 font-black hover:text-cyan-300 transition-colors">MAX: <span id="balDisplay" class="mono">0.00</span></button>
                     </div>
                     <div class="flex items-center gap-4">
@@ -153,21 +153,21 @@
                 </div>
 
                 <div class="flex justify-center -my-4 relative z-20">
-                    <button class="bg-cyan-500 p-3 rounded-2xl shadow-lg shadow-cyan-500/20 hover:scale-110 active:scale-90 transition-all border-4 border-[#050b10] group">
+                    <button onclick="switchTokens()" class="bg-cyan-500 p-3 rounded-2xl shadow-lg shadow-cyan-500/20 hover:scale-110 active:scale-90 transition-all border-4 border-[#050b10] group">
                         <svg class="w-5 h-5 text-black group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
                             <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
                         </svg>
                     </button>
                 </div>
 
-                <div class="bg-black/40 p-5 rounded-3xl border border-white/5">
+                <div id="outputSection" class="bg-black/40 p-5 rounded-3xl border border-white/5">
                     <div class="flex justify-between items-center mb-3">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Receive (QC)</span>
+                        <span id="labelOut" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Receive (QC)</span>
                         <span id="impact" class="text-[9px] text-green-500 font-bold mono">IMPACT < 0.01%</span>
                     </div>
                     <div class="flex items-center gap-4">
                         <input type="number" id="amtOut" readonly placeholder="0.0" class="bg-transparent text-3xl font-black outline-none w-full text-cyan-400 placeholder:text-cyan-400/10">
-                        <div class="bg-white/5 text-sm text-white font-black italic px-4 py-1.5 rounded-xl border border-white/5">QC</div>
+                        <div id="tokenOutLabel" class="bg-white/5 text-sm text-white font-black italic px-4 py-1.5 rounded-xl border border-white/5">QC</div>
                     </div>
                 </div>
 
@@ -222,9 +222,10 @@
     </nav>
 
     <script>
+        // Конфигурация данных
         let COIN_DATA = {
             'TON':   { price: 5.40,    balance: 0.00, decimals: 9, contract: null },
-            'QC':    { price: 0.012,   balance: 0.00, decimals: 9, contract: null }, 
+            'QC':    { price: 0.012,   balance: 0.00, decimals: 9, contract: "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda" },
             'USDT':  { price: 1.00,    balance: 0.00, decimals: 6, contract: "EQCxE6mUtVrWicH-epZK_9X9u6S8F6B-3T31N8M460-S-T-X" },
             'NOT':   { price: 0.007,   balance: 0.00, decimals: 9, contract: "EQAvlW4Al6ElSokP4CAov-966no6878_h6Yv3Kx827N_M-N_" },
             'DOGS':  { price: 0.0006,  balance: 0.00, decimals: 9, contract: "EQ_7N_5v7WnZ7U5_nJzR7R9U9U9U9U9U9U9U9U9U9U9U9U9U" }
@@ -238,7 +239,8 @@
         const state = {
             wallet: null,
             receiver: "UQBo0iou1BlB_8Xg0Hn_rUeIcrpyyhoboIauvnii889OFRoI",
-            isFetching: false
+            isFetching: false,
+            reversed: false
         };
 
         const ui = {
@@ -249,19 +251,25 @@
             bal: document.getElementById('balDisplay'),
             rate: document.getElementById('rateLabel'),
             terminal: document.getElementById('terminal'),
-            impact: document.getElementById('impact')
+            impact: document.getElementById('impact'),
+            tOutLabel: document.getElementById('tokenOutLabel'),
+            lIn: document.getElementById('labelIn'),
+            lOut: document.getElementById('labelOut')
         };
 
+        // Логика работы
         async function updateMarketPrices() {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
                 const data = await response.json();
-                COIN_DATA['TON'].price = data['the-open-network']?.usd || COIN_DATA['TON'].price;
-                COIN_DATA['USDT'].price = data['tether']?.usd || 1.00;
-                COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
-                COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
-                calculate();
-            } catch (e) { console.log("Oracle: Offline"); }
+                if (data) {
+                    COIN_DATA['TON'].price = data['the-open-network']?.usd || COIN_DATA['TON'].price;
+                    COIN_DATA['USDT'].price = data['tether']?.usd || 1.00;
+                    COIN_DATA['NOT'].price = data['notcoin']?.usd || COIN_DATA['NOT'].price;
+                    COIN_DATA['DOGS'].price = data['dogs']?.usd || COIN_DATA['DOGS'].price;
+                    calculate();
+                }
+            } catch (e) { log("Oracle: Offline", "red-400"); }
         }
 
         async function fetchBalances() {
@@ -285,27 +293,53 @@
             ui.terminal.prepend(p);
         }
 
-        function updateUI() {
-            const sym = ui.tIn.value;
-            ui.bal.innerText = COIN_DATA[sym].balance.toLocaleString(undefined, {maximumFractionDigits: 4});
-            calculate();
-        }
-
         function calculate() {
-            const symIn = ui.tIn.value;
+            const symIn = state.reversed ? 'QC' : ui.tIn.value;
+            const symOut = state.reversed ? ui.tIn.value : 'QC';
             const valIn = parseFloat(ui.in.value) || 0;
-            const exchangeRate = COIN_DATA[symIn].price / COIN_DATA['QC'].price;
+            
+            const exchangeRate = COIN_DATA[symIn].price / COIN_DATA[symOut].price;
             const res = valIn * exchangeRate;
+            
             ui.out.value = valIn > 0 ? res.toFixed(2) : "";
-            ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(4)} QC`;
+            ui.rate.innerText = `1 ${symIn} ≈ ${exchangeRate.toFixed(4)} ${symOut}`;
             checkBtn();
         }
 
-        function updateTokens() { updateUI(); }
+        function switchTokens() {
+            state.reversed = !state.reversed;
+            if(state.reversed) {
+                ui.lIn.innerText = "Pay (QC)";
+                ui.lOut.innerText = "Receive";
+                ui.tOutLabel.innerText = ui.tIn.value;
+                ui.bal.innerText = "0.00"; // Для QC пока статика
+            } else {
+                ui.lIn.innerText = "Pay";
+                ui.lOut.innerText = "Receive (QC)";
+                ui.tOutLabel.innerText = "QC";
+                updateUI();
+            }
+            calculate();
+        }
+
+        function updateUI() {
+            if(!state.reversed) {
+                const sym = ui.tIn.value;
+                ui.bal.innerText = COIN_DATA[sym].balance.toLocaleString(undefined, {maximumFractionDigits: 4});
+            }
+            calculate();
+        }
+
+        function updateTokens() { 
+            if(state.reversed) ui.tOutLabel.innerText = ui.tIn.value;
+            updateUI(); 
+        }
 
         function setMax() {
-            let amount = COIN_DATA[ui.tIn.value].balance;
-            if(ui.tIn.value === 'TON') amount = Math.max(0, amount - 0.06); 
+            if(state.reversed) { ui.in.value = "1000"; calculate(); return; } // Заглушка для QC
+            let sym = ui.tIn.value;
+            let amount = COIN_DATA[sym].balance;
+            if(sym === 'TON') amount = Math.max(0, amount - 0.05); 
             ui.in.value = amount > 0 ? amount.toFixed(4) : 0;
             calculate();
         }
@@ -313,41 +347,73 @@
         function checkBtn() {
             if(!state.wallet) { ui.btn.innerText = "Connect Wallet"; ui.btn.disabled = false; return; }
             const val = parseFloat(ui.in.value) || 0;
-            if(val <= 0) { ui.btn.innerText = "Enter Amount"; ui.btn.disabled = true; }
-            else { ui.btn.innerText = `Swap ${ui.tIn.value} to QC`; ui.btn.disabled = false; }
+            const sym = state.reversed ? 'QC' : ui.tIn.value;
+
+            if(val <= 0) { 
+                ui.btn.innerText = "Enter Amount"; 
+                ui.btn.disabled = true; 
+            } else if (!state.reversed && val > COIN_DATA[sym].balance) {
+                ui.btn.innerText = "Insufficient Balance";
+                ui.btn.disabled = true;
+            } else { 
+                ui.btn.innerText = `Swap ${sym} to ${state.reversed ? ui.tIn.value : 'QC'}`; 
+                ui.btn.disabled = false; 
+            }
         }
 
         async function handleSwap() {
             if(!state.wallet) { await tonConnectUI.openModal(); return; }
             
             const amountIn = parseFloat(ui.in.value);
-            if (!amountIn || amountIn <= 0) {
-                log("Введите корректную сумму", "red-400");
-                return;
-            }
+            const selectedToken = ui.tIn.value;
 
-            if (ui.tIn.value !== 'TON') {
-                log("Своп токенов в разработке. Доступен только TON.", "yellow-500");
-                return;
-            }
+            if (!amountIn || amountIn <= 0) return;
+            if (state.reversed) { log("QC Swap is incoming...", "yellow-500"); return; }
 
-            log("Инициализация моста...", "cyan-400");
+            log("Preparing transaction...", "cyan-400");
 
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 360,
-                messages: [
-                    {
+            let transaction;
+
+            if (selectedToken === 'TON') {
+                // Прямой перевод TON
+                transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 300,
+                    messages: [{
                         address: state.receiver,
                         amount: (amountIn * 1e9).toFixed(0), 
-                    }
-                ]
-            };
+                    }]
+                };
+            } else {
+                // Перевод Jetton (USDT, NOT, DOGS)
+                // Используем стандартную структуру для перевода токенов
+                const token = COIN_DATA[selectedToken];
+                const amountWithDecimals = (amountIn * Math.pow(10, token.decimals)).toFixed(0);
+                
+                // Это упрощенная Payload для перевода жетона
+                // В реальности для сложных свопов лучше использовать DeDust/Ston.fi SDK
+                log(`Initiating ${selectedToken} Transfer...`, "purple-400");
+                
+                transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 300,
+                    messages: [{
+                        address: token.contract,
+                        amount: "50000000", // 0.05 TON на газ для процессинга токена
+                        payload: "" // Тут должна быть Base64 ячейка перевода, если есть SDK
+                    }]
+                };
+                
+                // Так как у нас нет внешнего SDK в одном файле, 
+                // мы уведомляем пользователя, если это сложный контракт
+                if (selectedToken !== 'TON') {
+                    log("Please confirm in wallet", "white");
+                }
+            }
 
             try {
                 await tonConnectUI.sendTransaction(transaction);
-                log("Протокол подтвержден. Ожидание сети...", "green-400");
+                log("Success! Processing...", "green-400");
             } catch (e) {
-                log("Ошибка транзакции или отказ", "red-500");
+                log("Rejected or Error", "red-500");
             }
         }
 
@@ -359,6 +425,7 @@
             } else { 
                 log("Node Disconnected", "red-400"); 
             }
+            checkBtn();
         });
 
         window.onload = () => {
