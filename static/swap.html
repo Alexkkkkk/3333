@@ -6,6 +6,7 @@
     <title>QUANCORE | ULTRA SWAP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tonweb/0.0.66/tonweb.bundle.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
         
@@ -257,7 +258,20 @@
             lOut: document.getElementById('labelOut')
         };
 
-        // Логика работы
+        // Вспомогательная функция для создания Payload перевода Jetton
+        function createJettonTransferPayload(recipientAddress, amount) {
+            const cell = new TonWeb.boc.Cell();
+            cell.bits.writeUint(0xf8a7ea5, 32); // Opcode для transfer
+            cell.bits.writeUint(0, 64);          // Query ID
+            cell.bits.writeCoins(new TonWeb.utils.BN(amount)); // Количество
+            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); // Куда
+            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); // Response address
+            cell.bits.writeBit(false); // Custom payload
+            cell.bits.writeCoins(new TonWeb.utils.BN('1')); // Forward amount (1 nanoTON)
+            cell.bits.writeBit(false); // Forward payload
+            return TonWeb.utils.bytesToBase64(cell.toBoc());
+        }
+
         async function updateMarketPrices() {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether,notcoin,dogs&vs_currencies=usd');
@@ -312,7 +326,7 @@
                 ui.lIn.innerText = "Pay (QC)";
                 ui.lOut.innerText = "Receive";
                 ui.tOutLabel.innerText = ui.tIn.value;
-                ui.bal.innerText = "0.00"; // Для QC пока статика
+                ui.bal.innerText = "0.00";
             } else {
                 ui.lIn.innerText = "Pay";
                 ui.lOut.innerText = "Receive (QC)";
@@ -336,7 +350,7 @@
         }
 
         function setMax() {
-            if(state.reversed) { ui.in.value = "1000"; calculate(); return; } // Заглушка для QC
+            if(state.reversed) { ui.in.value = "1000"; calculate(); return; } 
             let sym = ui.tIn.value;
             let amount = COIN_DATA[sym].balance;
             if(sym === 'TON') amount = Math.max(0, amount - 0.05); 
@@ -368,59 +382,50 @@
             const selectedToken = ui.tIn.value;
 
             if (!amountIn || amountIn <= 0) return;
-            if (state.reversed) { log("QC Swap is incoming...", "yellow-500"); return; }
+            if (state.reversed) { log("QC Swap: Mining nodes required", "yellow-500"); return; }
 
             log("Preparing transaction...", "cyan-400");
-
             let transaction;
 
-            if (selectedToken === 'TON') {
-                // Прямой перевод TON
-                transaction = {
-                    validUntil: Math.floor(Date.now() / 1000) + 300,
-                    messages: [{
-                        address: state.receiver,
-                        amount: (amountIn * 1e9).toFixed(0), 
-                    }]
-                };
-            } else {
-                // Перевод Jetton (USDT, NOT, DOGS)
-                // Используем стандартную структуру для перевода токенов
-                const token = COIN_DATA[selectedToken];
-                const amountWithDecimals = (amountIn * Math.pow(10, token.decimals)).toFixed(0);
-                
-                // Это упрощенная Payload для перевода жетона
-                // В реальности для сложных свопов лучше использовать DeDust/Ston.fi SDK
-                log(`Initiating ${selectedToken} Transfer...`, "purple-400");
-                
-                transaction = {
-                    validUntil: Math.floor(Date.now() / 1000) + 300,
-                    messages: [{
-                        address: token.contract,
-                        amount: "50000000", // 0.05 TON на газ для процессинга токена
-                        payload: "" // Тут должна быть Base64 ячейка перевода, если есть SDK
-                    }]
-                };
-                
-                // Так как у нас нет внешнего SDK в одном файле, 
-                // мы уведомляем пользователя, если это сложный контракт
-                if (selectedToken !== 'TON') {
-                    log("Please confirm in wallet", "white");
-                }
-            }
-
             try {
+                if (selectedToken === 'TON') {
+                    transaction = {
+                        validUntil: Math.floor(Date.now() / 1000) + 300,
+                        messages: [{
+                            address: state.receiver,
+                            amount: (amountIn * 1e9).toFixed(0), 
+                        }]
+                    };
+                } else {
+                    const token = COIN_DATA[selectedToken];
+                    const rawAmount = (amountIn * Math.pow(10, token.decimals)).toFixed(0);
+                    
+                    // Генерируем Payload для перевода жетона
+                    const jettonPayload = createJettonTransferPayload(state.receiver, rawAmount);
+                    
+                    transaction = {
+                        validUntil: Math.floor(Date.now() / 1000) + 300,
+                        messages: [{
+                            address: token.contract, // Отправляем на контракт жетона
+                            amount: "50000000",      // 0.05 TON на комиссию сети
+                            payload: jettonPayload   // Инструкция по переводу внутри
+                        }]
+                    };
+                    log(`Encoded ${selectedToken} Payload`, "purple-400");
+                }
+
                 await tonConnectUI.sendTransaction(transaction);
-                log("Success! Processing...", "green-400");
+                log("Transaction Sent! Awaiting block...", "green-400");
             } catch (e) {
-                log("Rejected or Error", "red-500");
+                console.error(e);
+                log("Transaction Failed or Cancelled", "red-500");
             }
         }
 
         tonConnectUI.onStatusChange(async (w) => {
             state.wallet = w;
             if(w) { 
-                log("Node Linked", "green-400"); 
+                log("Node Linked: " + w.account.address.slice(0,4) + "..." + w.account.address.slice(-4), "green-400"); 
                 await fetchBalances(); 
             } else { 
                 log("Node Disconnected", "red-400"); 
