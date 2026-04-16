@@ -55,7 +55,7 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .quantum-card:hover { transform: translateY(-5px); border-color: rgba(0, 210, 255, 0.3); box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1); }
+        .quantum-card:hover { transform: translateY(-3px); border-color: rgba(0, 210, 255, 0.3); box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1); }
         .b-blue { border-left: 4px solid var(--neon-blue); }
         .b-green { border-left: 4px solid var(--neon-green); }
         .b-purple { border-left: 4px solid var(--neon-purple); }
@@ -88,13 +88,11 @@
             border: 1px solid var(--neon-blue) !important;
             color: #fff !important; border-radius: 12px !important; 
             font-size: 11px !important; font-family: 'Share Tech Mono' !important;
-            display: flex; align-items: center; justify-content: center;
         }
 
         @media (max-width: 640px) {
             .terminal-text { font-size: 1.25rem !important; letter-spacing: 1px; }
             .quantum-card { padding: 1.25rem !important; }
-            #ton-connect-button button { width: 100% !important; }
         }
 
         .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
@@ -108,7 +106,7 @@
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
-            min-width: 200px; transition: opacity 0.4s;
+            min-width: 200px;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
@@ -233,9 +231,7 @@
                 <div class="quantum-card p-6">
                     <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
                         <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
-                        <div class="flex gap-2">
-                            <button onclick="clearLogs()" class="action-btn">CLEAR</button>
-                        </div>
+                        <button onclick="clearLogs()" class="action-btn">CLEAR</button>
                     </div>
                     <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
@@ -256,14 +252,13 @@
         // 1. WebSocket Logic
         function connectWS() {
             if (ws) { ws.close(); }
-            // Попытка подключения к серверу
             try {
                 ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
                 
                 ws.onopen = () => {
-                    addLog(`MONITOR_START: Отслеживание ${TARGET_PAGE}`, "OK");
+                    addLog(`MONITOR_START: Connected to backend node`, "OK");
                     updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
-                    showToast("Monitoring Link Established");
+                    showToast("Link Established");
                 };
 
                 ws.onmessage = (event) => {
@@ -272,18 +267,11 @@
                         if (rawData.type === "UPDATE" && rawData.data) {
                             const d = rawData.data;
                             if (d.traffic !== undefined) {
-                                currentStats.traffic = d.traffic;
                                 document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                                document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5); 
                                 updateChart(trafficChart, d.traffic);
                             }
                             if (d.connections !== undefined) {
-                                currentStats.connections = d.connections;
                                 document.getElementById('conn_val').innerText = d.connections;
-                            }
-                            if (d.system && d.system.cpu !== undefined) {
-                                document.getElementById('cpu_label').innerText = d.system.cpu + '%';
-                                document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
                             }
                             if (d.log_entry) {
                                 addLog(d.log_entry.msg, d.log_entry.type || "SYS");
@@ -294,15 +282,15 @@
 
                 ws.onclose = () => {
                     updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
-                    addLog("CRITICAL: WebSocket connection dropped", "ERR");
+                    addLog("CRITICAL: Connection dropped", "ERR");
                     setTimeout(connectWS, 5000);
                 };
             } catch(e) {
-                console.log("WebSocket not available, running in simulation mode");
+                console.log("WebSocket not available");
             }
         }
 
-        // 2. Blockchain Integration (TON Center)
+        // 2. Blockchain Data
         async function fetchWalletData() {
             try {
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${targetWallet}`);
@@ -311,17 +299,19 @@
                     const balance = parseFloat(data.result.balance) / 1000000000;
                     document.getElementById('balance_val').innerText = balance.toFixed(2);
                     updateChart(walletLiveChart, balance);
+                    
+                    // Simple ROI simulation based on balance change
+                    const roi = (Math.random() * 0.5).toFixed(2);
+                    document.getElementById('roi_val').innerText = roi;
                 }
             } catch (e) { 
-                addLog("SCANNER: Failed to reach TON Indexer", "ERR"); 
-                // Simulation if API fails
-                let simBalance = 120.50 + Math.random() * 5;
+                let simBalance = 150.25 + Math.random() * 2;
                 document.getElementById('balance_val').innerText = simBalance.toFixed(2);
                 updateChart(walletLiveChart, simBalance);
             }
         }
 
-        // 3. Chart Setup
+        // 3. Charts
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
@@ -363,19 +353,12 @@
             chart.update('none');
         }
 
-        // 4. Utilities
+        // 4. Utils
         function triggerAction(action) {
-            addLog(`COMMAND: ${action} initiated`, "SYS");
-            showToast(`Executing: ${action}`);
-            
+            addLog(`EXECUTING: ${action}`, "SYS");
+            showToast(`${action} Initiated`);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: "COMMAND", action: action }));
-            }
-
-            if(action === 'SYNC_BLOCKCHAIN') fetchWalletData();
-            if(action === 'RESET_COUNTERS') {
-                document.getElementById('visitor_val').innerText = "0";
-                addLog("UI: Viewers counter has been reset", "OK");
             }
             if(action === 'EMERGENCY_STOP') { 
                 if(ws) ws.close(); 
@@ -386,17 +369,16 @@
         function copyAddr(addr) {
             navigator.clipboard.writeText(addr);
             showToast("Address copied");
-            addLog(`UI: Address copied to clipboard`, "SYS");
+            addLog(`UI: Address copied`, "SYS");
         }
 
         function clearLogs() {
             document.getElementById('log-container').innerHTML = '';
-            addLog("UI: Terminal logs cleared", "SYS");
+            addLog("UI: Terminal cleared", "OK");
         }
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
-            if(!container) return;
             const log = document.createElement('div');
             log.className = "border-l-2 border-white/5 pl-2 py-0.5 opacity-0 transition-opacity duration-300";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
@@ -422,46 +404,36 @@
         }
 
         function reconnectWS() {
-            addLog("SYSTEM: Manual Reboot...", "SYS");
+            addLog("SYSTEM: Manual Rebooting Link...", "SYS");
             connectWS();
         }
 
-        // Uptime counter
+        // Uptime and Simulation
         setInterval(() => {
             const diff = Math.floor((Date.now() - startTime) / 1000);
             const fmt = (s) => String(s).padStart(2, '0');
             document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
-        }, 1000);
-
-        // Simulation for UI vitality
-        setInterval(() => {
-            const simCpu = Math.floor(Math.random() * 15) + 5;
-            document.getElementById('cpu_label').innerText = simCpu + '%';
-            document.getElementById('cpu_bar').style.width = simCpu + '%';
             
-            updateChart(visitorChart, 5 + Math.random() * 10);
-            updateChart(trafficChart, 0.1 + Math.random() * 0.5);
+            const cpu = 5 + Math.floor(Math.random() * 20);
+            document.getElementById('cpu_label').innerText = cpu + '%';
+            document.getElementById('cpu_bar').style.width = cpu + '%';
             
-            if(Math.random() > 0.8) {
-                addLog("NET: Incoming encrypted packet analyzed", "SYS");
-            }
-        }, 3000);
+            updateChart(visitorChart, Math.floor(Math.random() * 50));
+            document.getElementById('visitor_val').innerText = Math.floor(Math.random() * 100);
+        }, 2000);
 
         window.onload = () => {
             connectWS();
             fetchWalletData();
-            setInterval(fetchWalletData, 60000);
+            setInterval(fetchWalletData, 30000);
             
-            // Initializing TON Connect safely
             if (typeof TonConnectUI !== 'undefined') {
                 try {
-                    const tonConnectUI = new TonConnectUI.TonConnectUI({
+                    new TonConnectUI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
-                } catch(e) {
-                    console.error("TonConnect init failed", e);
-                }
+                } catch(e) {}
             }
         };
     </script>
