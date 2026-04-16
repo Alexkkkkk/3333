@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QUANTUM | ADMIN V4.9.0 LIVE</title>
+    <title>QUANTUM | ADMIN V4.2 LIVE</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -55,7 +55,7 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .quantum-card:hover { transform: translateY(-3px); border-color: rgba(0, 210, 255, 0.3); box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1); }
+        .quantum-card:hover { transform: translateY(-5px); border-color: rgba(0, 210, 255, 0.3); box-shadow: 0 15px 40px rgba(0, 210, 255, 0.1); }
         .b-blue { border-left: 4px solid var(--neon-blue); }
         .b-green { border-left: 4px solid var(--neon-green); }
         .b-purple { border-left: 4px solid var(--neon-purple); }
@@ -78,7 +78,7 @@
             font-family: 'Share Tech Mono', monospace; font-size: 10px;
             padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.2s; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.02);
-            text-transform: uppercase; cursor: pointer;
+            text-transform: uppercase;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
         .action-btn.danger:hover { border-color: var(--neon-red); color: var(--neon-red); background: rgba(255, 71, 87, 0.1); }
@@ -88,23 +88,29 @@
             border: 1px solid var(--neon-blue) !important;
             color: #fff !important; border-radius: 12px !important; 
             font-size: 11px !important; font-family: 'Share Tech Mono' !important;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        .pulse-log { animation: pulse-opacity 2s infinite; }
+        @media (max-width: 640px) {
+            .terminal-text { font-size: 1.25rem !important; letter-spacing: 1px; }
+            .quantum-card { padding: 1.25rem !important; }
+            #ton-connect-button button { width: 100% !important; }
+        }
+
+        .data-gradient-cpu { background: linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-green) 100%); }
         @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        
-        #log-container::-webkit-scrollbar, .custom-scroll::-webkit-scrollbar { width: 4px; }
-        #log-container::-webkit-scrollbar-thumb, .custom-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+        .pulse-log { animation: pulse-opacity 2s infinite; }
+        #log-container::-webkit-scrollbar { width: 4px; }
+        #log-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast-item { 
             background: rgba(13, 17, 23, 0.95); border: 1px solid var(--neon-blue); 
             padding: 12px 20px; border-radius: 12px; font-size: 12px; font-family: 'Share Tech Mono';
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); color: #fff;
+            min-width: 200px; transition: opacity 0.4s;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        .wallet-row:hover { background: rgba(0, 210, 255, 0.05); }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -117,13 +123,13 @@
             <img src="/static/images/logo.png" alt="Logo" class="w-5 h-5 object-contain" onerror="this.src='https://img.icons8.com/neon/96/000000/electronic-circuit.png'">
             <span class="hidden sm:inline">Quantum_Database_Monitoring_System</span>
             <span class="sm:hidden">Q_D_M_S</span>
-            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400 font-bold uppercase">STANDBY</span></span>
+            <span class="ml-auto">CORE_STATUS: <span id="status_indicator" class="text-green-400 font-bold uppercase">SYNC_ACTIVE</span></span>
         </div>
 
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
             <div>
                 <h1 class="text-3xl md:text-4xl font-bold terminal-text uppercase">Quancore_<span class="text-blue-500">OS</span></h1>
-                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-NATURAL-ULTRA-4.9.0</span> // NL-7 NODE</p>
+                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.2.0</span> // TRACKING_TARGET_ACTIVE</p>
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
@@ -136,27 +142,27 @@
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
             <div class="quantum-card b-green p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Traffic</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Live_Visitors</h3>
                 <span id="visitor_val" class="text-2xl md:text-3xl font-bold terminal-text text-green-400">0</span>
             </div>
             <div class="quantum-card b-blue p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">DB_Engine</h3>
-                <span id="db_status_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">ON</span>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Wallets_Linked</h3>
+                <span id="conn_val" class="text-2xl md:text-3xl font-bold terminal-text text-blue-400">0</span>
             </div>
             <div class="quantum-card b-purple p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Network_Up</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Network_Load</h3>
                 <div class="flex items-baseline gap-2">
                     <span id="traffic_val" class="text-2xl md:text-3xl font-bold terminal-text text-purple-400">0.00</span>
-                    <span class="text-[10px] text-purple-600 font-mono uppercase">KB/S</span>
+                    <span class="text-[10px] text-purple-600 font-mono uppercase">MB/S</span>
                 </div>
             </div>
             <div class="quantum-card b-yellow p-5">
-                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Total_Balance</h3>
+                <h3 class="text-[10px] text-slate-500 mb-2 uppercase font-mono tracking-wider">Target_Balance</h3>
                 <div class="flex items-baseline gap-2">
                     <span id="balance_val" class="text-2xl md:text-3xl font-bold terminal-text text-yellow-500">0.00</span>
                     <span class="text-[10px] text-yellow-600 font-mono">TON</span>
                 </div>
-                <p class="text-[9px] text-yellow-500/50 mt-1 font-mono uppercase">Est: <span id="est_usd" class="text-yellow-400">0.00</span> USD</p>
+                <p class="text-[9px] text-yellow-500/50 mt-1 font-mono">ROI_24H: <span id="roi_val" class="text-yellow-400">0.00</span>%</p>
             </div>
         </div>
 
@@ -165,44 +171,32 @@
                 <div class="quantum-card p-6 md:p-8">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
-                            <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Quantum_Balance_Live_Pulse</h2>
-                            <p class="text-[9px] font-mono text-slate-600 mt-1 uppercase">Node_Status: <span class="text-blue-500">Synchronized</span></p>
+                            <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Wallet_Live_Pulse</h2>
+                            <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-blue-400 transition-colors" onclick="copyAddr('EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj')">ADDR: EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj</p>
                         </div>
-                        <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">NETWORK_LIVE</span>
+                        <span class="text-[10px] bg-green-500/10 text-green-400 px-3 py-1 rounded-full border border-green-500/20 pulse-log">BLOCKCHAIN_SYNC_ON</span>
                     </div>
                     <div class="h-[280px] w-full"><canvas id="walletLiveChart"></canvas></div>
                 </div>
 
-                <div class="quantum-card p-6 b-blue overflow-hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Active_Target_Nodes</h2>
-                        <span id="wallet_count" class="text-[10px] font-mono text-slate-500">CONNECTED: 0</span>
-                    </div>
-                    <div class="overflow-x-auto custom-scroll">
-                        <table class="w-full text-left font-mono text-[11px]">
-                            <thead>
-                                <tr class="text-slate-500 border-b border-white/5 uppercase">
-                                    <th class="pb-3 font-medium">Wallet_Address</th>
-                                    <th class="pb-3 font-medium">Balance</th>
-                                    <th class="pb-3 font-medium text-right">Last_Ping</th>
-                                </tr>
-                            </thead>
-                            <tbody id="wallet_list_body" class="text-slate-300">
-                                <tr>
-                                    <td colspan="3" class="py-10 text-center text-slate-600 italic">Waiting for incoming node data...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="quantum-card p-6 b-red">
+                    <h2 class="text-xs terminal-text text-red-400 uppercase tracking-widest mb-6">Target_Control_Terminal</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button onclick="triggerAction('SYNC_BLOCKCHAIN')" class="action-btn">Force Sync</button>
+                        <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Viewers</button>
+                        <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
+                        <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Cut Link</button>
                     </div>
                 </div>
 
-                <div class="quantum-card p-6 b-red">
-                    <h2 class="text-xs terminal-text text-red-400 uppercase tracking-widest mb-6">Core_Command_Console</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <button onclick="triggerAction('SYNC_BLOCKCHAIN')" class="action-btn">Force Sync</button>
-                        <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Counters</button>
-                        <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
-                        <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Emergency Stop</button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="quantum-card p-6">
+                        <h2 class="text-[10px] terminal-text text-green-400 uppercase mb-4">Core_Visitor_Pulse</h2>
+                        <div class="h-[150px]"><canvas id="visitorChart"></canvas></div>
+                    </div>
+                    <div class="quantum-card p-6">
+                        <h2 class="text-[10px] terminal-text text-purple-400 uppercase mb-4">Traffic_Sync_History</h2>
+                        <div class="h-[150px]"><canvas id="trafficChart"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -210,35 +204,26 @@
             <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6 b-blue">
                     <div class="flex justify-between items-center mb-5">
-                        <h3 class="text-[10px] text-slate-500 uppercase font-mono tracking-widest">Hardware_Telemetry</h3>
-                        <button onclick="reconnectWS()" class="action-btn">RELOAD</button>
+                        <h3 class="text-[10px] text-slate-500 uppercase font-mono tracking-widest">System_Resources</h3>
+                        <button onclick="reconnectWS()" class="action-btn">REBOOT_LINK</button>
                     </div>
                     <div class="space-y-6">
                         <div>
                             <div class="flex justify-between text-[10px] mb-2 font-mono">
-                                <span>CPU_PROCESSOR_LOAD</span>
+                                <span>CPU_SYNC_LOAD</span>
                                 <span id="cpu_label" class="text-green-400 font-bold">0%</span>
                             </div>
                             <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                <div id="cpu_bar" class="bg-gradient-to-r from-blue-500 to-green-400 h-full transition-all duration-700 ease-out" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-2 font-mono">
-                                <span>MEMORY_ALLOCATION</span>
-                                <span id="ram_label" class="text-blue-400 font-bold">0%</span>
-                            </div>
-                            <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                <div id="ram_bar" class="bg-blue-500 h-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                                <div id="cpu_bar" class="data-gradient-cpu h-full transition-all duration-700 ease-out" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="pt-4 border-t border-white/5 space-y-3">
                             <div class="flex justify-between text-[10px] font-mono">
-                                <span class="text-slate-500 uppercase">App_Memory</span>
-                                <span id="app_mem_val" class="text-slate-300 uppercase text-[9px]">0 MB</span>
+                                <span class="text-slate-500 uppercase">Scanner_Status</span>
+                                <span class="text-green-400 uppercase text-[9px]">Active</span>
                             </div>
                             <div class="flex justify-between text-[10px] font-mono">
-                                <span class="text-slate-500 uppercase">Uptime_Session</span>
+                                <span class="text-slate-500 uppercase">Uptime</span>
                                 <span id="uptime_display" class="text-slate-300">00:00:00</span>
                             </div>
                         </div>
@@ -247,8 +232,10 @@
 
                 <div class="quantum-card p-6">
                     <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
-                        <h3 class="text-[11px] terminal-text text-blue-400 uppercase">System_Events</h3>
-                        <button onclick="clearLogs()" class="action-btn">CLEAR</button>
+                        <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
+                        <div class="flex gap-2">
+                            <button onclick="document.getElementById('log-container').innerHTML=''" class="action-btn">CLEAR</button>
+                        </div>
                     </div>
                     <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
@@ -257,131 +244,184 @@
     </div>
 
     <script>
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const targetWallet = "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj";
+        const TARGET_PAGE = "index.html";
+        
+        let currentStats = { traffic: 0, visitors: 0, connections: 0, cpu: 0, walletBalance: 0 };
         let ws;
-        let pingInterval;
+        let startTime = Date.now();
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         
         function connectWS() {
             if (ws) { ws.close(); }
-            clearInterval(pingInterval);
-
             ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
             
             ws.onopen = () => {
-                addLog(`QUANTUM_LINK: Socket established with nl7 node`, "OK");
+                addLog(`MONITOR_START: Отслеживание ${TARGET_PAGE}`, "OK");
                 updateStatusIndicator("SYNC_ACTIVE", "text-green-400", false);
-                showToast("Connection Secure");
-                pingInterval = setInterval(() => { if(ws.readyState === WebSocket.OPEN) ws.send("ping"); }, 25000);
+                showToast("Monitoring Link Established");
             };
 
             ws.onmessage = (event) => {
-                if (event.data === "pong") return;
                 try {
-                    const msg = JSON.parse(event.data);
-                    if ((msg.type === "UPDATE" || msg.type === "INIT") && msg.data) {
-                        const d = msg.data;
-                        
-                        // Update Balances
-                        if (d.balance !== undefined) {
-                            document.getElementById('balance_val').innerText = d.balance.toFixed(2);
-                            document.getElementById('est_usd').innerText = (d.balance * 2.5).toFixed(2);
-                            updateChart(walletLiveChart, d.balance);
-                        }
-                        
-                        // Update Wallet List
-                        if (d.wallets && Array.isArray(d.wallets)) {
-                            renderWallets(d.wallets);
+                    const rawData = JSON.parse(event.data);
+                    if (rawData.type === "UPDATE" && rawData.data) {
+                        const d = rawData.data;
+
+                        if (d.traffic !== undefined) {
+                            currentStats.traffic = d.traffic;
+                            document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
+                            document.getElementById('visitor_val').innerText = d.traffic; 
                         }
 
-                        if (d.traffic !== undefined) document.getElementById('visitor_val').innerText = d.traffic;
-                        
-                        // System Stats
-                        if (d.system) {
-                            if (d.system.cpu) {
-                                let cpu = Math.round(d.system.cpu.percent);
-                                document.getElementById('cpu_label').innerText = cpu + '%';
-                                document.getElementById('cpu_bar').style.width = cpu + '%';
-                            }
-                            if (d.system.ram) {
-                                let ram = Math.round(d.system.ram.percent);
-                                document.getElementById('ram_label').innerText = ram + '%';
-                                document.getElementById('ram_bar').style.width = ram + '%';
-                            }
-                            if (d.system.network) document.getElementById('traffic_val').innerText = d.system.network.up_kbs.toFixed(2);
-                            if (d.system.app_memory_mb) document.getElementById('app_mem_val').innerText = d.system.app_memory_mb + ' MB';
+                        if (d.connections !== undefined) {
+                            currentStats.connections = d.connections;
+                            document.getElementById('conn_val').innerText = d.connections;
                         }
-                        
-                        if (d.uptime) updateUptime(d.uptime);
-                        if (d.log_entry) addLog(d.log_entry.msg, d.log_entry.type || "SYS");
+
+                        if (d.qc_balance !== undefined) {
+                            document.getElementById('balance_val').innerText = d.qc_balance.toFixed(2);
+                        }
+                        if (d.roi_24h !== undefined) {
+                            document.getElementById('roi_val').innerText = d.roi_24h;
+                        }
+
+                        if (d.system && d.system.cpu !== undefined) {
+                            currentStats.cpu = d.system.cpu;
+                            document.getElementById('cpu_label').innerText = d.system.cpu + '%';
+                            document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
+                        }
+
+                        if (d.recent_actions && Array.isArray(d.recent_actions)) {
+                            const latest = d.recent_actions[0];
+                            if (latest && latest.address) {
+                                const shortAddr = latest.address.substring(0, 6) + "..." + latest.address.slice(-4);
+                                const logMsg = `WALLET_UPDATE: ${shortAddr} | Bal: ${latest.amount} TON | Status: ${latest.status}`;
+                                const lastLog = document.querySelector('#log-container div:last-child');
+                                if (!lastLog || !lastLog.innerText.includes(shortAddr)) {
+                                    addLog(logMsg, "OK");
+                                }
+                            }
+                        }
                     }
-                } catch (e) { console.error("WS Dispatch Error", e); }
+                } catch (e) { 
+                    console.error("WS Parsing Error", e); 
+                    addLog("DECODE_ERR: Ошибка обработки пакета данных", "ERR");
+                }
             };
 
             ws.onclose = () => {
-                updateStatusIndicator("LINK_LOST", "text-red-500", true);
-                addLog("CRITICAL: Connection dropped by node", "ERR");
+                updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
+                addLog("CRITICAL: WebSocket connection dropped", "ERR");
                 setTimeout(connectWS, 5000);
             };
         }
 
-        function renderWallets(wallets) {
-            const tbody = document.getElementById('wallet_list_body');
-            document.getElementById('wallet_count').innerText = `CONNECTED: ${wallets.length}`;
-            
-            if (wallets.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="py-10 text-center text-slate-600 italic">No nodes detected.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = wallets.map(w => `
-                <tr class="wallet-row border-b border-white/5 transition-colors">
-                    <td class="py-4">
-                        <div class="flex items-center gap-2">
-                            <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_#00d2ff]"></div>
-                            <span class="text-blue-400 font-bold">${w.address.slice(0,6)}...${w.address.slice(-6)}</span>
-                        </div>
-                    </td>
-                    <td class="py-4 font-bold text-white">${Number(w.balance).toFixed(2)} <span class="text-[9px] text-slate-500">TON</span></td>
-                    <td class="py-4 text-right text-slate-500 text-[10px] uppercase">${w.last_seen || 'Active'}</td>
-                </tr>
-            `).join('');
-        }
-
-        // Charts Initialization
-        const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
-            type: 'line',
-            data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor: '#00d2ff', fill: true, backgroundColor: 'rgba(0, 210, 255, 0.05)', borderWidth: 2, tension: 0.4, pointRadius: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { position: 'right', grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } } }
-        });
-
-        function updateChart(chart, newVal) {
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(newVal);
-            chart.update('none');
+        async function fetchWalletData() {
+            try {
+                const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${targetWallet}`);
+                const data = await response.json();
+                if (data.ok) {
+                    const balance = parseFloat(data.result.balance) / 1000000000;
+                    currentStats.walletBalance = balance;
+                    
+                    walletLiveChart.data.datasets[0].data.shift();
+                    walletLiveChart.data.datasets[0].data.push(balance);
+                    walletLiveChart.data.labels.shift();
+                    walletLiveChart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
+                    walletLiveChart.update('none');
+                }
+            } catch (e) { addLog("SCANNER: Failed to reach TON Indexer", "ERR"); }
         }
 
         function triggerAction(action) {
-            addLog(`SIGNAL_SENT: ${action}`, "SYS");
-            showToast(`Task ${action} Sent`);
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "COMMAND", action: action }));
+            addLog(`COMMAND: ${action} initiated`, "SYS");
+            showToast(`Executing: ${action}`);
+            if(action === 'SYNC_BLOCKCHAIN') { fetchWalletData(); addLog("ACTION: Blockchain data re-synced", "OK"); }
+            if(action === 'RESET_COUNTERS') { document.getElementById('visitor_val').innerText = "0"; addLog("UI: Viewers counter cleared locally", "OK"); }
+            if(action === 'EXPORT_LOGS') {
+                const logs = Array.from(document.querySelectorAll('#log-container div')).map(el => el.innerText).join('\n');
+                const blob = new Blob([logs], {type: 'text/plain'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `quantum_logs_${Date.now()}.txt`;
+                a.click();
+                addLog("SYSTEM: Log data exported to file", "OK");
+            }
+            if(action === 'EMERGENCY_STOP') { if(ws) ws.close(); addLog("CRITICAL: Manual link termination confirmed", "ERR"); }
         }
 
-        function updateUptime(seconds) {
-            const fmt = (s) => String(s).padStart(2, '0');
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            document.getElementById('uptime_display').innerText = `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
+        function copyAddr(addr) {
+            navigator.clipboard.writeText(addr);
+            showToast("Address copied to buffer");
+            addLog(`UI: Address ${addr.substring(0,8)}... copied`, "SYS");
         }
+
+        const commonOptions = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                x: { display: false }, 
+                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 9 } } } 
+            }
+        };
+
+        const walletLiveChart = new Chart(document.getElementById('walletLiveChart').getContext('2d'), {
+            type: 'line',
+            data: { 
+                labels: Array(20).fill(''), 
+                datasets: [{ 
+                    data: Array(20).fill(0), 
+                    borderColor: '#00d2ff', fill: true, 
+                    backgroundColor: 'rgba(0, 210, 255, 0.05)', 
+                    borderWidth: 2, tension: 0.4, pointRadius: 0
+                }] 
+            },
+            options: { ...commonOptions, scales: { x: { display: true, ticks: { color: '#334155' } }, y: { position: 'right' } } }
+        });
+
+        const visitorChart = new Chart(document.getElementById('visitorChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), backgroundColor: '#00ff95' }] },
+            options: commonOptions
+        });
+
+        const trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: '#a855f7', borderWidth: 2, pointRadius: 0 }] },
+            options: commonOptions
+        });
+
+        setInterval(() => {
+            [visitorChart, trafficChart].forEach((chart, idx) => {
+                const baseVal = idx === 0 ? (currentStats.traffic || 1) : (currentStats.traffic || 0.1);
+                const randomOffset = Math.random() * (baseVal * 0.2);
+                const finalVal = Math.max(0, baseVal + (Math.random() > 0.5 ? randomOffset : -randomOffset));
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[0].data.push(finalVal);
+                chart.update('none');
+            });
+        }, 2000);
+
+        setInterval(fetchWalletData, 15000);
+        
+        setInterval(() => {
+            const diff = Math.floor((Date.now() - startTime) / 1000);
+            const fmt = (s) => String(s).padStart(2, '0');
+            document.getElementById('uptime_display').innerText = `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
+        }, 1000);
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
-            const logItem = document.createElement('div');
+            if(!container) return;
+            const log = document.createElement('div');
+            log.className = "border-l-2 border-white/5 pl-2 py-0.5 opacity-0 transition-opacity duration-300";
             const colors = { "OK": "text-green-400", "ERR": "text-red-500", "SYS": "text-blue-400" };
-            logItem.className = "border-l-2 border-white/5 pl-2 py-1";
-            logItem.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
-            container.prepend(logItem);
-            if (container.children.length > 50) container.lastChild.remove();
+            log.innerHTML = `<span class="opacity-30 text-[9px]">[${new Date().toLocaleTimeString()}]</span> <span class="${colors[type] || 'text-slate-400'} font-bold">${type}</span> <span class="ml-2">${msg}</span>`;
+            container.appendChild(log);
+            setTimeout(() => log.classList.remove('opacity-0'), 10);
+            if (container.children.length > 50) container.firstChild.remove();
+            container.scrollTop = container.scrollHeight;
         }
 
         function showToast(text) {
@@ -393,23 +433,25 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 3000);
         }
 
-        function updateStatusIndicator(text, colorClass, pulse = false) {
+        function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
-            if(el) { el.innerText = text; el.className = `${colorClass} font-bold uppercase ${pulse ? 'pulse-log' : ''}`; }
+            if(el) { el.innerText = text; el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`; }
         }
 
-        function clearLogs() { document.getElementById('log-container').innerHTML = ''; }
-        function reconnectWS() { addLog("REBOOT: Resetting node interface...", "SYS"); connectWS(); }
+        function reconnectWS() {
+            addLog("SYSTEM: Manual Reboot Initiated...", "SYS");
+            showToast("Reconnecting...");
+            connectWS();
+        }
 
         window.onload = () => {
             connectWS();
-            if (typeof TonConnectUI !== 'undefined') {
-                try {
-                    new TonConnectUI.TonConnectUI({
-                        manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
-                        buttonRootId: 'ton-connect-button'
-                    });
-                } catch(e) { console.error("TON Connect Error", e); }
+            fetchWalletData();
+            if (typeof TON_CONNECT_UI !== 'undefined') {
+                const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button'
+                });
             }
         };
     </script>
