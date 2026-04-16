@@ -178,14 +178,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --- РОУТИНГ (Согласно скриншотам Alexkkkkk / 3333) ---
+# --- РОУТИНГ ---
 
 @app.get("/")
 @app.get("/index.html")
 async def read_root():
     return FileResponse("static/index.html")
 
-# Пути для файлов в корне static (staking.html, swap.html, pools.html и т.д.)
 @app.get("/{page}.html")
 async def get_static_html(page: str):
     path = f"static/{page}.html"
@@ -193,7 +192,6 @@ async def get_static_html(page: str):
         return FileResponse(path)
     return FileResponse("static/index.html")
 
-# Пути для админ-панели (папка static/admin/)
 @app.get("/admin")
 @app.get("/admin/admin.html")
 async def get_admin_main():
@@ -201,14 +199,12 @@ async def get_admin_main():
 
 @app.get("/admin/{file_path:path}")
 async def get_admin_subpages(file_path: str):
-    # Убираем .html если пользователь ввел его вручную, чтобы не дублировать
     clean_name = file_path.replace(".html", "")
     path = f"static/admin/{clean_name}.html"
     if os.path.exists(path):
         return FileResponse(path)
     return FileResponse("static/admin/admin.html")
 
-# Ресурсы
 @app.get("/tonconnect-manifest.json")
 async def get_manifest():
     return FileResponse("static/tonconnect-manifest.json")
@@ -220,7 +216,6 @@ async def get_image(img: str):
         return FileResponse(path)
     return JSONResponse({"error": "Image not found"}, 404)
 
-# API
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
     try:
@@ -285,7 +280,6 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         manager.disconnect(websocket)
 
-# Монтирование всей папки static для CSS/JS и ассетов
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
