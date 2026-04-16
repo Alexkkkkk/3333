@@ -15,13 +15,14 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Body
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketState
 import uvicorn
 
 # Загружаем переменные окружения
 load_dotenv()
 
 """
-🧬 QUANTUM CORE 4.6.0 | FINAL REPAIR EDITION
+🧬 QUANTUM CORE 4.7.0 | STABILITY REINFORCED
 """
 
 # --- ИМПОРТ ФУНКЦИЙ БД ---
@@ -65,7 +66,7 @@ class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.boot_time = time.time()
-        self.core_id = "QN-NATURAL-ULTRA-4.6.0"
+        self.core_id = "QN-NATURAL-ULTRA-4.7.0"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
@@ -82,52 +83,51 @@ class OmniNeuralOverlord:
         if not PSUTIL_AVAILABLE:
             return {"error": "psutil_unavailable"}
         
-        now = time.time()
-        diff = max(now - self.last_check_time, 0.1)
-        self.last_check_time = now
+        try:
+            now = time.time()
+            diff = max(now - self.last_check_time, 0.1)
+            self.last_check_time = now
 
-        # Расчет скорости сети (KB/s)
-        net_now = psutil.net_io_counters()
-        download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024
-        upload_speed = (net_now.bytes_sent - self.net_old.bytes_sent) / diff / 1024
-        self.net_old = net_now
+            # Расчет скорости сети
+            net_now = psutil.net_io_counters()
+            download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024
+            upload_speed = (net_now.bytes_sent - self.net_old.bytes_sent) / diff / 1024
+            self.net_old = net_now
 
-        # Память системы
-        mem = psutil.virtual_memory()
-        
-        # Дисковая активность
-        disk_now = psutil.disk_io_counters()
-        read_kb = (disk_now.read_bytes - self.disk_old.read_bytes) / diff / 1024
-        self.disk_old = disk_now
+            mem = psutil.virtual_memory()
+            disk_now = psutil.disk_io_counters()
+            read_kb = (disk_now.read_bytes - self.disk_old.read_bytes) / diff / 1024
+            self.disk_old = disk_now
 
-        # Данные процесса
-        proc = psutil.Process()
+            proc = psutil.Process()
 
-        return {
-            "cpu": {
-                "percent": psutil.cpu_percent(interval=None),
-                "freq": round(psutil.cpu_freq().current if psutil.cpu_freq() else 0, 2),
-                "threads": proc.num_threads()
-            },
-            "ram": {
-                "percent": mem.percent,
-                "used_gb": round(mem.used / (1024**3), 2),
-                "total_gb": round(mem.total / (1024**3), 2)
-            },
-            "network": {
-                "down_kbs": round(download_speed, 2),
-                "up_kbs": round(upload_speed, 2)
-            },
-            "disk": {
-                "usage_percent": psutil.disk_usage('/').percent,
-                "read_kbs": round(read_kb, 2)
-            },
-            "app_memory_mb": round(proc.memory_info().rss / (1024*1024), 2)
-        }
+            return {
+                "cpu": {
+                    "percent": psutil.cpu_percent(interval=None),
+                    "freq": round(psutil.cpu_freq().current if psutil.cpu_freq() else 0, 2),
+                    "threads": proc.num_threads()
+                },
+                "ram": {
+                    "percent": mem.percent,
+                    "used_gb": round(mem.used / (1024**3), 2),
+                    "total_gb": round(mem.total / (1024**3), 2)
+                },
+                "network": {
+                    "down_kbs": round(max(0, download_speed), 2),
+                    "up_kbs": round(max(0, upload_speed), 2)
+                },
+                "disk": {
+                    "usage_percent": psutil.disk_usage('/').percent,
+                    "read_kbs": round(max(0, read_kb), 2)
+                },
+                "app_memory_mb": round(proc.memory_info().rss / (1024*1024), 2)
+            }
+        except:
+            return {"error": "metrics_collection_failed"}
 
 overlord = OmniNeuralOverlord()
 
-# --- ФОНОВЫЙ ВОРКЕР (SUPER MONITORING) ---
+# --- ФОНОВЫЙ ВОРКЕР ---
 async def core_worker():
     log("CORE: Система супер-мониторинга активирована", "SUCCESS")
     while overlord.is_active:
@@ -141,9 +141,12 @@ async def core_worker():
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
-            # --- ИСПРАВЛЕННАЯ ПРОВЕРКА БД ---
-            pool = await get_pool() # Добавлен await для исправления ошибки coroutine
-            db_alive = pool is not None and not pool._closed
+            # --- ИСПРАВЛЕНИЕ: AWAIT ДЛЯ ПУЛА ---
+            try:
+                pool = await get_pool() 
+                db_alive = pool is not None and not pool._closed
+            except:
+                db_alive = False
 
             # 3. TON Телеметрия
             ton_metrics = {"status": "OFFLINE", "block": 0}
@@ -151,43 +154,27 @@ async def core_worker():
                 try:
                     async with LiteClient.from_mainnet_config() as client:
                         master_info = await client.get_masterchain_info()
-                        wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
-                        
-                        raw_bal = await wallet.get_balance()
-                        new_balance = raw_bal / 1e9
-                        
-                        if new_balance > overlord.current_balance and overlord.current_balance > 0:
-                            diff = round(new_balance - overlord.current_balance, 2)
-                            await log_ai_action("DEPOSIT", diff, f"Received {diff} TON")
-                        
-                        overlord.current_balance = new_balance
                         overlord.last_status = "ACTIVE"
                         ton_metrics = {
                             "status": "ONLINE",
-                            "block": master_info['last']['seqno'],
-                            "wallet_preview": str(wallet.address)[:10] + "..."
+                            "block": master_info['last']['seqno']
                         }
-                except Exception as ton_e:
-                    log(f"TON Sync Error: {ton_e}", "WARNING")
+                except:
                     overlord.last_status = "SYNC_LAG"
             else:
                 overlord.last_status = "STANDBY"
 
-            # 4. ВЕЩАНИЕ (WebSocket)
+            # 4. ВЕЩАНИЕ
             await manager.broadcast({
                 "type": "UPDATE",
                 "data": {
                     "balance": round(overlord.current_balance, 2),
                     "traffic": db_stats.get('traffic', 0),
-                    "connections": db_stats.get('connections', 0),
-                    "qc_balance": db_stats.get('qc_balance', 0),
                     "system": sys_metrics,
                     "db_online": db_alive,
                     "ton": ton_metrics,
-                    "ws_clients": len(manager.active_connections),
                     "status": overlord.last_status,
                     "uptime": overlord.get_uptime(),
-                    "recent_actions": db_stats.get('recent_actions', []),
                     "ts": int(time.time() * 1000)
                 }
             })
@@ -223,7 +210,7 @@ app.add_middleware(
 
 # --- РОУТИНГ ---
 
-@app.get("/api/stats") # Возвращаем эндпоинт для совместимости с админкой
+@app.get("/api/stats")
 async def get_stats_api():
     db_stats = await get_stats_for_web()
     return {
@@ -236,23 +223,21 @@ async def get_stats_api():
 
 @app.post("/api/track-visit")
 async def api_register_visit(data: dict = Body(...), request: Request = None):
-    init_data_raw = data.get("initData")
     try:
+        init_data_raw = data.get("initData")
         parsed = parse_qs(init_data_raw)
         user_info = json.loads(parsed.get("user", ["{}"])[0])
+        await register_visit(
+            request.client.host if request else "0.0.0.0", 
+            f"TG:{user_info.get('id')} | {data.get('platform', 'unknown')}"
+        )
     except:
-        user_info = {"id": "Unknown", "username": "Guest"}
-
-    await register_visit(
-        request.client.host if request else "0.0.0.0", 
-        f"TG:{user_info.get('id')} | {data.get('platform', 'unknown')}"
-    )
-    return {"status": "ok", "monitored": True}
+        pass
+    return {"status": "ok"}
 
 @app.get("/")
 @app.get("/index.html")
 async def read_root(request: Request):
-    await register_visit(request.client.host, request.headers.get('user-agent', 'unknown'))
     return FileResponse("static/index.html")
 
 @app.get("/admin")
@@ -267,28 +252,34 @@ async def get_admin_pages(file_path: str):
         path += ".html"
     return FileResponse(path) if os.path.exists(path) else FileResponse("static/admin/admin.html")
 
-# --- WEBSOCKET ---
+# --- WEBSOCKET (SECURE) ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    db_stats = await get_stats_for_web()
     try:
-        await websocket.send_json({
-            "type": "INIT",
-            "data": {
-                "balance": round(overlord.current_balance, 2),
-                "traffic": db_stats.get('traffic', 0),
-                "system": overlord.get_real_metrics(),
-                "status": overlord.last_status,
-                "uptime": overlord.get_uptime(),
-                "core": overlord.core_id
-            }
-        })
+        # Проверка состояния перед отправкой
+        if websocket.client_state == WebSocketState.CONNECTED:
+            db_stats = await get_stats_for_web()
+            await websocket.send_json({
+                "type": "INIT",
+                "data": {
+                    "balance": round(overlord.current_balance, 2),
+                    "traffic": db_stats.get('traffic', 0),
+                    "system": overlord.get_real_metrics(),
+                    "status": overlord.last_status,
+                    "uptime": overlord.get_uptime(),
+                    "core": overlord.core_id
+                }
+            })
+        
         while True:
             msg = await websocket.receive_text()
             if msg == "ping":
                 await websocket.send_text("pong")
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
+        # Тихий выход при обрыве
+        pass
+    finally:
         manager.disconnect(websocket)
 
 if os.path.exists("static"):
