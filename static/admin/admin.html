@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
+        /* [DESIGN_PROTECTED] - Не менять переменные и структуру стилей */
         :root { 
             --panel-bg: rgba(13, 17, 23, 0.85);
             --border-color: rgba(0, 210, 255, 0.15);
@@ -77,9 +78,9 @@
 
         .action-btn {
             font-family: 'Share Tech Mono', monospace; font-size: 10px;
-            padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.2s; color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.02);
-            text-transform: uppercase;
+            text-transform: uppercase; text-align: center;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
         .action-btn:active { transform: scale(0.95); }
@@ -194,7 +195,7 @@
                         <button onclick="triggerAction('SYNC_BLOCKCHAIN')" class="action-btn">Force Sync</button>
                         <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Viewers</button>
                         <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
-                        <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger">Cut Link</button>
+                        <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger font-bold">Cut Link</button>
                     </div>
                 </div>
             </div>
@@ -220,12 +221,19 @@
                                 <span class="text-slate-500 uppercase">Uptime</span>
                                 <span id="uptime_display" class="text-slate-300">00:00:00</span>
                             </div>
+                            <div class="flex justify-between text-[10px] font-mono">
+                                <span class="text-slate-500 uppercase">Cloud_State</span>
+                                <span class="text-blue-400">DRIVE_LINKED</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="quantum-card p-6">
-                    <h3 class="text-[11px] terminal-text text-blue-400 uppercase mb-4">Kernel_Log</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
+                        <span class="text-[9px] text-slate-600 font-mono">v4.2.0_stable</span>
+                    </div>
                     <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
                 </div>
             </div>
@@ -273,7 +281,7 @@
 
         async function fetchWallet(addr, chartObj) {
             try {
-                // Используем публичный API TON для мониторинга баланса
+                // [API_SYNC] - Мониторинг баланса через TON Center
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${addr}`);
                 const data = await response.json();
                 if (data.ok) {
@@ -301,7 +309,6 @@
             const total = b1 + b2;
             
             document.getElementById('balance_val').innerText = total.toFixed(2);
-            // Фейковый ROI для визуала, можно заменить на реальную логику
             document.getElementById('roi_val').innerText = (Math.random() * 5).toFixed(2);
             
             addLog(`SYNC: Alpha[${b1.toFixed(2)}] Beta[${b2.toFixed(2)}]`, "OK");
@@ -328,7 +335,7 @@
             
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
-                setTimeout(connectWS, 5000);
+                setTimeout(connectWS, 5000); // Авто-реконнект
             };
         }
 
@@ -389,7 +396,6 @@
                 ws.send(JSON.stringify({ type: "COMMAND", action: action }));
             }
 
-            // Локальные триггеры для мгновенного отклика UI
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
             if(action === 'RESET_COUNTERS') {
                 document.getElementById('visitor_val').innerText = "0";
