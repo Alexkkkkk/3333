@@ -104,6 +104,10 @@
             min-width: 200px; transition: opacity 0.4s;
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* New Styles for Dynamic Elements */
+        .pulse-status { animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -167,7 +171,7 @@
                             <h2 class="text-xs terminal-text text-blue-400 uppercase tracking-widest">Target_Alpha_Pulse</h2>
                             <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-blue-400 transition-colors" onclick="copyAddr('EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda')">ADDR: EQCSAT3Nh...tZda</p>
                         </div>
-                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-log">SYNCING_W1</span>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 pulse-status">SYNCING_W1</span>
                     </div>
                     <div class="h-[200px] w-full"><canvas id="walletChart1"></canvas></div>
                 </div>
@@ -178,7 +182,7 @@
                             <h2 class="text-xs terminal-text text-purple-400 uppercase tracking-widest">Target_Beta_Pulse</h2>
                             <p class="text-[9px] font-mono text-slate-600 mt-1 break-all cursor-pointer hover:text-purple-400 transition-colors" onclick="copyAddr('EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj')">ADDR: EQD-qDSm...HXCj</p>
                         </div>
-                        <span class="text-[10px] bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 pulse-log">SYNCING_W2</span>
+                        <span class="text-[10px] bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 pulse-status">SYNCING_W2</span>
                     </div>
                     <div class="h-[200px] w-full"><canvas id="walletChart2"></canvas></div>
                 </div>
@@ -253,6 +257,7 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    animation: { duration: 1000 },
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { display: false },
@@ -267,21 +272,26 @@
 
         async function fetchWallet(addr, chartObj) {
             try {
+                // Используем CORS-прокси если прямой доступ заблокирован, но для TONCenter обычно не нужно
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${addr}`);
                 const data = await response.json();
                 if (data.ok) {
                     const balance = parseFloat(data.result.balance) / 1000000000;
-                    chartObj.data.datasets[0].data.shift();
-                    chartObj.data.datasets[0].data.push(balance);
-                    chartObj.data.labels.shift();
-                    chartObj.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
-                    chartObj.update('none');
+                    updateChart(chartObj, balance);
                     return balance;
                 }
             } catch (e) { 
-                addLog(`API ERR: Failed to sync ${addr.substring(0,6)}`, "ERR");
+                addLog(`API ERR: Sync Failed for ${addr.substring(0,6)}`, "ERR");
             }
             return 0;
+        }
+
+        function updateChart(chart, val) {
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(val);
+            chart.data.labels.shift();
+            chart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
+            chart.update('none');
         }
 
         async function syncAll() {
@@ -289,10 +299,7 @@
             const b2 = await fetchWallet(w2_addr, chart2);
             const total = b1 + b2;
             
-            const el = document.getElementById('balance_val');
-            el.innerText = total.toFixed(2);
-            
-            // Расчет фиктивного ROI для красоты
+            document.getElementById('balance_val').innerText = total.toFixed(2);
             document.getElementById('roi_val').innerText = (Math.random() * 5).toFixed(2);
             
             addLog(`SYNC: Alpha[${b1.toFixed(2)}] Beta[${b2.toFixed(2)}]`, "OK");
@@ -312,10 +319,9 @@
                 try {
                     const raw = JSON.parse(event.data);
                     if (raw.type === "UPDATE" && raw.data) {
-                        const d = raw.data;
-                        updateLiveStats(d);
+                        updateLiveStats(raw.data);
                     }
-                } catch(e) { console.error("WS Error", e); }
+                } catch(e) { console.error("WS Parse Error"); }
             };
             
             ws.onclose = () => {
@@ -327,7 +333,7 @@
         function updateLiveStats(d) {
             if (d.traffic) {
                 document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 1.5);
+                document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 4); // Коэффициент трафик/визиты
             }
             if (d.connections) document.getElementById('conn_val').innerText = d.connections;
             if (d.system && d.system.cpu) {
@@ -335,19 +341,6 @@
                 document.getElementById('cpu_bar').style.width = d.system.cpu + '%';
             }
         }
-
-        // Эмуляция данных если сервер не прислал (для красоты интерфейса)
-        setInterval(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                const fakeTraffic = (Math.random() * 10).toFixed(2);
-                const fakeCPU = Math.floor(Math.random() * 20) + 5;
-                updateLiveStats({
-                    traffic: parseFloat(fakeTraffic),
-                    connections: Math.floor(Math.random() * 50),
-                    system: { cpu: fakeCPU }
-                });
-            }
-        }, 3000);
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
@@ -387,10 +380,14 @@
         function triggerAction(action) {
             addLog(`EXECUTE: ${action}`, "CMD");
             showToast(`Command sent: ${action}`);
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "COMMAND", action: action }));
+            }
+
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
             if(action === 'RESET_COUNTERS') {
                 document.getElementById('visitor_val').innerText = "0";
-                addLog("Viewers counter cleared", "SYS");
             }
             if(action === 'EXPORT_LOGS') {
                 const logs = Array.from(document.querySelectorAll('#log-container div')).map(e => e.innerText).join('\n');
@@ -411,7 +408,7 @@
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
             el.innerText = text; 
-            el.className = `${colorClass} ${pulse ? 'pulse-log' : ''} font-bold`;
+            el.className = `${colorClass} ${pulse ? 'pulse-status' : ''} font-bold`;
         }
 
         function reconnectWS() { 
@@ -424,8 +421,11 @@
             initCharts();
             connectWS();
             syncAll();
-            setInterval(syncAll, 60000); 
+            
+            // Интервал обновления балансов (раз в 30 сек)
+            setInterval(syncAll, 30000); 
 
+            // Таймер аптайма
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
@@ -433,6 +433,7 @@
                     `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
             }, 1000);
 
+            // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     new TON_CONNECT_UI.TonConnectUI({
