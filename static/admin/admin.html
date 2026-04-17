@@ -223,7 +223,7 @@
                             </div>
                             <div class="flex justify-between text-[10px] font-mono">
                                 <span class="text-slate-500 uppercase">Cloud_State</span>
-                                <span class="text-blue-400">DRIVE_LINKED</span>
+                                <span id="cloud_status" class="text-blue-400">DRIVE_LINKED</span>
                             </div>
                         </div>
                     </div>
@@ -452,9 +452,17 @@
             // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
-                    new TON_CONNECT_UI.TonConnectUI({
+                    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
+                    });
+                    
+                    // Логируем подключение кошелька пользователя
+                    tonConnectUI.onStatusChange(wallet => {
+                        if (wallet) {
+                            addLog(`USER_WALLET: Linked ${wallet.account.address.substring(0,8)}`, "OK");
+                            showToast("Wallet Linked");
+                        }
                     });
                 } catch(e) { addLog("TON: Manifest load error", "ERR"); }
             }
