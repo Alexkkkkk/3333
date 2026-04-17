@@ -81,6 +81,7 @@
             text-transform: uppercase;
         }
         .action-btn:hover { border-color: var(--neon-blue); color: #fff; background: rgba(0, 210, 255, 0.1); }
+        .action-btn:active { transform: scale(0.95); }
         .action-btn.danger:hover { border-color: var(--neon-red); color: var(--neon-red); background: rgba(255, 71, 87, 0.1); }
         
         #ton-connect-button button {
@@ -105,7 +106,6 @@
         }
         @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         
-        /* New Styles for Dynamic Elements */
         .pulse-status { animation: blink 2s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
@@ -272,7 +272,6 @@
 
         async function fetchWallet(addr, chartObj) {
             try {
-                // Используем CORS-прокси если прямой доступ заблокирован, но для TONCenter обычно не нужно
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${addr}`);
                 const data = await response.json();
                 if (data.ok) {
@@ -333,7 +332,7 @@
         function updateLiveStats(d) {
             if (d.traffic) {
                 document.getElementById('traffic_val').innerText = d.traffic.toFixed(2);
-                document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 4); // Коэффициент трафик/визиты
+                document.getElementById('visitor_val').innerText = Math.floor(d.traffic * 12); 
             }
             if (d.connections) document.getElementById('conn_val').innerText = d.connections;
             if (d.system && d.system.cpu) {
@@ -344,6 +343,8 @@
 
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
+            if (!container) return;
+
             const log = document.createElement('div');
             log.className = "border-l-2 border-white/5 pl-2 py-0.5 animate-pulse-once";
             
@@ -407,8 +408,10 @@
 
         function updateStatusIndicator(text, colorClass, pulse) {
             const el = document.getElementById('status_indicator');
-            el.innerText = text; 
-            el.className = `${colorClass} ${pulse ? 'pulse-status' : ''} font-bold`;
+            if (el) {
+                el.innerText = text; 
+                el.className = `${colorClass} ${pulse ? 'pulse-status' : ''} font-bold`;
+            }
         }
 
         function reconnectWS() { 
@@ -422,18 +425,18 @@
             connectWS();
             syncAll();
             
-            // Интервал обновления балансов (раз в 30 сек)
             setInterval(syncAll, 30000); 
 
-            // Таймер аптайма
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
-                document.getElementById('uptime_display').innerText = 
-                    `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
+                const uptimeEl = document.getElementById('uptime_display');
+                if (uptimeEl) {
+                    uptimeEl.innerText = 
+                        `${fmt(Math.floor(diff/3600))}:${fmt(Math.floor((diff%3600)/60))}:${fmt(diff%60)}`;
+                }
             }, 1000);
 
-            // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     new TON_CONNECT_UI.TonConnectUI({
