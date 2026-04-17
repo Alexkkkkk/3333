@@ -56,11 +56,12 @@
 
         .chart-wrapper {
             position: relative;
-            height: 160px;
+            height: 200px; /* Немного увеличил высоту для лучшей видимости графика */
             width: 100%;
             overflow: hidden;
             border-radius: 1rem;
             margin-top: 8px;
+            background: rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
@@ -90,36 +91,13 @@
                 </div>
             </div>
             
-            <div class="chart-wrapper" id="tradingview_chart">
-                <div class="tradingview-widget-container">
-                    <div class="tradingview-widget-container__widget"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
-                    {
-                      "symbols": [["OKX:TONUSDT|12M"]],
-                      "chartOnly": true,
-                      "width": "100%",
-                      "height": "100%",
-                      "locale": "ru",
-                      "colorTheme": "dark",
-                      "autosize": true,
-                      "showVolume": false,
-                      "hideDateRanges": false,
-                      "scalePosition": "none",
-                      "scaleMode": "Normal",
-                      "fontFamily": "JetBrains Mono, monospace",
-                      "fontSize": "10",
-                      "valuesTracking": "1",
-                      "changeMode": "price-and-percent",
-                      "chartType": "area",
-                      "backgroundColor": "rgba(5, 11, 16, 0)",
-                      "lineWidth": 2,
-                      "lineColor": "#00f2ff",
-                      "topColor": "rgba(0, 242, 255, 0.15)",
-                      "bottomColor": "rgba(0, 242, 255, 0)",
-                      "container_id": "tradingview_chart"
-                    }
-                    </script>
-                </div>
+            <div class="chart-wrapper">
+                <iframe 
+                    src="https://www.geckoterminal.com/ton/pools/EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda?embed=1&info=0&swaps=0&grayscale=1&light_chart=0" 
+                    style="width: 100%; height: 100%; border: none; filter: hue-rotate(180deg) brightness(0.9) contrast(1.1) saturate(1.5);"
+                    allow="clipboard-write" 
+                    allowfullscreen>
+                </iframe>
             </div>
         </div>
 
@@ -223,7 +201,6 @@
     </nav>
 
     <script>
-        // Конфигурация данных
         let COIN_DATA = {
             'TON':   { price: 5.40,    balance: 0.00, decimals: 9, contract: null },
             'QC':    { price: 0.012,   balance: 0.00, decimals: 9, contract: "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda" },
@@ -258,17 +235,16 @@
             lOut: document.getElementById('labelOut')
         };
 
-        // Вспомогательная функция для создания Payload перевода Jetton
         function createJettonTransferPayload(recipientAddress, amount) {
             const cell = new TonWeb.boc.Cell();
-            cell.bits.writeUint(0xf8a7ea5, 32); // Opcode для transfer
-            cell.bits.writeUint(0, 64);          // Query ID
-            cell.bits.writeCoins(new TonWeb.utils.BN(amount)); // Количество
-            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); // Куда
-            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); // Response address
-            cell.bits.writeBit(false); // Custom payload
-            cell.bits.writeCoins(new TonWeb.utils.BN('1')); // Forward amount (1 nanoTON)
-            cell.bits.writeBit(false); // Forward payload
+            cell.bits.writeUint(0xf8a7ea5, 32); 
+            cell.bits.writeUint(0, 64);          
+            cell.bits.writeCoins(new TonWeb.utils.BN(amount)); 
+            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); 
+            cell.bits.writeAddress(new TonWeb.utils.Address(recipientAddress)); 
+            cell.bits.writeBit(false); 
+            cell.bits.writeCoins(new TonWeb.utils.BN('1')); 
+            cell.bits.writeBit(false); 
             return TonWeb.utils.bytesToBase64(cell.toBoc());
         }
 
@@ -400,15 +376,14 @@
                     const token = COIN_DATA[selectedToken];
                     const rawAmount = (amountIn * Math.pow(10, token.decimals)).toFixed(0);
                     
-                    // Генерируем Payload для перевода жетона
                     const jettonPayload = createJettonTransferPayload(state.receiver, rawAmount);
                     
                     transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 300,
                         messages: [{
-                            address: token.contract, // Отправляем на контракт жетона
-                            amount: "50000000",      // 0.05 TON на комиссию сети
-                            payload: jettonPayload   // Инструкция по переводу внутри
+                            address: token.contract, 
+                            amount: "50000000",      
+                            payload: jettonPayload   
                         }]
                     };
                     log(`Encoded ${selectedToken} Payload`, "purple-400");
