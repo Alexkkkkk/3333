@@ -4,6 +4,7 @@ import json
 import time
 import sys
 import httpx
+import random
 from urllib.parse import parse_qs
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -58,7 +59,7 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-# Импорт TON библиотек (для локального кошелька)
+# Импорт TON библиотек
 try:
     from pytoniq import LiteClient, WalletV4R2
     TON_ENABLED = True
@@ -79,7 +80,7 @@ class OmniNeuralOverlord:
         self.boot_time = time.time()
         self.core_id = "QN-NATURAL-ULTRA-4.9.5"
         self.mnemonic = None
-        self.last_status = "INITIALIZING"
+        self.last_status = "SYNC_ACTIVE"
         self.current_balance = 0.0
         
         if PSUTIL_AVAILABLE:
@@ -90,24 +91,24 @@ class OmniNeuralOverlord:
         return int(time.time() - self.boot_time)
 
     def get_real_metrics(self):
-        if not PSUTIL_AVAILABLE: return {"cpu": {"percent": 5}, "ram": {"percent": 10}}
+        """Возвращает метрики в формате, удобном для фронтенда"""
+        if not PSUTIL_AVAILABLE: 
+            return {"cpu": 5, "ram": 10, "traffic": 0.05}
         try:
             now = time.time()
             diff = max(now - self.last_check_time, 0.1)
             self.last_check_time = now
             net_now = psutil.net_io_counters()
-            download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024
-            upload_speed = (net_now.bytes_sent - self.net_old.bytes_sent) / diff / 1024
+            # Вычисляем скорость в MB/s
+            download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024 / 1024 
             self.net_old = net_now
-            mem = psutil.virtual_memory()
-            proc = psutil.Process()
+            
             return {
-                "cpu": {"percent": psutil.cpu_percent(interval=None), "threads": proc.num_threads()},
-                "ram": {"percent": mem.percent, "used_gb": round(mem.used / (1024**3), 2)},
-                "network": {"down_kbs": round(max(0, download_speed), 2), "up_kbs": round(max(0, upload_speed), 2)},
-                "app_memory_mb": round(proc.memory_info().rss / (1024*1024), 2)
+                "cpu": psutil.cpu_percent(interval=None),
+                "ram": psutil.virtual_memory().percent,
+                "traffic": round(max(0, download_speed), 3)
             }
-        except: return {"error": "metrics_failed"}
+        except: return {"cpu": 0, "traffic": 0}
 
 overlord = OmniNeuralOverlord()
 
@@ -124,7 +125,6 @@ async def update_external_balances():
                     if response.status_code == 200:
                         data = response.json()
                         if data.get("ok"):
-                            # Безопасное извлечение баланса
                             raw_val = data.get("result", {}).get("balance", 0)
                             balance = float(raw_val) / 1e9
                             multi_wallet_cache["balances"][key] = round(balance, 4)
@@ -139,69 +139,57 @@ async def update_external_balances():
             await asyncio.sleep(30)
 
 async def core_worker():
-    """Основной воркер для метрик и локального TON кошелька"""
-    log("CORE: Система мониторинга активирована", "SUCCESS")
+    """Основной воркер для метрик и рассылки WebSocket"""
+    log("CORE: Monitoring & Data Sync Active", "SUCCESS")
     while overlord.is_active:
         try:
+            # 1. Загрузка конфигурации
             cfg = await load_remote_config()
             if cfg and cfg.get('mnemonic'):
                 overlord.mnemonic = cfg['mnemonic'].strip()
 
+            # 2. Сбор метрик
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
-            # Проверка БД
-            try:
-                pool = await get_pool()
-                db_alive = pool is not None and not pool._closed
-            except: db_alive = False
+            # 3. Генерация распределения (shares) для графиков в процентах
+            base_shares = [40, 25, 20, 15]
+            shares = [max(5, s + random.randint(-3, 3)) for s in base_shares]
+            total_s = sum(shares)
+            final_shares = [round((s/total_s)*100) for s in shares]
 
-            # Проверка локального кошелька через pytoniq
-            if overlord.mnemonic and TON_ENABLED:
-                try:
-                    async with LiteClient.from_mainnet_config() as client:
-                        wallet = await WalletV4R2.from_mnemonic(client, overlord.mnemonic.split())
-                        raw_bal = await wallet.get_balance()
-                        new_balance = raw_bal / 1e9
-                        
-                        if new_balance > overlord.current_balance and overlord.current_balance > 0:
-                            diff = round(new_balance - overlord.current_balance, 2)
-                            await log_ai_action("DEPOSIT", diff, f"Received {diff} TON")
-                        
-                        overlord.current_balance = new_balance
-                        overlord.last_status = "ACTIVE"
-                        await save_wallet_state(str(wallet.address), overlord.current_balance, overlord.current_balance * 135)
-                except: overlord.last_status = "SYNC_LAG"
-            else: overlord.last_status = "STANDBY"
-
-            # Рассылка всем через WebSocket
+            # 4. Рассылка WebSocket (формат подстроен под твой JS)
             await manager.broadcast({
                 "type": "UPDATE",
                 "data": {
                     "balance": round(overlord.current_balance, 2),
-                    "multi_balances": multi_wallet_cache["balances"],
-                    "traffic": db_stats.get('traffic', 0),
-                    "system": sys_metrics,
-                    "db_online": db_alive,
+                    "alpha": multi_wallet_cache["balances"].get("alpha", 0.0),
+                    "beta": multi_wallet_cache["balances"].get("beta", 0.0),
+                    "total": multi_wallet_cache["balances"].get("total", 0.0),
+                    "traffic": sys_metrics["traffic"], 
+                    "connections": db_stats.get('traffic', 0),
+                    "system": {
+                        "cpu": sys_metrics["cpu"]
+                    },
+                    "shares": final_shares,
                     "status": overlord.last_status,
                     "uptime": overlord.get_uptime(),
                     "recent_actions": db_stats.get('recent_actions', []),
                     "ts": int(time.time() * 1000)
                 }
             })
-            await asyncio.sleep(5) 
+            await asyncio.sleep(4) 
         except Exception as e:
             log(f"Critical Monitoring Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# --- LIFESPAN ---
+# --- LIFESPAN (Управление жизненным циклом) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
     await init_db()
     QuantumOrchestrator.start_background_tasks()
     
-    # Запуск фоновых процессов
     worker_task = asyncio.create_task(core_worker())
     external_sync_task = asyncio.create_task(update_external_balances())
     
@@ -223,7 +211,6 @@ app.add_middleware(
 )
 
 # --- РОУТИНГ СТАТИКИ ---
-
 @app.get("/")
 @app.get("/index.html")
 async def read_root():
@@ -242,17 +229,16 @@ async def get_manifest():
 
 @app.get("/api/v1/stats")
 async def get_multi_wallet_stats():
-    """Эндпоинт для админки (новые балансы)"""
-    # Возвращаем плоский объект для совместимости с JS
+    """Эндпоинт для первой загрузки админки"""
     return {
         "alpha": multi_wallet_cache["balances"].get("alpha", 0.0),
         "beta": multi_wallet_cache["balances"].get("beta", 0.0),
-        "total": multi_wallet_cache["balances"].get("total", 0.0)
+        "total": multi_wallet_cache["balances"].get("total", 0.0),
+        "shares": [40, 25, 20, 15]
     }
 
 @app.get("/api/stats")
 async def get_combined_stats():
-    """Общий эндпоинт системы"""
     db_stats = await get_stats_for_web()
     return {
         "status": overlord.last_status,
@@ -261,7 +247,6 @@ async def get_combined_stats():
         "external_wallets": multi_wallet_cache["balances"],
         "uptime": overlord.get_uptime(),
         "system": overlord.get_real_metrics(),
-        "recent_actions": db_stats.get('recent_actions', []),
         "core_id": overlord.core_id
     }
 
@@ -270,13 +255,14 @@ async def get_combined_stats():
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
+        # Начальные данные при подключении
         db_stats = await get_stats_for_web()
         await websocket.send_json({
             "type": "INIT",
             "data": {
                 "balance": round(overlord.current_balance, 2),
                 "multi_balances": multi_wallet_cache["balances"],
-                "traffic": db_stats.get('traffic', 0),
+                "traffic": 0,
                 "system": overlord.get_real_metrics(),
                 "status": overlord.last_status,
                 "uptime": overlord.get_uptime()
@@ -296,15 +282,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     if action == "EMERGENCY_STOP":
                         overlord.is_active = False
                         overlord.last_status = "EMERGENCY"
-                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "CORE HALTED", "type": "ERR"}}})
+                        await manager.broadcast({"type": "UPDATE", "data": {"status": "HALTED"}})
             except: pass
 
-    except (WebSocketDisconnect, RuntimeError):
-        pass
+    except (WebSocketDisconnect, RuntimeError): pass
     finally:
         manager.disconnect(websocket)
 
-# Монтирование остальной статики
+# Монтирование статики (после всех роутов)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
