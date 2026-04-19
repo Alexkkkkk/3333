@@ -281,7 +281,6 @@
 
         async function fetchWallet(addr, chartObj) {
             try {
-                // [API_SYNC] - Мониторинг баланса через TON Center
                 const response = await fetch(`https://toncenter.com/api/v2/getAddressInformation?address=${addr}`);
                 const data = await response.json();
                 if (data.ok) {
@@ -327,15 +326,20 @@
             ws.onmessage = (event) => {
                 try {
                     const raw = JSON.parse(event.data);
+                    // Расширенная обработка данных от сервера
                     if (raw.type === "UPDATE" && raw.data) {
                         updateLiveStats(raw.data);
+                    }
+                    if (raw.type === "NOTIFICATION") {
+                        showToast(raw.message);
+                        addLog(`SERVER: ${raw.message}`, "SYS");
                     }
                 } catch(e) { console.error("WS Parse Error"); }
             };
             
             ws.onclose = () => {
                 updateStatusIndicator("OFFLINE_RECONNECTING", "text-red-500", true);
-                setTimeout(connectWS, 5000); // Авто-реконнект
+                setTimeout(connectWS, 5000); 
             };
         }
 
@@ -372,7 +376,7 @@
             `;
             
             container.appendChild(log);
-            if (container.children.length > 50) container.firstChild.remove();
+            if (container.children.length > 100) container.firstChild.remove();
             container.scrollTop = container.scrollHeight;
         }
 
@@ -393,7 +397,7 @@
             showToast(`Command sent: ${action}`);
             
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "COMMAND", action: action }));
+                ws.send(JSON.stringify({ type: "COMMAND", action: action, timestamp: Date.now() }));
             }
 
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
@@ -435,7 +439,6 @@
             connectWS();
             syncAll();
             
-            // Интервал обновления балансов (30 сек)
             setInterval(syncAll, 30000); 
 
             // Uptime counter
@@ -457,7 +460,6 @@
                         buttonRootId: 'ton-connect-button'
                     });
                     
-                    // Логируем подключение кошелька пользователя
                     tonConnectUI.onStatusChange(wallet => {
                         if (wallet) {
                             addLog(`USER_WALLET: Linked ${wallet.account.address.substring(0,8)}`, "OK");
