@@ -338,7 +338,6 @@
 
         async function syncAll() {
             try {
-                // Пытаемся получить реальные данные из API
                 const response = await fetch('/api/v1/stats');
                 if (!response.ok) throw new Error("Server response not OK");
                 const data = await response.json();
@@ -353,7 +352,6 @@
                 updateChart(chart1, b1);
                 updateChart(chart2, b2);
                 
-                // Обновление распределения страниц
                 const pages = ['index', 'swap', 'pools', 'airdrop'];
                 let shares = data.shares || [35, 25, 20, 20];
                 pages.forEach((p, i) => {
@@ -366,7 +364,6 @@
                 addLog(`PROXY_SYNC: Data Core Synced`, "OK");
             } catch (e) { 
                 addLog(`PROXY ERR: API unreachable - using simulation`, "ERR");
-                // Симуляция для визуализации если сервер еще не готов
                 updateChart(chart1, Math.random() * 100);
                 updateChart(chart2, Math.random() * 50);
             }
@@ -445,7 +442,6 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: "COMMAND", action: action, timestamp: Date.now() }));
             }
-            // Локальная обработка для теста
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
             if(action === 'RESET_COUNTERS') document.getElementById('visitor_val').innerText = "0";
             if(action === 'EXPORT_LOGS') {
@@ -485,7 +481,6 @@
             
             setInterval(syncAll, 30000); 
 
-            // Таймер аптайма
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
@@ -496,10 +491,9 @@
                 }
             }, 1000);
 
-            // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
-                    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    new TON_CONNECT_UI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
