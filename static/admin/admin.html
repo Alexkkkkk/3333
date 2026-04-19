@@ -167,6 +167,36 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
             <div class="lg:col-span-8 space-y-6">
+                <div class="quantum-card p-6 b-yellow">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xs terminal-text text-yellow-500 uppercase tracking-widest">Node_Static_Distribution</h2>
+                        <span class="text-[9px] font-mono text-slate-500">ROOT: /static/</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div id="file-monitors" class="space-y-4">
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono"><span class="text-blue-400">index.html</span><span id="val-index">0%</span></div>
+                                <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden"><div id="bar-index" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div></div>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono"><span class="text-purple-400">swap.html</span><span id="val-swap">0%</span></div>
+                                <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden"><div id="bar-swap" class="h-full bg-purple-500 transition-all duration-1000" style="width: 0%"></div></div>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono"><span class="text-green-400">pools.html</span><span id="val-pools">0%</span></div>
+                                <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden"><div id="bar-pools" class="h-full bg-green-500 transition-all duration-1000" style="width: 0%"></div></div>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono"><span class="text-yellow-400">airdrop.html</span><span id="val-airdrop">0%</span></div>
+                                <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden"><div id="bar-airdrop" class="h-full bg-yellow-500 transition-all duration-1000" style="width: 0%"></div></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-center h-[160px]">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="quantum-card p-6 b-blue">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <div>
@@ -188,19 +218,19 @@
                     </div>
                     <div class="h-[200px] w-full"><canvas id="walletChart2"></canvas></div>
                 </div>
+            </div>
 
+            <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6 b-red">
                     <h2 class="text-xs terminal-text text-red-400 uppercase tracking-widest mb-6">Target_Control_Terminal</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <button onclick="triggerAction('SYNC_BLOCKCHAIN')" class="action-btn">Force Sync</button>
                         <button onclick="triggerAction('RESET_COUNTERS')" class="action-btn">Reset Viewers</button>
                         <button onclick="triggerAction('EXPORT_LOGS')" class="action-btn">Export Log</button>
                         <button onclick="triggerAction('EMERGENCY_STOP')" class="action-btn danger font-bold">Cut Link</button>
                     </div>
                 </div>
-            </div>
 
-            <div class="lg:col-span-4 space-y-6">
                 <div class="quantum-card p-6 b-blue">
                     <div class="flex justify-between items-center mb-5">
                         <h3 class="text-[10px] text-slate-500 uppercase font-mono tracking-widest">System_Resources</h3>
@@ -244,7 +274,7 @@
         const w1_addr = "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda";
         const w2_addr = "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj";
         
-        let chart1, chart2;
+        let chart1, chart2, distChart;
         let ws;
         let startTime = Date.now();
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -277,10 +307,27 @@
 
             chart1 = new Chart(document.getElementById('walletChart1').getContext('2d'), createConfig('#00d2ff', 'rgba(0, 210, 255, 0.05)'));
             chart2 = new Chart(document.getElementById('walletChart2').getContext('2d'), createConfig('#a855f7', 'rgba(168, 85, 247, 0.05)'));
-        }
 
-        // Больше не дергаем Toncenter напрямую
-        async function fetchWallet(addr, chartObj) { return 0; }
+            // Инициализация диаграммы распределения
+            distChart = new Chart(document.getElementById('distributionChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Index', 'Swap', 'Pools', 'Airdrop'],
+                    datasets: [{
+                        data: [25, 25, 25, 25],
+                        backgroundColor: ['#00d2ff', '#a855f7', '#00ff95', '#eab308'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    cutout: '80%',
+                    plugins: { legend: { display: false } },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
 
         function updateChart(chart, val) {
             chart.data.datasets[0].data.shift();
@@ -290,14 +337,12 @@
             chart.update('none');
         }
 
-        // Обновленная функция: запрос через main.py
         async function syncAll() {
             try {
                 const response = await fetch('/api/v1/stats');
                 if (!response.ok) throw new Error("Server response not OK");
                 const data = await response.json();
                 
-                // Раскладываем данные из кэша сервера
                 const b1 = data.alpha || 0;
                 const b2 = data.beta || 0;
                 const total = data.total || (b1 + b2);
@@ -305,14 +350,22 @@
                 document.getElementById('balance_val').innerText = total.toFixed(2);
                 document.getElementById('roi_val').innerText = (Math.random() * 5).toFixed(2);
                 
-                // Обновляем графики
                 updateChart(chart1, b1);
                 updateChart(chart2, b2);
                 
-                addLog(`PROXY_SYNC: Alpha[${b1.toFixed(2)}] Beta[${b2.toFixed(2)}]`, "OK");
+                // Симуляция мониторинга страниц (можно заменить реальными данными из data.nodes)
+                const pages = ['index', 'swap', 'pools', 'airdrop'];
+                let shares = [35, 25, 20, 20]; // Пример распределения
+                pages.forEach((p, i) => {
+                    document.getElementById(`bar-${p}`).style.width = shares[i] + '%';
+                    document.getElementById(`val-${p}`).innerText = shares[i] + '%';
+                });
+                distChart.data.datasets[0].data = shares;
+                distChart.update();
+
+                addLog(`PROXY_SYNC: Data Core Synced`, "OK");
             } catch (e) { 
-                addLog(`PROXY ERR: Could not fetch stats from server`, "ERR");
-                console.error(e);
+                addLog(`PROXY ERR: Connection lost`, "ERR");
             }
         }
 
@@ -329,9 +382,7 @@
             ws.onmessage = (event) => {
                 try {
                     const raw = JSON.parse(event.data);
-                    if (raw.type === "UPDATE" && raw.data) {
-                        updateLiveStats(raw.data);
-                    }
+                    if (raw.type === "UPDATE" && raw.data) updateLiveStats(raw.data);
                     if (raw.type === "NOTIFICATION") {
                         showToast(raw.message);
                         addLog(`SERVER: ${raw.message}`, "SYS");
@@ -392,9 +443,7 @@
                 ws.send(JSON.stringify({ type: "COMMAND", action: action, timestamp: Date.now() }));
             }
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
-            if(action === 'RESET_COUNTERS') {
-                document.getElementById('visitor_val').innerText = "0";
-            }
+            if(action === 'RESET_COUNTERS') document.getElementById('visitor_val').innerText = "0";
             if(action === 'EXPORT_LOGS') {
                 const logs = Array.from(document.querySelectorAll('#log-container div')).map(e => e.innerText).join('\n');
                 const blob = new Blob([logs], {type: 'text/plain'});
@@ -430,10 +479,8 @@
             connectWS();
             syncAll();
             
-            // Интервал опроса твоего сервера (каждые 30 сек)
             setInterval(syncAll, 30000); 
 
-            // Uptime counter
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
@@ -444,18 +491,11 @@
                 }
             }, 1000);
 
-            // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
-                    });
-                    tonConnectUI.onStatusChange(wallet => {
-                        if (wallet) {
-                            addLog(`USER_WALLET: Linked ${wallet.account.address.substring(0,8)}`, "OK");
-                            showToast("Wallet Linked");
-                        }
                     });
                 } catch(e) { addLog("TON: Manifest load error", "ERR"); }
             }
