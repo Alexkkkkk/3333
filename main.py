@@ -124,10 +124,14 @@ async def update_external_balances():
                     if response.status_code == 200:
                         data = response.json()
                         if data.get("ok"):
-                            balance = float(data["result"]["balance"]) / 1e9
-                            multi_wallet_cache["balances"][key] = balance
+                            # Безопасное извлечение баланса
+                            raw_val = data.get("result", {}).get("balance", 0)
+                            balance = float(raw_val) / 1e9
+                            multi_wallet_cache["balances"][key] = round(balance, 4)
                 
-                multi_wallet_cache["balances"]["total"] = multi_wallet_cache["balances"]["alpha"] + multi_wallet_cache["balances"]["beta"]
+                multi_wallet_cache["balances"]["total"] = round(
+                    multi_wallet_cache["balances"]["alpha"] + multi_wallet_cache["balances"]["beta"], 4
+                )
                 log(f"External Balances Sync: {multi_wallet_cache['balances']['total']} TON", "SUCCESS")
             except Exception as e:
                 log(f"External Sync error: {e}", "WARNING")
@@ -239,7 +243,12 @@ async def get_manifest():
 @app.get("/api/v1/stats")
 async def get_multi_wallet_stats():
     """Эндпоинт для админки (новые балансы)"""
-    return multi_wallet_cache["balances"]
+    # Возвращаем плоский объект для совместимости с JS
+    return {
+        "alpha": multi_wallet_cache["balances"].get("alpha", 0.0),
+        "beta": multi_wallet_cache["balances"].get("beta", 0.0),
+        "total": multi_wallet_cache["balances"].get("total", 0.0)
+    }
 
 @app.get("/api/stats")
 async def get_combined_stats():
