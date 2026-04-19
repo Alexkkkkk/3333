@@ -128,7 +128,7 @@
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 pb-6 gap-6 border-b border-white/5">
             <div>
                 <h1 class="text-3xl md:text-4xl font-bold terminal-text uppercase">Quancore_<span class="text-blue-500">OS</span></h1>
-                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.2.0</span> // TRACKING_TARGET_ACTIVE</p>
+                <p class="text-[10px] text-slate-500 mt-2 font-mono uppercase">CORE_ID: <span id="core_id_display" class="text-slate-300">QN-SYNC-4.2.1</span> // TRACKING_TARGET_ACTIVE</p>
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
@@ -308,7 +308,6 @@
             chart1 = new Chart(document.getElementById('walletChart1').getContext('2d'), createConfig('#00d2ff', 'rgba(0, 210, 255, 0.05)'));
             chart2 = new Chart(document.getElementById('walletChart2').getContext('2d'), createConfig('#a855f7', 'rgba(168, 85, 247, 0.05)'));
 
-            // Инициализация диаграммы распределения
             distChart = new Chart(document.getElementById('distributionChart').getContext('2d'), {
                 type: 'doughnut',
                 data: {
@@ -339,6 +338,7 @@
 
         async function syncAll() {
             try {
+                // Пытаемся получить реальные данные из API
                 const response = await fetch('/api/v1/stats');
                 if (!response.ok) throw new Error("Server response not OK");
                 const data = await response.json();
@@ -353,9 +353,9 @@
                 updateChart(chart1, b1);
                 updateChart(chart2, b2);
                 
-                // Симуляция мониторинга страниц (можно заменить реальными данными из data.nodes)
+                // Обновление распределения страниц
                 const pages = ['index', 'swap', 'pools', 'airdrop'];
-                let shares = [35, 25, 20, 20]; // Пример распределения
+                let shares = data.shares || [35, 25, 20, 20];
                 pages.forEach((p, i) => {
                     document.getElementById(`bar-${p}`).style.width = shares[i] + '%';
                     document.getElementById(`val-${p}`).innerText = shares[i] + '%';
@@ -365,7 +365,10 @@
 
                 addLog(`PROXY_SYNC: Data Core Synced`, "OK");
             } catch (e) { 
-                addLog(`PROXY ERR: Connection lost`, "ERR");
+                addLog(`PROXY ERR: API unreachable - using simulation`, "ERR");
+                // Симуляция для визуализации если сервер еще не готов
+                updateChart(chart1, Math.random() * 100);
+                updateChart(chart2, Math.random() * 50);
             }
         }
 
@@ -442,6 +445,7 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: "COMMAND", action: action, timestamp: Date.now() }));
             }
+            // Локальная обработка для теста
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
             if(action === 'RESET_COUNTERS') document.getElementById('visitor_val').innerText = "0";
             if(action === 'EXPORT_LOGS') {
@@ -481,6 +485,7 @@
             
             setInterval(syncAll, 30000); 
 
+            // Таймер аптайма
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
@@ -491,13 +496,14 @@
                 }
             }, 1000);
 
+            // Инициализация TON Connect
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
                         manifestUrl: window.location.origin + '/static/tonconnect-manifest.json',
                         buttonRootId: 'ton-connect-button'
                     });
-                } catch(e) { addLog("TON: Manifest load error", "ERR"); }
+                } catch(e) { addLog("TON: Manifest error", "ERR"); }
             }
         };
     </script>
