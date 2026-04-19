@@ -22,6 +22,7 @@ load_dotenv()
 
 """
 🧬 QUANTUM CORE 4.9.5 | MULTI-WALLET UNIFIED EDITION
+Все настройки дизайна и путей к статике сохранены.
 """
 
 # --- ИМПОРТ ФУНКЦИЙ БД ---
@@ -39,7 +40,7 @@ except ImportError:
 PORT = int(os.getenv("PORT", 3000))
 TON_ENABLED = False
 
-# Кэш для мульти-кошельков
+# Кэш для мульти-кошельков (Адреса из твоего дизайна)
 multi_wallet_cache = {
     "balances": {
         "alpha": 0.0,
@@ -52,20 +53,20 @@ multi_wallet_cache = {
     }
 }
 
-# Проверка psutil для РЕАЛЬНОЙ телеметрии
+# Проверка psutil для РЕАЛЬНОЙ телеметрии сервера
 try:
     import psutil
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-# Импорт TON библиотек
+# Импорт TON библиотек (опционально)
 try:
     from pytoniq import LiteClient, WalletV4R2
     TON_ENABLED = True
 except ImportError:
     TON_ENABLED = False
-    print("\033[93m[WARNING] TON libs not found. Local monitoring limited.\033[0m")
+    print("\033[93m[WARNING] TON libs not found. Using HTTP API for sync.\033[0m")
 
 # --- ЛОГИРОВАНИЕ ---
 def log(message, level="INFO"):
@@ -91,7 +92,7 @@ class OmniNeuralOverlord:
         return int(time.time() - self.boot_time)
 
     def get_real_metrics(self):
-        """Возвращает метрики в формате, удобном для фронтенда"""
+        """Возвращает метрики в формате для фронтенда"""
         if not PSUTIL_AVAILABLE: 
             return {"cpu": 5, "ram": 10, "traffic": 0.05}
         try:
@@ -99,7 +100,7 @@ class OmniNeuralOverlord:
             diff = max(now - self.last_check_time, 0.1)
             self.last_check_time = now
             net_now = psutil.net_io_counters()
-            # Вычисляем скорость в MB/s
+            # Скорость в MB/s
             download_speed = (net_now.bytes_recv - self.net_old.bytes_recv) / diff / 1024 / 1024 
             self.net_old = net_now
             
@@ -115,7 +116,7 @@ overlord = OmniNeuralOverlord()
 # --- ФОНОВЫЕ ЗАДАЧИ ---
 
 async def update_external_balances():
-    """Фоновая задача для опроса Toncenter кошельков Alpha/Beta"""
+    """Фоновая задача для опроса блокчейна TON через HTTP API"""
     async with httpx.AsyncClient() as client:
         while overlord.is_active:
             try:
@@ -132,14 +133,14 @@ async def update_external_balances():
                 multi_wallet_cache["balances"]["total"] = round(
                     multi_wallet_cache["balances"]["alpha"] + multi_wallet_cache["balances"]["beta"], 4
                 )
-                log(f"External Balances Sync: {multi_wallet_cache['balances']['total']} TON", "SUCCESS")
+                log(f"TON Blockchain Sync: {multi_wallet_cache['balances']['total']} TON", "SUCCESS")
             except Exception as e:
                 log(f"External Sync error: {e}", "WARNING")
             
-            await asyncio.sleep(30)
+            await asyncio.sleep(30) # Синхронизация раз в 30 сек
 
 async def core_worker():
-    """Основной воркер для метрик и рассылки WebSocket"""
+    """Основной воркер для метрик и рассылки данных по WebSocket"""
     log("CORE: Monitoring & Data Sync Active", "SUCCESS")
     while overlord.is_active:
         try:
@@ -148,17 +149,17 @@ async def core_worker():
             if cfg and cfg.get('mnemonic'):
                 overlord.mnemonic = cfg['mnemonic'].strip()
 
-            # 2. Сбор метрик
+            # 2. Сбор метрик из БД и Системы
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
-            # 3. Генерация распределения (shares) для графиков в процентах
+            # 3. Распределение долей (shares) для кругового графика
             base_shares = [40, 25, 20, 15]
             shares = [max(5, s + random.randint(-3, 3)) for s in base_shares]
             total_s = sum(shares)
             final_shares = [round((s/total_s)*100) for s in shares]
 
-            # 4. Рассылка WebSocket (формат подстроен под твой JS)
+            # 4. Рассылка WebSocket (формат для твоего дизайна)
             await manager.broadcast({
                 "type": "UPDATE",
                 "data": {
@@ -167,7 +168,7 @@ async def core_worker():
                     "beta": multi_wallet_cache["balances"].get("beta", 0.0),
                     "total": multi_wallet_cache["balances"].get("total", 0.0),
                     "traffic": sys_metrics["traffic"], 
-                    "connections": db_stats.get('traffic', 0),
+                    "connections": len(manager.active_connections),
                     "system": {
                         "cpu": sys_metrics["cpu"]
                     },
@@ -178,12 +179,12 @@ async def core_worker():
                     "ts": int(time.time() * 1000)
                 }
             })
-            await asyncio.sleep(4) 
+            await asyncio.sleep(3) # Плавное обновление данных
         except Exception as e:
             log(f"Critical Monitoring Error: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# --- LIFESPAN (Управление жизненным циклом) ---
+# --- Управление жизненным циклом ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
@@ -202,6 +203,7 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 app = FastAPI(lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -229,7 +231,7 @@ async def get_manifest():
 
 @app.get("/api/v1/stats")
 async def get_multi_wallet_stats():
-    """Эндпоинт для первой загрузки админки"""
+    """Эндпоинт для первой загрузки админки и отрисовки графиков"""
     return {
         "alpha": multi_wallet_cache["balances"].get("alpha", 0.0),
         "beta": multi_wallet_cache["balances"].get("beta", 0.0),
@@ -255,14 +257,12 @@ async def get_combined_stats():
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Начальные данные при подключении
-        db_stats = await get_stats_for_web()
+        # Пакет инициализации при подключении
         await websocket.send_json({
             "type": "INIT",
             "data": {
                 "balance": round(overlord.current_balance, 2),
                 "multi_balances": multi_wallet_cache["balances"],
-                "traffic": 0,
                 "system": overlord.get_real_metrics(),
                 "status": overlord.last_status,
                 "uptime": overlord.get_uptime()
@@ -283,15 +283,24 @@ async def websocket_endpoint(websocket: WebSocket):
                         overlord.is_active = False
                         overlord.last_status = "EMERGENCY"
                         await manager.broadcast({"type": "UPDATE", "data": {"status": "HALTED"}})
+                    elif action == "FORCE_SYNC":
+                        await update_external_balances()
             except: pass
 
     except (WebSocketDisconnect, RuntimeError): pass
     finally:
         manager.disconnect(websocket)
 
-# Монтирование статики (после всех роутов)
+# Монтирование статики (после всех роутов, чтобы не перехватывать API)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT, proxy_headers=True, forwarded_allow_ips="*")
+    # Запуск сервера
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=PORT, 
+        proxy_headers=True, 
+        forwarded_allow_ips="*"
+    )
