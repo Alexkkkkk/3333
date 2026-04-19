@@ -328,14 +328,6 @@
             });
         }
 
-        function updateChart(chart, val) {
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[0].data.push(val);
-            chart.data.labels.shift();
-            chart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
-            chart.update('none');
-        }
-
         async function syncAll() {
             try {
                 const response = await fetch('/api/v1/stats');
@@ -367,6 +359,14 @@
                 updateChart(chart1, Math.random() * 100);
                 updateChart(chart2, Math.random() * 50);
             }
+        }
+
+        function updateChart(chart, val) {
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(val);
+            chart.data.labels.shift();
+            chart.data.labels.push(new Date().toLocaleTimeString([], {second:'2-digit'}));
+            chart.update('none');
         }
 
         function connectWS() {
