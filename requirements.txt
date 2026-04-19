@@ -5,6 +5,7 @@ python-multipart
 aiohttp>=3.9.0
 aiohttp_cors
 websockets
+httpx
 
 # --- Телеграм и TON ---
 aiogram>=3.0.0
