@@ -3,6 +3,7 @@ import os
 import json
 import time
 import sys
+import httpx
 from urllib.parse import parse_qs
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -19,7 +20,7 @@ import uvicorn
 load_dotenv()
 
 """
-🧬 QUANTUM CORE 4.9.0 | FINAL UNIFIED EDITION
+🧬 QUANTUM CORE 4.9.5 | MULTI-WALLET UNIFIED EDITION
 """
 
 # --- ИМПОРТ ФУНКЦИЙ БД ---
@@ -37,6 +38,19 @@ except ImportError:
 PORT = int(os.getenv("PORT", 3000))
 TON_ENABLED = False
 
+# Кэш для мульти-кошельков
+multi_wallet_cache = {
+    "balances": {
+        "alpha": 0.0,
+        "beta": 0.0,
+        "total": 0.0
+    },
+    "wallets": {
+        "alpha": "EQCSAT3Nh1Rmo1zfw68hkb8TcR0gnxpyM5LW-oaKzuxtbZda",
+        "beta": "EQD-qDSmKlgBHaXvmhoyMkzJumEPtk9Kee1nM_n0y2crHXCj"
+    }
+}
+
 # Проверка psutil для РЕАЛЬНОЙ телеметрии
 try:
     import psutil
@@ -44,13 +58,13 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-# Импорт TON библиотек
+# Импорт TON библиотек (для локального кошелька)
 try:
     from pytoniq import LiteClient, WalletV4R2
     TON_ENABLED = True
 except ImportError:
     TON_ENABLED = False
-    print("\033[93m[WARNING] TON libs not found. Network monitoring limited.\033[0m")
+    print("\033[93m[WARNING] TON libs not found. Local monitoring limited.\033[0m")
 
 # --- ЛОГИРОВАНИЕ ---
 def log(message, level="INFO"):
@@ -58,23 +72,12 @@ def log(message, level="INFO"):
     colors = {"INFO": "\033[94m", "SUCCESS": "\033[92m", "WARNING": "\033[93m", "ERROR": "\033[91m", "CORE": "\033[95m"}
     print(f"{colors.get(level, '')}[{timestamp}] [{level}] {message}\033[0m", flush=True)
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-def parse_tg_init_data(init_data: str):
-    try:
-        if not init_data: return {"id": "Unknown"}
-        parsed = parse_qs(init_data)
-        user_str = parsed.get("user", [None])[0]
-        return json.loads(user_str) if user_str else {"id": "Guest"}
-    except Exception as e:
-        log(f"Error parsing TG data: {e}", "ERROR")
-        return {"id": "Error"}
-
 # --- ЯДРО СИСТЕМЫ ---
 class OmniNeuralOverlord:
     def __init__(self):
         self.is_active = True
         self.boot_time = time.time()
-        self.core_id = "QN-NATURAL-ULTRA-4.9.0"
+        self.core_id = "QN-NATURAL-ULTRA-4.9.5"
         self.mnemonic = None
         self.last_status = "INITIALIZING"
         self.current_balance = 0.0
@@ -108,8 +111,31 @@ class OmniNeuralOverlord:
 
 overlord = OmniNeuralOverlord()
 
-# --- ФОНОВЫЙ ВОРКЕР ---
+# --- ФОНОВЫЕ ЗАДАЧИ ---
+
+async def update_external_balances():
+    """Фоновая задача для опроса Toncenter кошельков Alpha/Beta"""
+    async with httpx.AsyncClient() as client:
+        while overlord.is_active:
+            try:
+                for key, addr in multi_wallet_cache["wallets"].items():
+                    url = f"https://toncenter.com/api/v2/getAddressInformation?address={addr}"
+                    response = await client.get(url, timeout=10.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("ok"):
+                            balance = float(data["result"]["balance"]) / 1e9
+                            multi_wallet_cache["balances"][key] = balance
+                
+                multi_wallet_cache["balances"]["total"] = multi_wallet_cache["balances"]["alpha"] + multi_wallet_cache["balances"]["beta"]
+                log(f"External Balances Sync: {multi_wallet_cache['balances']['total']} TON", "SUCCESS")
+            except Exception as e:
+                log(f"External Sync error: {e}", "WARNING")
+            
+            await asyncio.sleep(30)
+
 async def core_worker():
+    """Основной воркер для метрик и локального TON кошелька"""
     log("CORE: Система мониторинга активирована", "SUCCESS")
     while overlord.is_active:
         try:
@@ -120,11 +146,13 @@ async def core_worker():
             db_stats = await get_stats_for_web()
             sys_metrics = overlord.get_real_metrics()
             
+            # Проверка БД
             try:
                 pool = await get_pool()
                 db_alive = pool is not None and not pool._closed
             except: db_alive = False
 
+            # Проверка локального кошелька через pytoniq
             if overlord.mnemonic and TON_ENABLED:
                 try:
                     async with LiteClient.from_mainnet_config() as client:
@@ -142,11 +170,12 @@ async def core_worker():
                 except: overlord.last_status = "SYNC_LAG"
             else: overlord.last_status = "STANDBY"
 
-            # Рассылка всем подключенным через WebSocket
+            # Рассылка всем через WebSocket
             await manager.broadcast({
                 "type": "UPDATE",
                 "data": {
                     "balance": round(overlord.current_balance, 2),
+                    "multi_balances": multi_wallet_cache["balances"],
                     "traffic": db_stats.get('traffic', 0),
                     "system": sys_metrics,
                     "db_online": db_alive,
@@ -167,11 +196,17 @@ async def lifespan(app: FastAPI):
     log(">>> 🌌 QUANTUM HYBRID CORE STARTING <<<", "CORE")
     await init_db()
     QuantumOrchestrator.start_background_tasks()
+    
+    # Запуск фоновых процессов
     worker_task = asyncio.create_task(core_worker())
+    external_sync_task = asyncio.create_task(update_external_balances())
+    
     yield
+    
     log("🔌 Shutdown sequence initiated...", "WARNING")
     overlord.is_active = False
     worker_task.cancel()
+    external_sync_task.cancel()
     await close_pool()
 
 app = FastAPI(lifespan=lifespan)
@@ -190,73 +225,52 @@ app.add_middleware(
 async def read_root():
     return FileResponse("static/index.html")
 
-@app.get("/{page}.html")
-async def get_static_html(page: str):
-    path = f"static/{page}.html"
-    return FileResponse(path) if os.path.exists(path) else FileResponse("static/index.html")
-
 @app.get("/admin")
 @app.get("/admin/admin.html")
 async def get_admin_main():
     return FileResponse("static/admin/admin.html")
 
-@app.get("/admin/{file_path:path}")
-async def get_admin_subpages(file_path: str):
-    clean_name = file_path.replace(".html", "")
-    path = f"static/admin/{clean_name}.html"
-    return FileResponse(path) if os.path.exists(path) else FileResponse("static/admin/admin.html")
-
 @app.get("/tonconnect-manifest.json")
 async def get_manifest():
     return FileResponse("static/tonconnect-manifest.json")
 
-@app.get("/images/{img}")
-async def get_image(img: str):
-    path = f"static/images/{img}"
-    return FileResponse(path) if os.path.exists(path) else JSONResponse({"error": "Image not found"}, 404)
-
 # --- API ЭНДПОИНТЫ ---
 
+@app.get("/api/v1/stats")
+async def get_multi_wallet_stats():
+    """Эндпоинт для админки (новые балансы)"""
+    return multi_wallet_cache["balances"]
+
 @app.get("/api/stats")
-async def get_api_stats():
+async def get_combined_stats():
+    """Общий эндпоинт системы"""
     db_stats = await get_stats_for_web()
     return {
         "status": overlord.last_status,
         "visitors": db_stats.get('traffic', 0),
         "balance": round(overlord.current_balance, 2),
+        "external_wallets": multi_wallet_cache["balances"],
         "uptime": overlord.get_uptime(),
         "system": overlord.get_real_metrics(),
         "recent_actions": db_stats.get('recent_actions', []),
         "core_id": overlord.core_id
     }
 
-@app.post("/api/track-visit")
-async def api_register_visit(data: dict = Body(...), request: Request = None):
-    try:
-        user_info = parse_tg_init_data(data.get("initData"))
-        await register_visit(
-            request.client.host if request else "0.0.0.0", 
-            f"TG:{user_info.get('id')} | {data.get('platform', 'unknown')}"
-        )
-    except: pass
-    return {"status": "ok"}
-
 # --- WEBSOCKET ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Отправляем начальные данные при подключении
         db_stats = await get_stats_for_web()
         await websocket.send_json({
             "type": "INIT",
             "data": {
                 "balance": round(overlord.current_balance, 2),
+                "multi_balances": multi_wallet_cache["balances"],
                 "traffic": db_stats.get('traffic', 0),
                 "system": overlord.get_real_metrics(),
                 "status": overlord.last_status,
-                "uptime": overlord.get_uptime(),
-                "core": overlord.core_id
+                "uptime": overlord.get_uptime()
             }
         })
 
@@ -270,16 +284,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 message = json.loads(data)
                 if message.get("type") == "COMMAND":
                     action = message.get("action")
-                    log(f"Command received: {action}", "CORE")
-                    
-                    if action == "SYNC_BLOCKCHAIN":
-                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "Manual Sync Triggered", "type": "OK"}}})
-                    elif action == "RESET_COUNTERS":
-                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "Counters Reset Command Sent", "type": "SYS"}}})
-                    elif action == "EMERGENCY_STOP":
-                        overlord.is_active = False # Реальная остановка воркера
+                    if action == "EMERGENCY_STOP":
+                        overlord.is_active = False
                         overlord.last_status = "EMERGENCY"
-                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "CORE HALTED BY ADMIN", "type": "ERR"}}})
+                        await websocket.send_json({"type": "UPDATE", "data": {"log_entry": {"msg": "CORE HALTED", "type": "ERR"}}})
             except: pass
 
     except (WebSocketDisconnect, RuntimeError):
@@ -287,7 +295,7 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         manager.disconnect(websocket)
 
-# Монтирование статики (последним приоритетом)
+# Монтирование остальной статики
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
