@@ -3,16 +3,20 @@ import os
 import json
 import asyncio
 import random
-import hashlib
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import WebSocket
 
 # --- ВСПОМОГАТЕЛЬНЫЙ КОДИРОВЩИК ---
 def quantum_json_serializer(obj):
-    """Сериализатор для сложных типов данных (дата, время)."""
+    """Сериализатор для сложных типов данных (дата, время, asyncpg Record)."""
     if isinstance(obj, datetime):
         return obj.isoformat()
+    if hasattr(obj, '__dict__'):
+        return dict(obj)
+    # Обработка записей asyncpg Record при сериализации
+    if str(type(obj)) == "<class 'asyncpg.Record'>":
+        return dict(obj)
     raise TypeError(f"Type {type(obj)} not serializable")
 
 # --- ГЛОБАЛЬНЫЙ ПУЛ СОЕДИНЕНИЙ ---
@@ -61,12 +65,16 @@ class ConnectionManager:
 
     async def broadcast(self, message: dict):
         """Безопасная рассылка данных всем активным клиентам."""
+        if not self.active_connections:
+            return
+            
         try:
             payload = json.dumps(message, default=quantum_json_serializer)
         except Exception as e:
             print(f"Broadcast serialization error: {e}")
             return
 
+        # Рассылаем асинхронно всем
         for connection in list(self.active_connections):
             try:
                 await connection.send_text(payload)
@@ -168,7 +176,7 @@ async def init_db():
             ON CONFLICT DO NOTHING
         ''', json.dumps(default_val))
 
-        # Индексы
+        # Индексы для ускорения
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_neural_ts ON neural_mm_logs(timestamp DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_wallets_qc ON quantum_wallets(equity_qc DESC)')
         await conn.execute('CREATE INDEX IF NOT EXISTS idx_profit_ts ON profit_distribution(timestamp DESC)')
@@ -210,18 +218,13 @@ async def save_wallet_state(address: str, balance: float, qc: float, network: st
             last_seen = NOW()
     ''', address, float(balance or 0.0), float(qc or 0.0), network)
 
-async def sync_wallet_data(data: dict):
-    address = data.get('address')
-    if address:
-        await save_wallet_state(address, data.get('balance', 0.0), data.get('qc', 0.0))
-        return True
-    return False
-
 # --- АНАЛИТИКА И ROI ---
 async def calculate_roi_stats():
     pool = await get_pool()
     try:
-        total = await pool.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 1.0
+        total = await pool.fetchval('SELECT SUM(equity_qc) FROM quantum_wallets') or 0.0
+        if float(total) <= 0: return 0.0
+        
         p24 = await pool.fetchval("SELECT SUM(total_amount) FROM profit_distribution WHERE timestamp > NOW() - INTERVAL '24 hours'") or 0.0
         return round((float(p24) / float(total)) * 100, 2)
     except Exception:
