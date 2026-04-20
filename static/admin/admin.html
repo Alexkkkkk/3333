@@ -264,7 +264,8 @@
                         <h3 class="text-[11px] terminal-text text-blue-400 uppercase">Kernel_Log</h3>
                         <span class="text-[9px] text-slate-600 font-mono">v4.2.1_proxy</span>
                     </div>
-                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth"></div>
+                    <div id="log-container" class="text-[11px] font-mono space-y-2 h-[450px] overflow-y-auto pr-2 text-slate-400 scroll-smooth">
+                        </div>
                 </div>
             </div>
         </div>
@@ -279,6 +280,7 @@
         let startTime = Date.now();
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
+        // Инициализация графиков Chart.js
         function initCharts() {
             const createConfig = (color, bg) => ({
                 type: 'line',
@@ -328,6 +330,7 @@
             });
         }
 
+        // Основная функция синхронизации данных через API
         async function syncAll() {
             try {
                 const response = await fetch('/api/v1/stats');
@@ -344,6 +347,7 @@
                 updateChart(chart1, b1);
                 updateChart(chart2, b2);
                 
+                // Обновление прогресс-баров
                 const pages = ['index', 'swap', 'pools', 'airdrop'];
                 let shares = data.shares || [35, 25, 20, 20];
                 pages.forEach((p, i) => {
@@ -358,6 +362,7 @@
                 addLog(`PROXY_SYNC: Data Core Synced`, "OK");
             } catch (e) { 
                 addLog(`PROXY ERR: API unreachable - using simulation`, "ERR");
+                // Fallback simulation
                 updateChart(chart1, Math.random() * 100);
                 updateChart(chart2, Math.random() * 50);
             }
@@ -371,6 +376,7 @@
             chart.update('none');
         }
 
+        // WebSocket подключение
         function connectWS() {
             if (ws) ws.close();
             const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -410,6 +416,7 @@
             }
         }
 
+        // Система логирования
         function addLog(msg, type = "SYS") {
             const container = document.getElementById('log-container');
             if (!container) return;
@@ -438,12 +445,14 @@
             }, 3000);
         }
 
+        // Командный терминал
         function triggerAction(action) {
             addLog(`EXECUTE: ${action}`, "CMD");
             showToast(`Command sent: ${action}`);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: "COMMAND", action: action, timestamp: Date.now() }));
             }
+            // Локальные триггеры
             if(action === 'SYNC_BLOCKCHAIN') syncAll();
             if(action === 'RESET_COUNTERS') document.getElementById('visitor_val').innerText = "0";
             if(action === 'EXPORT_LOGS') {
@@ -476,6 +485,7 @@
             showToast("Rebooting..."); 
         }
 
+        // Startup
         window.onload = () => {
             initCharts();
             connectWS();
@@ -483,6 +493,7 @@
             
             setInterval(syncAll, 30000); 
 
+            // Uptime Timer
             setInterval(() => {
                 const diff = Math.floor((Date.now() - startTime) / 1000);
                 const fmt = (s) => String(s).padStart(2, '0');
@@ -493,6 +504,7 @@
                 }
             }, 1000);
 
+            // TON Connect Integration
             if (typeof TON_CONNECT_UI !== 'undefined') {
                 try {
                     new TON_CONNECT_UI.TonConnectUI({
