@@ -132,9 +132,9 @@
             </div>
             
             <nav class="flex flex-wrap gap-3 w-full lg:w-auto">
-                <a href="/static/admin/admin.html" class="nav-link active">Monitor</a>
-                <a href="/static/admin/wallets.html" class="nav-link">Wallets</a>
-                <a href="/static/admin/settings.html" class="nav-link">Settings</a>
+                <a href="#" class="nav-link active">Monitor</a>
+                <a href="#" class="nav-link">Wallets</a>
+                <a href="#" class="nav-link">Settings</a>
                 <div id="ton-connect-button" class="ml-auto lg:ml-2"></div>
             </nav>
         </header>
@@ -347,8 +347,10 @@
                 const pages = ['index', 'swap', 'pools', 'airdrop'];
                 let shares = data.shares || [35, 25, 20, 20];
                 pages.forEach((p, i) => {
-                    document.getElementById(`bar-${p}`).style.width = shares[i] + '%';
-                    document.getElementById(`val-${p}`).innerText = shares[i] + '%';
+                    const bar = document.getElementById(`bar-${p}`);
+                    const val = document.getElementById(`val-${p}`);
+                    if(bar) bar.style.width = shares[i] + '%';
+                    if(val) val.innerText = shares[i] + '%';
                 });
                 distChart.data.datasets[0].data = shares;
                 distChart.update();
